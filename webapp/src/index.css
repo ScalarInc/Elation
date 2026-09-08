@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Lato:wght@300;400;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #FAF3EF;
+  color: #3B3A3F;
+  font-family: 'Lato', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: 'Playfair Display', serif;
+}
+
+/* Subtle sage tint used behind sidebar */
+.bg-sage-veil {
+  background: linear-gradient(180deg, #A9BEBB 0%, #97AEAB 100%);
+}
+
+/* Cream gradient for panels */
+.bg-cream-panel {
+  background: linear-gradient(180deg, #FDF8F4 0%, #FAF3EF 100%);
+}
