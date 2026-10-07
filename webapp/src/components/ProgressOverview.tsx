@@ -1,22 +1,41 @@
 import { Check, Loader2, Clock } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { events } from '@/mocks/fixtures'
+import type { ModuleStatus } from '@/mocks/types'
 
-type Status = 'complete' | 'in_progress' | 'pending'
-
-const steps: { label: string; status: Status }[] = [
-  { label: 'Questionnaire', status: 'complete' },
-  { label: 'Moodboard', status: 'in_progress' },
-  { label: 'Budget Estimator', status: 'pending' },
-  { label: 'AR Visualization', status: 'pending' },
+const labels: { key: keyof typeof events[0]['progress']; label: string }[] = [
+  { key: 'questionnaire', label: 'Questionnaire' },
+  { key: 'moodboard', label: 'Moodboard' },
+  { key: 'budget', label: 'Budget Estimator' },
+  { key: 'ar', label: 'AR Visualization' },
 ]
 
-const statusMeta: Record<Status, { text: string; className: string; Icon: React.ComponentType<{ className?: string }> }> = {
-  complete: { text: 'Complete', className: 'text-sage-deep bg-sage/25', Icon: Check },
-  in_progress: { text: 'In Progress', className: 'text-blush-deep bg-blush/40', Icon: Loader2 },
-  pending: { text: 'Pending', className: 'text-ink/60 bg-ink/10', Icon: Clock },
+const statusWeight: Record<ModuleStatus, number> = {
+  complete: 1,
+  in_progress: 0.5,
+  pending: 0,
 }
 
-// Progress = weighted average across 4 steps
-const progress = Math.round(((1 + 0.5) / 4) * 100) // 38%
+const statusMeta: Record<
+  ModuleStatus,
+  { text: string; className: string; Icon: React.ComponentType<{ className?: string }> }
+> = {
+  complete: {
+    text: 'Complete',
+    className: 'text-success bg-success/15',
+    Icon: Check,
+  },
+  in_progress: {
+    text: 'In Progress',
+    className: 'text-accent bg-accent/15',
+    Icon: Loader2,
+  },
+  pending: {
+    text: 'Pending',
+    className: 'text-muted bg-surface-2 border border-border/10',
+    Icon: Clock,
+  },
+}
 
 function DonutChart({ percent }: { percent: number }) {
   const r = 46
@@ -26,11 +45,19 @@ function DonutChart({ percent }: { percent: number }) {
   return (
     <div className="relative h-32 w-32">
       <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-        <circle cx="60" cy="60" r={r} stroke="#EADFD3" strokeWidth="10" fill="none" />
+        <circle
+          cx="60"
+          cy="60"
+          r={r}
+          className="text-border/15"
+          strokeWidth="10"
+          fill="none"
+          stroke="currentColor"
+        />
         <defs>
           <linearGradient id="pg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#D3A79F" />
-            <stop offset="100%" stopColor="#9AB1AE" />
+            <stop offset="0%" stopColor="rgb(var(--accent))" />
+            <stop offset="100%" stopColor="rgb(var(--success))" />
           </linearGradient>
         </defs>
         <circle
@@ -43,35 +70,58 @@ function DonutChart({ percent }: { percent: number }) {
           fill="none"
           strokeDasharray={c}
           strokeDashoffset={offset}
+          style={{ transition: 'stroke-dashoffset 800ms cubic-bezier(0.22, 1, 0.36, 1)' }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-3xl text-ink">{percent}%</span>
-        <span className="text-[10px] font-bold tracking-widest text-ink/50">DONE</span>
+        <span className="font-display text-text text-3xl">{percent}%</span>
+        <span className="text-muted/70 text-[10px] font-bold tracking-widest">DONE</span>
       </div>
     </div>
   )
 }
 
 export function ProgressOverview() {
+  const progress = events[0].progress
+  const totalPercent = Math.round(
+    (labels.reduce((sum, { key }) => sum + statusWeight[progress[key]], 0) / labels.length) * 100,
+  )
+
   return (
-    <section className="bg-cream-panel rounded-3xl border border-white/70 p-6 shadow-card">
-      <h2 className="font-display text-xl text-ink">Progress Overview</h2>
-      <p className="mt-0.5 text-xs text-ink/60">Your journey with Elation so far.</p>
+    <motion.section
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: 0.05 }}
+      className="bg-cream-panel border-border/10 shadow-card rounded-3xl border p-6"
+    >
+      <div className="flex items-baseline justify-between">
+        <div>
+          <h2 className="font-display text-text text-xl">Progress overview</h2>
+          <p className="text-muted/70 mt-0.5 text-xs">Your journey with Elation so far.</p>
+        </div>
+      </div>
 
-      <div className="mt-5 flex items-center gap-6">
-        <DonutChart percent={progress} />
+      <div className="mt-5 flex flex-col items-center gap-6 sm:flex-row">
+        <DonutChart percent={totalPercent} />
 
-        <ul className="flex-1 space-y-2.5">
-          {steps.map(({ label, status }) => {
+        <ul className="flex-1 space-y-2.5 self-stretch">
+          {labels.map(({ key, label }) => {
+            const status = progress[key]
             const { text, className, Icon } = statusMeta[status]
             return (
-              <li key={label} className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm text-ink">
+              <li
+                key={label}
+                className="border-border/10 hover:bg-surface-2 flex items-center justify-between rounded-xl border px-3 py-2 transition"
+              >
+                <span className="text-text flex items-center gap-2 text-sm">
                   <Icon
                     className={
                       'h-3.5 w-3.5 ' +
-                      (status === 'in_progress' ? 'animate-spin text-blush-deep' : 'text-ink/50')
+                      (status === 'in_progress'
+                        ? 'animate-spin text-accent'
+                        : status === 'complete'
+                        ? 'text-success'
+                        : 'text-muted/60')
                     }
                   />
                   {label}
@@ -88,6 +138,6 @@ export function ProgressOverview() {
           })}
         </ul>
       </div>
-    </section>
+    </motion.section>
   )
 }

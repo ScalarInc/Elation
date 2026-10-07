@@ -1,32 +1,184 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Lato:wght@300;400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    /* Semantic tokens — light */
+    --bg: 250 243 239;        /* cream */
+    --surface: 255 255 255;
+    --surface-2: 253 248 244;
+    --border: 59 58 63;       /* used with opacity: bg-border/10 */
+    --text: 59 58 63;         /* ink */
+    --muted: 59 58 63;        /* used with opacity: text-muted/60 */
+    --accent: 211 167 159;    /* blush-deep */
+    --accent-fg: 255 255 255;
+
+    /* Traffic-light + status */
+    --success: 122 145 128;   /* muted sage-green */
+    --warning: 214 172 96;    /* warm amber */
+    --danger:  196 96 88;     /* muted brick */
+
+    /* Ring / focus */
+    --ring: 211 167 159;
+  }
+
+  .dark {
+    /* Warm luxury dark — deep ink base, cream text, blush accent.
+       Each surface climbs ~5% in warm luminance so cards read distinctly. */
+    --bg: 22 19 24;           /* deep ink, slight warm undertone */
+    --surface: 34 30 36;      /* elevated cards */
+    --surface-2: 46 41 48;    /* nested / hover */
+    --border: 240 226 214;    /* warm cream, always used with opacity */
+    --text: 245 235 222;      /* soft cream */
+    --muted: 202 186 168;     /* warm sand */
+    --accent: 233 197 190;    /* softer blush pop */
+    --accent-fg: 26 20 24;
+
+    --success: 158 188 166;
+    --warning: 231 190 118;
+    --danger:  222 128 118;
+
+    --ring: 233 197 190;
+  }
+}
+
 html, body, #root {
   height: 100%;
 }
 
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
-  background: #FAF3EF;
-  color: #3B3A3F;
-  font-family: 'Lato', system-ui, sans-serif;
+  background: rgb(var(--bg));
+  color: rgb(var(--text));
+  font-family: 'Inter', system-ui, sans-serif;
+  font-feature-settings: 'ss01', 'cv11';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 250ms ease, color 250ms ease;
 }
 
 .font-display {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Fraunces', 'Playfair Display', serif;
+  font-optical-sizing: auto;
+  letter-spacing: -0.01em;
 }
 
-/* Subtle sage tint used behind sidebar */
+.font-serif {
+  font-family: 'Fraunces', 'Playfair Display', serif;
+  font-optical-sizing: auto;
+}
+
+/* Sidebar veil — sage in light, deep warm ink in dark */
 .bg-sage-veil {
   background: linear-gradient(180deg, #A9BEBB 0%, #97AEAB 100%);
 }
+.dark .bg-sage-veil {
+  background: linear-gradient(180deg, #2C3736 0%, #1F2827 100%);
+}
 
-/* Cream gradient for panels */
+/* Cream panel gradient */
 .bg-cream-panel {
   background: linear-gradient(180deg, #FDF8F4 0%, #FAF3EF 100%);
+}
+.dark .bg-cream-panel {
+  background: linear-gradient(180deg, rgb(38 34 40) 0%, rgb(34 30 36) 100%);
+}
+
+/* Soft grain overlay — subtle film texture on the page bg */
+.grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.dark .grain::before {
+  opacity: 0.06;
+}
+
+/* Custom scrollbar theming */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--border) / 0.25) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--border) / 0.2);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--border) / 0.35);
+  background-clip: content-box;
+}
+
+/* Selection */
+::selection {
+  background: rgb(var(--accent) / 0.35);
+  color: rgb(var(--text));
+}
+
+/* Focus ring — soft */
+:focus-visible {
+  outline: 2px solid rgb(var(--ring) / 0.7);
+  outline-offset: 2px;
+}
+
+/* Utility — the veil that soft-fades hero images into cards */
+.mask-fade-b {
+  mask-image: linear-gradient(180deg, #000 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent 100%);
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Marquee for status ticker (if used) */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+
+/* Shimmer for skeletons */
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--border) / 0.05) 0%,
+    rgb(var(--border) / 0.15) 50%,
+    rgb(var(--border) / 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
 }
