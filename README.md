@@ -17,13 +17,12 @@ Client-facing webapp for **Elation by FMH**: an event mood-board, budget estimat
 │       └── lookbook/                # FMH Lookbook (About Us + inspiration source)
 └── frontend/                        # Vite + React + TypeScript + TailwindCSS
     └── src/
-        ├── api/                     # data access layer (mock today)
+        ├── api/                     # data access layer (backend not connected yet)
         ├── assets/                  # brand/ and images/
         ├── components/              # ui/ primitives + feature folders
         ├── hooks/                   # shared React hooks
         ├── layouts/                 # page shells (client, admin, public)
         ├── lib/                     # pure helpers, questionnaire schema/derivations
-        ├── mocks/                   # fixtures and seed data
         ├── pages/                   # grouped by route area
         ├── routes/                  # route guards
         ├── stores/                  # Zustand stores

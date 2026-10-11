@@ -468,7 +468,7 @@ Track anything we do differently from the spec here as we build. Each entry: `YY
 
 ## Folder layout (frontend/src)
 
-- `api/` - data access (mock today, real HTTP later)
+- `api/` - data access; returns empty results until the backend is connected
 - `types/` - shared domain types
 - `stores/` - Zustand stores
 - `hooks/` - shared React hooks
@@ -477,4 +477,3 @@ Track anything we do differently from the spec here as we build. Each entry: `YY
 - `components/<feature>/` - feature components (`ar`, `auth`, `dashboard`, `events`, `moodboard`, `questionnaire`)
 - `layouts/` - page shells; `routes/` - route guards
 - `pages/<area>/` - one folder per route area
-- `mocks/` - fixtures and seed data (to be replaced by the backend)
