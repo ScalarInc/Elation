@@ -10,10 +10,10 @@ build features in isolation and leave integration gaps.
 
 **Stores / sources of truth**
 - `mocks/fixtures.ts` — `events`, `moodboards`, `inventory`, `budgets`, `messages`, `inspirations`, `currentUser`. Fixed shape, static per session (except for local `useState`-based mutations in list pages).
-- `questionnaire/store.ts` — Zustand + localStorage. Per-event answers + "Elation decides" flags. Seeded on boot by `mocks/hydrate.ts`.
+- `stores/questionnaireStore.ts` — Zustand + localStorage. Per-event answers + "Elation decides" flags. Seeded on boot by `mocks/hydrate.ts`.
 - `lib/theme.ts` — theme state; only consumers are `<ThemeToggle />` and `<Toaster />`.
 
-**Derived selectors** (`questionnaire/derived.ts`)
+**Derived selectors** (`lib/questionnaire/derived.ts`; hooks `useResolvedEvent` / `useResolvedEvents` live in `hooks/useResolvedEvent.ts`)
 - `useResolvedEvent(id)` / `useResolvedEvents()` — merge fixture event + questionnaire answers so `q1_type`, `q3_date`, `q4_guests`, `q5_venue`, `q6_indoor`, `q121_budget`, `q2_name` **override** the fixture. Every page that renders an event MUST use these, never `events` directly.
 - `deriveMoodboardDefaults(answers)` — extract mood/style/palette/density/venue from questionnaire, used as initial state in `MoodboardViewer`.
 - `florallyAverse(answers)`, `noCeilingDecor(answers)` — tile filters for the moodboard.
@@ -42,7 +42,7 @@ build features in isolation and leave integration gaps.
 ## Scope for this build
 
 **Frontend only. Mock data. No backend.** Every page must look and behave
-production-ready but is wired to `src/mocks/*` through `src/lib/api.ts`.
+production-ready but is wired to `src/mocks/*` through `src/api/index.ts`.
 No auth server, no DB, no OAuth, no uploads, no WebSockets, no PDF export,
 no headset integration, no payments. Swapping mock → real fetch is a later
 task, out of scope now.
@@ -51,7 +51,7 @@ task, out of scope now.
 
 ## 0. Source-of-truth reminders
 
-Rules we must not violate (from `ELATION questionnaire.docx` + `Elation X_Modular_Report.docx`):
+Rules we must not violate (from `docs/requirements/elation-questionnaire.docx` + `docs/requirements/elation-x-modular-report.docx`):
 
 - **Never public.** Every client route sits behind auth. Accounts are admin-issued with expiry — no open self-signup.
 - Copy rule: always say **"Elation decides / Elation curated"**. Never "AI decides".
@@ -118,7 +118,7 @@ Build once, reuse everywhere. Match shadcn conventions so 21st.dev drop-ins keep
 
 ### 1f. Mock data layer
 - `src/mocks/` folder with typed mock data for events, moodboards, inventory, budget, inspirations, questionnaire, users. All pages read from these until the backend exists.
-- `src/lib/api.ts` — thin async wrapper that today returns mock data via `setTimeout`; later swapped for real fetch.
+- `src/api/index.ts` — thin async wrapper that today returns mock data via `setTimeout`; later swapped for real fetch.
 
 ---
 
@@ -146,7 +146,7 @@ Build once, reuse everywhere. Match shadcn conventions so 21st.dev drop-ins keep
 ---
 
 ### 2b. `/about` — About Us
-**Source:** first 3 pages of `Moodboard_Isnpirations/Elation by FMH Lookbook.pdf`. Copy + imagery pull from there.
+**Source:** first 3 pages of `docs/reference/lookbook/elation-by-fmh-lookbook.pdf`. Copy + imagery pull from there.
 
 **Sections:**
 1. Editorial hero — Playfair headline + Lookbook cover image.
@@ -356,7 +356,7 @@ This is the **biggest single build**. 134 questions across 24 categories with co
 **Approach:**
 - Single-page wizard with a **left rail** listing 24 categories (progress dots).
 - Right side renders one category at a time with all its questions.
-- **Branching engine** (`src/questionnaire/engine.ts`) — declarative rules per question ("if Q46 = No, skip Q47-50").
+- **Branching engine** (`src/lib/questionnaire/schema.ts`, `visibleQuestions`) — declarative rules per question ("if Q46 = No, skip Q47-50").
 - **Autosave** every field change (debounced) → mock API → toast on save.
 - Progress bar in top of right pane.
 - "Elation decides" chip on questions with a creative fallback — chooses that value and skips.
@@ -465,3 +465,16 @@ Global settings (branding, email templates, integrations).
 ## 9. Deviation log
 
 Track anything we do differently from the spec here as we build. Each entry: `YYYY-MM-DD — page — decision — why`.
+
+## Folder layout (frontend/src)
+
+- `api/` - data access (mock today, real HTTP later)
+- `types/` - shared domain types
+- `stores/` - Zustand stores
+- `hooks/` - shared React hooks
+- `lib/` - pure helpers; `lib/questionnaire/` holds schema, branching, and derivations
+- `components/ui/` - design-system primitives (shadcn-style, kebab-case files)
+- `components/<feature>/` - feature components (`ar`, `auth`, `dashboard`, `events`, `moodboard`, `questionnaire`)
+- `layouts/` - page shells; `routes/` - route guards
+- `pages/<area>/` - one folder per route area
+- `mocks/` - fixtures and seed data (to be replaced by the backend)
