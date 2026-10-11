@@ -2,34 +2,35 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ClipboardList, Palette, Calculator, Boxes } from 'lucide-react'
-import { events } from '@/mocks/fixtures'
+import type { ClientEvent } from '@/types'
 
-export function QuickActions() {
-  const e = events[0]
+export function QuickActions({ event }: { event?: ClientEvent }) {
+  // Without an event every shortcut lands on My Events.
+  const base = event ? `/events/${event.id}` : null
   const actions: { title: string; body: string; icon: ReactNode; to: string }[] = [
     {
       title: 'Continue questionnaire',
       body: 'A few more answers, then we lock the concept.',
       icon: <ClipboardList className="h-5 w-5" />,
-      to: `/events/${e.id}/questionnaire`,
+      to: base ? `${base}/questionnaire` : '/events',
     },
     {
       title: 'Open your moodboard',
-      body: 'Latest concept refresh — take a look and leave a note.',
+      body: 'See the concept curated from your answers.',
       icon: <Palette className="h-5 w-5" />,
-      to: `/events/${e.id}?tab=moodboard`,
+      to: base ? `${base}?tab=moodboard` : '/events',
     },
     {
       title: 'Tune the budget',
       body: 'Line items, live totals and a traffic-light indicator.',
       icon: <Calculator className="h-5 w-5" />,
-      to: `/events/${e.id}/budget`,
+      to: base ? `${base}/budget` : '/events',
     },
     {
       title: 'Preview in AR',
       body: 'Walk your venue on Meta Quest 3 before it exists.',
       icon: <Boxes className="h-5 w-5" />,
-      to: `/events/${e.id}/ar`,
+      to: base ? `${base}/ar` : '/events',
     },
   ]
 

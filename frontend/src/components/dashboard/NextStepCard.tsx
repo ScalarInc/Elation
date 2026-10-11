@@ -1,10 +1,16 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { events } from '@/mocks/fixtures'
+import type { ClientEvent } from '@/types'
 
-function pickNextStep() {
-  const e = events[0]
+function pickNextStep(e: ClientEvent | undefined) {
+  if (!e)
+    return {
+      title: 'Start with an event',
+      body: 'Add your event to begin the questionnaire, moodboard and budget.',
+      href: '/events',
+      cta: 'Go to My Events',
+    }
   const p = e.progress
   if (p.questionnaire !== 'complete')
     return {
@@ -16,7 +22,7 @@ function pickNextStep() {
   if (p.moodboard !== 'complete')
     return {
       title: 'Review your moodboard',
-      body: 'Two revised concepts are ready — Concept B leans heavier on florals as you asked.',
+      body: 'See the concept Elation curated from your answers.',
       href: `/events/${e.id}?tab=moodboard`,
       cta: 'Open moodboard',
     }
@@ -35,8 +41,8 @@ function pickNextStep() {
   }
 }
 
-export function NextStepCard() {
-  const step = pickNextStep()
+export function NextStepCard({ event }: { event?: ClientEvent }) {
+  const step = pickNextStep(event)
 
   return (
     <motion.section

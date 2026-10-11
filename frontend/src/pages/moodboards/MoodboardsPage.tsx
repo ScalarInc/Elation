@@ -1,43 +1,46 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Copy, Heart, Sparkles, Trash2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/format'
-import { events, moodboards as seedMoodboards } from '@/mocks/fixtures'
+import { api } from '@/api'
+import { useResolvedEvents } from '@/hooks/useResolvedEvent'
 import type { Moodboard } from '@/types'
 
 export function MoodboardsPage() {
-  const [boards, setBoards] = useState<Moodboard[]>(seedMoodboards)
+  const [boards, setBoards] = useState<Moodboard[]>([])
   const [eventFilter, setEventFilter] = useState<string>('all')
+  const events = useResolvedEvents()
+
+  useEffect(() => {
+    let cancelled = false
+    api.moodboards.list().then((rows) => {
+      if (!cancelled) setBoards(rows)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const filtered = useMemo(
     () => (eventFilter === 'all' ? boards : boards.filter((b) => b.eventId === eventFilter)),
     [boards, eventFilter],
   )
 
-  const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [])
+  const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
 
-  function duplicate(b: Moodboard) {
-    const copy: Moodboard = {
-      ...b,
-      id: `${b.id}_copy_${Date.now()}`,
-      title: `${b.title} · Copy`,
-      liked: false,
-      createdAt: new Date().toISOString(),
-    }
-    setBoards((prev) => [copy, ...prev])
-    toast.success('Concept duplicated')
+  function duplicate(_board: Moodboard) {
+    // TODO(backend): duplicate the moodboard, then add the returned copy to `boards`.
   }
 
-  function remove(id: string) {
-    setBoards((prev) => prev.filter((b) => b.id !== id))
-    toast('Concept removed', { description: 'You can regenerate a new one anytime.' })
+  function remove(_id: string) {
+    // TODO(backend): delete the moodboard, then drop it from `boards`.
   }
 
+  // Local only — favourites are not persisted yet.
   function toggleLike(id: string) {
     setBoards((prev) => prev.map((b) => (b.id === id ? { ...b, liked: !b.liked } : b)))
   }

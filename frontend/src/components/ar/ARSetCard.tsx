@@ -13,7 +13,6 @@ import {
   DialogDescription,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/format'
 
@@ -57,7 +56,9 @@ function primaryActionFor(set: ARSet) {
     return (
       <Button
         className="w-full"
-        onClick={() => toast.success('Scene queued to your headset.')}
+        onClick={() => {
+          // TODO(backend): send this scene to the client's headset.
+        }}
       >
         <Cast className="h-4 w-4" />
         Send to headset
@@ -69,7 +70,9 @@ function primaryActionFor(set: ARSet) {
       <Button
         variant="ghost"
         className="w-full"
-        onClick={() => toast("We'll let you know.")}
+        onClick={() => {
+          // TODO(backend): subscribe the client to a "set ready" notification.
+        }}
       >
         <Bell className="h-4 w-4" />
         Notify me when ready

@@ -2,27 +2,16 @@ import { motion } from 'framer-motion'
 import { Download, Layers } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { toast } from '@/components/ui/toast'
-import { inventory } from '@/mocks/fixtures'
 
-// Curated mock list — pulls thumbnails from the inventory fixture.
-function thumbFor(name: string, fallbackIndex: number) {
-  const item = inventory.find((i) => i.name === name)
-  return item?.image ?? inventory[fallbackIndex % inventory.length]?.image
+export type ARAsset = {
+  id: string
+  name: string
+  category: string
+  polyCount: string
+  thumbnail?: string
 }
 
-const ASSETS: { name: string; category: string; polyCount: string; imageName?: string; fallbackIndex: number }[] = [
-  { name: 'Ornate Arch', category: 'Backdrop', polyCount: '68k', imageName: 'Statue Arch Backdrop', fallbackIndex: 11 },
-  { name: 'Blossom Canopy', category: 'Floral', polyCount: '124k', imageName: 'Cherry Blossom Canopy', fallbackIndex: 9 },
-  { name: 'Chandelier Cascade', category: 'Lighting', polyCount: '92k', imageName: 'Crystal Cascade Chandelier', fallbackIndex: 7 },
-  { name: 'Sofa Ivory', category: 'Seating', polyCount: '34k', imageName: 'Ivory Curve Sofa', fallbackIndex: 0 },
-  { name: 'Chair Chiavari', category: 'Seating', polyCount: '18k', imageName: 'Chiavari Gold', fallbackIndex: 2 },
-  { name: 'Marble Column', category: 'Structure', polyCount: '48k', fallbackIndex: 13 },
-  { name: 'Neon Signage', category: 'Signage', polyCount: '12k', imageName: 'Custom Neon Signage', fallbackIndex: 17 },
-  { name: 'Candle Cluster', category: 'Lighting', polyCount: '22k', imageName: 'Pillar Candle Cluster', fallbackIndex: 14 },
-]
-
-export function ARAssetList() {
+export function ARAssetList({ assets }: { assets: ARAsset[] }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -46,7 +35,7 @@ export function ARAssetList() {
             </div>
             <span className="bg-accent/15 text-accent inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest">
               <Layers className="h-3.5 w-3.5" />
-              {ASSETS.length} sample assets
+              {assets.length} assets
             </span>
           </div>
 
@@ -61,19 +50,28 @@ export function ARAssetList() {
                 </tr>
               </thead>
               <tbody>
-                {ASSETS.map((a) => (
+                {assets.length === 0 && (
+                  <tr className="border-border/10 border-t">
+                    <td colSpan={4} className="text-muted px-4 py-6 text-center text-xs">
+                      No assets yet.
+                    </td>
+                  </tr>
+                )}
+                {assets.map((a) => (
                   <tr
-                    key={a.name}
+                    key={a.id}
                     className="border-border/10 hover:bg-surface-2/60 border-t transition"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="border-border/10 h-11 w-11 shrink-0 overflow-hidden rounded-xl border">
-                          <img
-                            src={thumbFor(a.imageName ?? '', a.fallbackIndex)}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
+                          {a.thumbnail && (
+                            <img
+                              src={a.thumbnail}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          )}
                         </div>
                         <div>
                           <p className="text-text font-semibold">{a.name}</p>
@@ -86,11 +84,12 @@ export function ARAssetList() {
                     <td className="text-muted hidden px-4 py-3 text-xs sm:table-cell">{a.category}</td>
                     <td className="text-muted hidden px-4 py-3 text-xs md:table-cell">{a.polyCount}</td>
                     <td className="px-4 py-3 text-right">
+                      {/* TODO(backend): link to the asset file once downloads exist. */}
                       <Button
                         variant="ghost"
                         size="icon"
                         aria-label={`Download ${a.name}`}
-                        onClick={() => toast('Frontend mock — no download.')}
+                        disabled
                       >
                         <Download className="h-4 w-4" />
                       </Button>
@@ -102,7 +101,7 @@ export function ARAssetList() {
           </div>
 
           <p className="text-muted/70 mt-4 text-[11px]">
-            Placeholders — the production catalogue will expose .glb / .usdz downloads once your set is finalised.
+            .glb / .usdz downloads become available once your set is finalised.
           </p>
         </CardContent>
       </Card>

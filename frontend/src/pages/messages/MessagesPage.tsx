@@ -21,16 +21,8 @@ import { Spinner } from '@/components/ui/spinner'
 import { toast } from '@/components/ui/toast'
 import { api } from '@/api'
 import { cn } from '@/lib/utils'
-import { currentUser } from '@/mocks/fixtures'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 import type { Message, MessageThread } from '@/types'
-
-const AUTO_REPLIES = [
-  'Got it — I\'ll take a look and get back to you shortly.',
-  'Love the direction! Let me put together two options for you.',
-  'Noted. I\'ll sync with the design team and revert by tomorrow.',
-  'Absolutely — I\'ll pull references and share this evening.',
-  'Perfect. Let\'s discuss more on our next call — shall I book something in?',
-]
 
 function relativeTime(iso: string) {
   const then = new Date(iso).getTime()
@@ -200,13 +192,15 @@ function Bubble({ m, showAvatar }: { m: Message; showAvatar: boolean }) {
 }
 
 export function MessagesPage() {
+  const user = useCurrentUser()
   const [threads, setThreads] = useState<MessageThread[]>([])
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
+  // TODO(backend): drive from realtime typing events once messaging is connected.
+  const [isTyping] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -272,41 +266,28 @@ export function MessagesPage() {
 
   async function handleSend() {
     const body = draft.trim()
-    if (!body) return
+    if (!body || !user) return
     const optimistic: Message = {
       id: `msg_local_${Date.now()}`,
-      authorId: currentUser.id,
-      authorName: currentUser.name,
+      authorId: user.id,
+      authorName: user.name,
       authorRole: 'client',
       body,
       createdAt: new Date().toISOString(),
-      read: true,
+      read: false,
     }
     setMessages((prev) => [...prev, optimistic])
     setDraft('')
 
     try {
-      await api.messages.send(body)
+      const saved = await api.messages.send(body)
+      setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? saved : m)))
     } catch {
+      // Roll back so an unsent message never looks delivered.
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
+      setDraft(body)
       toast.error('Message failed to send', { description: 'Please try again.' })
-      return
     }
-
-    // Mock typing indicator + auto-reply.
-    setIsTyping(true)
-    window.setTimeout(() => {
-      setIsTyping(false)
-      const reply: Message = {
-        id: `msg_reply_${Date.now()}`,
-        authorId: currentUser.consultant.id,
-        authorName: currentUser.consultant.name,
-        authorRole: 'consultant',
-        body: AUTO_REPLIES[Math.floor(Math.random() * AUTO_REPLIES.length)],
-        createdAt: new Date().toISOString(),
-        read: false,
-      }
-      setMessages((prev) => [...prev, reply])
-    }, 2000)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -371,11 +352,6 @@ export function MessagesPage() {
                   <p className="text-text text-sm font-semibold">{consultant.name}</p>
                   <div className="mt-0.5 flex items-center gap-2">
                     <span className="text-muted/70 text-[11px]">Your consultant</span>
-                    <span className="text-muted/40">·</span>
-                    <span className="text-success flex items-center gap-1 text-[11px]">
-                      <span className="bg-success h-1.5 w-1.5 rounded-full" />
-                      Active now
-                    </span>
                   </div>
                 </div>
               </>
@@ -411,7 +387,7 @@ export function MessagesPage() {
                     <MessageCircle className="h-5 w-5" />
                   </span>
                   <p className="font-display text-text text-lg">
-                    Welcome, {currentUser.name.split(' ')[0]}
+                    Welcome{user ? `, ${user.name.split(' ')[0]}` : ''}
                   </p>
                   <p className="text-muted text-sm">
                     {consultant?.name ?? 'Your consultant'} is here to guide you through every
@@ -437,7 +413,7 @@ export function MessagesPage() {
                       return (
                         <div key={m.id} className="space-y-1">
                           <Bubble m={m} showAvatar={showAvatar} />
-                          {m.id === lastClientMessageId && m.authorRole === 'client' && (
+                          {m.id === lastClientMessageId && m.authorRole === 'client' && m.read && (
                             <p className="text-muted/70 pr-1 text-right text-[10px]">
                               Seen {relativeTime(m.createdAt)}
                             </p>

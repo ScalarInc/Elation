@@ -1,19 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Heart, Info, Save, Sparkles, X } from 'lucide-react'
+import { Heart, Save, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
-import { formatPKR, formatPKRCompact } from '@/lib/format'
-import { inventory, moodboards } from '@/mocks/fixtures'
+import { formatPKR } from '@/lib/format'
+import { api } from '@/api'
 import type { InventoryItem, Moodboard } from '@/types'
-import {
-  deriveMoodboardDefaults,
-  florallyAverse,
-  noCeilingDecor,
-} from '@/lib/questionnaire/derived'
+import { deriveMoodboardDefaults } from '@/lib/questionnaire/derived'
 import { EMPTY_ANSWERS, useQuestionnaire } from '@/stores/questionnaireStore'
 
 const MOOD_OPTIONS = ['Romantic', 'Regal', 'Dramatic', 'Serene', 'Whimsical', 'Bohemian']
@@ -21,55 +16,38 @@ const STYLE_OPTIONS = ['Modern Luxury', 'Traditional', 'Garden', 'Editorial', 'A
 const DENSITY = ['Minimal', 'Moderate', 'Heavy', 'Extremely Floral']
 const VENUE_OPTIONS = ['Hilltop Outdoor', 'Ballroom', 'Garden', 'Terrace']
 
-type Concept = { id: string; label: string; board: Moodboard }
-
-function makeVariants(base: Moodboard): Concept[] {
-  // Rotate the same tiles + shuffle palettes to fake A/B/C without more assets.
-  const rotate = <T,>(arr: T[], n: number) => [...arr.slice(n), ...arr.slice(0, n)]
-  return [
-    { id: 'A', label: 'Concept A', board: base },
-    {
-      id: 'B',
-      label: 'Concept B',
-      board: {
-        ...base,
-        id: `${base.id}_b`,
-        title: `${base.title} — Ivory`,
-        tiles: rotate(base.tiles, 1),
-        palette: rotate(base.palette, 2),
-      },
-    },
-    {
-      id: 'C',
-      label: 'Concept C',
-      board: {
-        ...base,
-        id: `${base.id}_c`,
-        title: `${base.title} — Ember`,
-        tiles: rotate(base.tiles, 2),
-        palette: rotate(base.palette, 3),
-      },
-    },
-  ]
-}
-
-/** Deterministic mapping from tile index to an inventory item so each tile
- *  reads as "inventory-aware" per the doc's must-have. */
-function tileItem(idx: number): InventoryItem {
-  return inventory[idx % inventory.length]
-}
+/** Each saved moodboard for the event is shown as a lettered concept (A, B, C…). */
+type Concept = { id: string; letter: string; board: Moodboard }
 
 type Props = { eventId: string }
 
 export function MoodboardViewer({ eventId }: Props) {
-  const base = moodboards.find((m) => m.eventId === eventId)
+  const [boards, setBoards] = useState<Moodboard[] | null>(null)
   const answers = useQuestionnaire(
     (s) => s.byEvent[eventId]?.answers ?? EMPTY_ANSWERS,
   )
   const derived = useMemo(() => deriveMoodboardDefaults(answers), [answers])
 
-  const variants = useMemo(() => (base ? makeVariants(base) : []), [base])
-  const [conceptId, setConceptId] = useState<string>('A')
+  useEffect(() => {
+    let cancelled = false
+    api.moodboards.byEvent(eventId).then((rows) => {
+      if (!cancelled) setBoards(rows)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [eventId])
+
+  const variants = useMemo<Concept[]>(
+    () =>
+      (boards ?? []).map((board, i) => ({
+        id: board.id,
+        letter: String.fromCharCode(65 + i),
+        board,
+      })),
+    [boards],
+  )
+  const [conceptId, setConceptId] = useState<string | null>(null)
   const active = variants.find((v) => v.id === conceptId) ?? variants[0]
 
   const [mood, setMood] = useState(() => derived.mood ?? 'Romantic')
@@ -85,10 +63,16 @@ export function MoodboardViewer({ eventId }: Props) {
       : active?.board.palette ?? []
 
   const [regenerating, setRegenerating] = useState(false)
+  // Opened from a tile once moodboard tiles reference inventory items.
   const [drawerItem, setDrawerItem] = useState<InventoryItem | null>(null)
-  const [liked, setLiked] = useState(active?.board.liked ?? false)
+  const [likedById, setLikedById] = useState<Record<string, boolean>>({})
+  const liked = active ? (likedById[active.id] ?? active.board.liked) : false
 
-  if (!base || !active) {
+  if (boards === null) {
+    return <Skeleton className="mt-4 h-96 w-full" />
+  }
+
+  if (!active) {
     return (
       <Card className="mt-4">
         <CardContent className="flex flex-col items-center gap-2 py-14 text-center">
@@ -103,13 +87,29 @@ export function MoodboardViewer({ eventId }: Props) {
 
   async function regenerate() {
     setRegenerating(true)
-    await new Promise((r) => setTimeout(r, 900))
-    // Cycle concept to fake a "new" board
-    setConceptId((prev) => (prev === 'A' ? 'B' : prev === 'B' ? 'C' : 'A'))
-    setRegenerating(false)
-    toast.success('Elation curated a new direction', {
-      description: `Mood: ${mood} · Style: ${style} · ${density.toLowerCase()} florals`,
-    })
+    try {
+      // TODO(backend): request a new moodboard from the mood, style, density and
+      // venue controls, then reload `boards`.
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  function saveConcept() {
+    // TODO(backend): save the active concept to the client's moodboard library.
+  }
+
+  function addToBudget(_item: InventoryItem) {
+    // TODO(backend): add the item as a line on this event's budget.
+  }
+
+  function requestSwap(_item: InventoryItem) {
+    // TODO(backend): ask Elation for alternatives to this item.
+  }
+
+  function toggleLiked() {
+    if (!active) return
+    setLikedById((prev) => ({ ...prev, [active.id]: !liked }))
   }
 
   return (
@@ -197,11 +197,7 @@ export function MoodboardViewer({ eventId }: Props) {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() =>
-                  toast.success('Concept saved', {
-                    description: `${active.label} added to your library.`,
-                  })
-                }
+                onClick={saveConcept}
               >
                 <Save className="h-4 w-4" />
                 Save as concept
@@ -248,7 +244,7 @@ export function MoodboardViewer({ eventId }: Props) {
                         : 'bg-surface-2 text-muted',
                     )}
                   >
-                    {v.id}
+                    {v.letter}
                   </span>
                   <span className={cn('text-xs font-semibold', active ? 'text-text' : 'text-muted')}>
                     {v.board.title}
@@ -260,7 +256,7 @@ export function MoodboardViewer({ eventId }: Props) {
 
           <button
             type="button"
-            onClick={() => setLiked((l) => !l)}
+            onClick={toggleLiked}
             className={cn(
               'border-border/15 flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
               liked ? 'bg-accent/15 text-accent border-accent/30' : 'bg-surface text-muted hover:text-text',
@@ -295,47 +291,19 @@ export function MoodboardViewer({ eventId }: Props) {
                 transition={{ duration: 0.4 }}
                 className="columns-1 gap-4 sm:columns-2 lg:columns-3"
               >
-                {active.board.tiles
-                  .map((src, i) => ({ src, item: tileItem(i), i }))
-                  .filter(({ item }) => {
-                    if (florallyAverse(answers) && item.category === 'Floral') return false
-                    if (
-                      noCeilingDecor(answers) &&
-                      (item.category === 'Chandelier' || item.tags.includes('ceiling'))
-                    )
-                      return false
-                    return true
-                  })
-                  .map(({ src, item, i }) => {
-                    return (
-                    <button
-                      key={`${active.id}-${i}`}
-                      type="button"
-                      onClick={() => setDrawerItem(item)}
-                      className="group relative mb-4 block w-full overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                    >
-                      <img
-                        src={src}
-                        alt={item.name}
-                        className="w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                        style={{ height: i % 3 === 0 ? 320 : i % 3 === 1 ? 240 : 280 }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent" />
-                      <div className="absolute inset-x-3 bottom-2 text-white">
-                        <p className="text-[9px] font-bold uppercase tracking-widest opacity-80">
-                          {item.category}
-                        </p>
-                        <p className="text-sm font-semibold leading-tight">{item.name}</p>
-                        <p className="text-[10px] text-white/80">
-                          {formatPKRCompact(item.pricePKR)} / {item.unit}
-                        </p>
-                      </div>
-                      <span className="bg-white/90 absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full opacity-0 shadow transition group-hover:opacity-100">
-                        <Info className="text-ink h-3.5 w-3.5" />
-                      </span>
-                    </button>
-                  )
-                })}
+                {active.board.tiles.map((src, i) => (
+                  <div
+                    key={`${active.id}-${i}`}
+                    className="group relative mb-4 block w-full overflow-hidden rounded-2xl"
+                  >
+                    <img
+                      src={src}
+                      alt=""
+                      className="w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                      style={{ height: i % 3 === 0 ? 320 : i % 3 === 1 ? 240 : 280 }}
+                    />
+                  </div>
+                ))}
               </motion.div>
             )}
           </AnimatePresence>
@@ -399,21 +367,13 @@ export function MoodboardViewer({ eventId }: Props) {
                 <div className="mt-6 flex gap-2">
                   <Button
                     className="flex-1"
-                    onClick={() =>
-                      toast.success('Added to budget', {
-                        description: `${drawerItem.name} pinned to your line items.`,
-                      })
-                    }
+                    onClick={() => addToBudget(drawerItem)}
                   >
                     Add to budget
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() =>
-                      toast('Swap requested', {
-                        description: 'Elation will suggest alternatives shortly.',
-                      })
-                    }
+                    onClick={() => requestSwap(drawerItem)}
                   >
                     Ask for swap
                   </Button>

@@ -1,27 +1,26 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Heart } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { moodboards, events } from '@/mocks/fixtures'
-
-import extra from '@/assets/images/img_19.jpg'
-const boards = [
-  ...moodboards,
-  {
-    id: 'm_reve',
-    eventId: 'e_baraat',
-    title: 'Candlelit Rêve',
-    tag: 'Nikkah' as const,
-    cover: extra,
-    tiles: [extra],
-    palette: [],
-    createdAt: '',
-    liked: false,
-  },
-]
-
-const eventById = new Map(events.map((e) => [e.id, e]))
+import { api } from '@/api'
+import { useResolvedEvents } from '@/hooks/useResolvedEvent'
+import type { Moodboard } from '@/types'
 
 export function RecentMoodboards() {
+  const [boards, setBoards] = useState<Moodboard[] | null>(null)
+  const events = useResolvedEvents()
+  const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
+
+  useEffect(() => {
+    let cancelled = false
+    api.moodboards.list().then((rows) => {
+      if (!cancelled) setBoards(rows)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 6 }}
@@ -43,8 +42,14 @@ export function RecentMoodboards() {
         </Link>
       </div>
 
+      {boards !== null && boards.length === 0 && (
+        <p className="text-muted py-6 text-center text-sm">
+          No moodboards yet — Elation drafts one once your questionnaire is under way.
+        </p>
+      )}
+
       <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
-        {boards.map((b, i) => {
+        {(boards ?? []).slice(0, 4).map((b, i) => {
           const tag = eventById.get(b.eventId)?.type ?? b.tag
           return (
             <motion.div

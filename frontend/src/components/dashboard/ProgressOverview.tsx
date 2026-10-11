@@ -1,9 +1,8 @@
 import { Check, Loader2, Clock } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { events } from '@/mocks/fixtures'
-import type { ModuleStatus } from '@/types'
+import type { ClientEvent, EventProgress, ModuleStatus } from '@/types'
 
-const labels: { key: keyof typeof events[0]['progress']; label: string }[] = [
+const labels: { key: keyof EventProgress; label: string }[] = [
   { key: 'questionnaire', label: 'Questionnaire' },
   { key: 'moodboard', label: 'Moodboard' },
   { key: 'budget', label: 'Budget Estimator' },
@@ -81,8 +80,15 @@ function DonutChart({ percent }: { percent: number }) {
   )
 }
 
-export function ProgressOverview() {
-  const progress = events[0].progress
+const NO_PROGRESS: EventProgress = {
+  questionnaire: 'pending',
+  moodboard: 'pending',
+  budget: 'pending',
+  ar: 'pending',
+}
+
+export function ProgressOverview({ event }: { event?: ClientEvent }) {
+  const progress = event?.progress ?? NO_PROGRESS
   const totalPercent = Math.round(
     (labels.reduce((sum, { key }) => sum + statusWeight[progress[key]], 0) / labels.length) * 100,
   )

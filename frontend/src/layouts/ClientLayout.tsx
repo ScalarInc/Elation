@@ -27,8 +27,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { ConsentGate } from '@/components/auth/ConsentGate'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { cn } from '@/lib/utils'
-import { currentUser } from '@/mocks/fixtures'
+import type { ClientUser } from '@/types'
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -41,7 +42,7 @@ const nav = [
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarNav({ user, onNavigate }: { user: ClientUser | null; onNavigate?: () => void }) {
   const navigate = useNavigate()
   return (
     <aside className="bg-sage-veil relative flex h-full w-64 shrink-0 flex-col text-ink dark:text-cream">
@@ -77,10 +78,10 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="mx-4 mb-3 mt-6 flex items-center gap-3 rounded-xl bg-white/30 px-3 py-2 dark:bg-white/10">
         <Avatar className="h-9 w-9">
-          <AvatarFallback>{currentUser.avatarInitials}</AvatarFallback>
+          <AvatarFallback>{user?.avatarInitials ?? ''}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{currentUser.name}</p>
+          <p className="truncate text-sm font-semibold">{user?.name ?? ''}</p>
           <p className="text-[10px] uppercase tracking-widest opacity-60">Client</p>
         </div>
         <button
@@ -96,7 +97,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-function TopBar() {
+function TopBar({ user }: { user: ClientUser | null }) {
   const navigate = useNavigate()
   const [drawerOpen, setDrawerOpen] = useState(false)
   return (
@@ -113,7 +114,7 @@ function TopBar() {
           </button>
         </SheetTrigger>
         <SheetContent side="left" className="w-64 border-r-0 p-0">
-          <SidebarNav onNavigate={() => setDrawerOpen(false)} />
+          <SidebarNav user={user} onNavigate={() => setDrawerOpen(false)} />
         </SheetContent>
       </Sheet>
 
@@ -138,7 +139,6 @@ function TopBar() {
           className="border-border/10 bg-surface relative flex h-10 w-10 items-center justify-center rounded-xl border transition hover:border-accent/40"
         >
           <Bell className="h-4 w-4 text-text" />
-          <span className="bg-accent absolute right-2 top-2 h-2 w-2 rounded-full ring-2 ring-bg animate-pulse-soft" />
         </button>
 
         <DropdownMenu>
@@ -149,12 +149,12 @@ function TopBar() {
               className="border-border/10 bg-surface flex h-10 w-10 items-center justify-center rounded-xl border transition hover:border-accent/40"
             >
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="text-[10px]">{currentUser.avatarInitials}</AvatarFallback>
+                <AvatarFallback className="text-[10px]">{user?.avatarInitials ?? ''}</AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>{currentUser.name}</DropdownMenuLabel>
+            <DropdownMenuLabel>{user?.name ?? 'Account'}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => navigate('/profile')}>
               <UserCircle2 className="h-4 w-4" />
@@ -177,13 +177,14 @@ function TopBar() {
 }
 
 export function ClientLayout() {
+  const user = useCurrentUser()
   return (
     <div className="bg-bg flex min-h-screen text-text">
       <div className="hidden md:block">
-        <SidebarNav />
+        <SidebarNav user={user} />
       </div>
       <div className="flex flex-1 flex-col overflow-x-hidden">
-        <TopBar />
+        <TopBar user={user} />
         <main className="flex-1 pb-12">
           <Outlet />
         </main>

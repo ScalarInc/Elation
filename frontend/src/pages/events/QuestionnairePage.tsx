@@ -26,7 +26,7 @@ import { CATEGORY_TIPS } from '@/lib/questionnaire/categoryTips'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { toast } from '@/components/ui/toast'
-import { currentUser } from '@/mocks/fixtures'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 // ----------------- helpers -----------------
 
@@ -99,6 +99,7 @@ export function QuestionnairePage() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const event = useResolvedEvent(id)
+  const user = useCurrentUser()
   const [railOpen, setRailOpen] = useState(false)
 
   const answers = useQuestionnaire((s) => s.byEvent[id ?? '']?.answers ?? EMPTY_ANSWERS)
@@ -174,7 +175,7 @@ export function QuestionnairePage() {
     )
   }
 
-  const firstName = currentUser.name.split(' ')[0]
+  const firstName = user?.name.split(' ')[0]
   const isFirstCategory = idx === 0
   const isLastCategory = idx === categories.length - 1
   const allDone = overallPercent === 100
@@ -274,7 +275,7 @@ export function QuestionnairePage() {
                   <Sparkles className="h-4 w-4" />
                 </span>
                 <p className="text-text text-sm">
-                  <span className="font-semibold">Welcome, {firstName}.</span>{' '}
+                  <span className="font-semibold">Welcome{firstName ? `, ${firstName}` : ''}.</span>{' '}
                   <span className="text-muted">
                     This is a warm-up — everything's saved as you go, and you can hand any
                     question to Elation with a single tap.
@@ -405,7 +406,7 @@ export function QuestionnairePage() {
                     <Check className="h-4 w-4" strokeWidth={3} />
                   </span>
                   <div>
-                    <p className="text-text text-sm font-semibold">You're all done, {firstName}.</p>
+                    <p className="text-text text-sm font-semibold">You're all done{firstName ? `, ${firstName}` : ''}.</p>
                     <p className="text-muted text-xs">
                       Head to your event to see Elation's first moodboard.
                     </p>

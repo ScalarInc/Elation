@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useNavigate } from 'react-router-dom'
 import { Plus, Sparkles } from 'lucide-react'
 import {
   Dialog,
@@ -15,9 +14,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { toast } from '@/components/ui/toast'
-import { events, currentUser } from '@/mocks/fixtures'
-import img_11 from '@/assets/images/img_11.jpg'
 import type { EventType } from '@/types'
 
 const EVENT_TYPES: EventType[] = [
@@ -40,42 +36,17 @@ type FormOutput = z.output<typeof schema>
 
 export function NewEventDialog() {
   const [open, setOpen] = useState(false)
-  const navigate = useNavigate()
   const {
     register,
     handleSubmit,
-    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
-    defaultValues: { type: 'Mehndi', guests: 200, city: 'Islamabad' },
+    defaultValues: { type: EVENT_TYPES[0] },
   })
 
-  async function onSubmit(values: FormOutput) {
-    await new Promise((r) => setTimeout(r, 400))
-
-    const id = `e_new_${Date.now()}`
-    events.push({
-      id,
-      clientId: currentUser.id,
-      name: values.concept,
-      type: values.type,
-      concept: values.concept,
-      date: new Date(values.date).toISOString(),
-      venue: { name: values.venueName, city: values.city, indoor: 'Both' },
-      guests: values.guests,
-      budgetPKR: 2_000_000,
-      coverImage: img_11,
-      progress: { questionnaire: 'pending', moodboard: 'pending', budget: 'pending', ar: 'pending' },
-      status: 'draft',
-    })
-
-    toast.success(`${values.concept} created`, {
-      description: 'Start with the questionnaire to shape your concept.',
-    })
-    reset()
-    setOpen(false)
-    navigate(`/events/${id}`)
+  function onSubmit(_values: FormOutput) {
+    // TODO(backend): create the event via the API, then close the dialog and open the new event.
   }
 
   return (

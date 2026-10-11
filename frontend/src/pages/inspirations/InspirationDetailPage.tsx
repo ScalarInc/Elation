@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { toast } from '@/components/ui/toast'
 import { api } from '@/api'
 import { useResolvedEvents } from '@/hooks/useResolvedEvent'
 import type { Inspiration, InventoryItem } from '@/types'
@@ -28,25 +27,19 @@ function splitStyles(style: string): string[] {
 
 export function InspirationDetailPage() {
   const { slug } = useParams<{ slug: string }>()
-  const navigate = useNavigate()
   const events = useResolvedEvents()
 
   const [inspiration, setInspiration] = useState<Inspiration | null | undefined>(
     undefined,
   )
-  const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [targetEventId, setTargetEventId] = useState<string>('')
 
   useEffect(() => {
     if (!slug) return
     let cancelled = false
-    Promise.all([api.inspirations.get(slug), api.inventory.list()]).then(
-      ([insp, inv]) => {
-        if (cancelled) return
-        setInspiration(insp ?? null)
-        setInventory(inv)
-      },
-    )
+    api.inspirations.get(slug).then((insp) => {
+      if (!cancelled) setInspiration(insp ?? null)
+    })
     return () => {
       cancelled = true
     }
@@ -56,28 +49,8 @@ export function InspirationDetailPage() {
     if (!targetEventId && events[0]) setTargetEventId(events[0].id)
   }, [events, targetEventId])
 
-  const recommendedInventory = useMemo(() => {
-    if (!inspiration) return []
-    const styleTokens = splitStyles(inspiration.style).map((s) => s.toLowerCase())
-    const eventTokens = inspiration.eventTypes.map((t) => t.toLowerCase())
-    const matches = inventory.filter((it) => {
-      const tags = it.tags.map((t) => t.toLowerCase())
-      return (
-        tags.some((tg) => styleTokens.some((st) => st.includes(tg))) ||
-        tags.some((tg) => eventTokens.includes(tg))
-      )
-    })
-    const pool = matches.length >= 4 ? matches : [...matches, ...inventory]
-    const seen = new Set<string>()
-    const dedup: InventoryItem[] = []
-    for (const it of pool) {
-      if (seen.has(it.id)) continue
-      seen.add(it.id)
-      dedup.push(it)
-      if (dedup.length >= 6) break
-    }
-    return dedup
-  }, [inspiration, inventory])
+  // TODO(backend): inventory recommended for this concept.
+  const recommendedInventory: InventoryItem[] = []
 
   if (inspiration === undefined) {
     return (
@@ -108,8 +81,8 @@ export function InspirationDetailPage() {
 
   function adopt() {
     if (!targetEventId || !inspiration) return
-    toast.success('Concept adopted — opening your moodboard.')
-    navigate(`/events/${targetEventId}?tab=moodboard`)
+    // TODO(backend): adopt the concept into the target event's moodboard and budget,
+    // then open /events/:id?tab=moodboard.
   }
 
   return (

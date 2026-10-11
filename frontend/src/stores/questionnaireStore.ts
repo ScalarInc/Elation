@@ -31,12 +31,6 @@ type QState = {
   setElationDecides: (eventId: string, qid: string, on: boolean) => void
   clearAnswer: (eventId: string, qid: string) => void
   resetEvent: (eventId: string) => void
-  /** Idempotent seed — only writes if this event has no data yet. */
-  seedEventIfEmpty: (
-    eventId: string,
-    answers: Answers,
-    elationDecides?: Record<string, boolean>,
-  ) => void
 }
 
 const initial: EventState = { answers: {}, elationDecides: {} }
@@ -124,18 +118,6 @@ export const useQuestionnaire = create<QState>()(
           byEvent: { ...s.byEvent, [eventId]: initial },
           lastSavedAt: { ...s.lastSavedAt, [eventId]: Date.now() },
         })),
-
-      seedEventIfEmpty: (eventId, answers, elationDecides = {}) =>
-        set((s) => {
-          if (s.byEvent[eventId]) return s
-          return {
-            byEvent: {
-              ...s.byEvent,
-              [eventId]: { answers, elationDecides },
-            },
-            lastSavedAt: { ...s.lastSavedAt, [eventId]: Date.now() },
-          }
-        }),
     }),
     { name: 'elation.questionnaire' },
   ),

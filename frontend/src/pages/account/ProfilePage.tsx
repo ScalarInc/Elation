@@ -19,9 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { toast } from '@/components/ui/toast'
-import { currentUser } from '@/mocks/fixtures'
 import { formatDate } from '@/lib/format'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
+import type { ClientUser } from '@/types'
 
 const ROLES = ['Bride', 'Groom', 'Family', 'Organizer'] as const
 
@@ -30,7 +30,7 @@ const schema = z.object({
   email: z.string().email('Enter a valid email'),
   phone: z.string().min(6, 'Enter a valid phone number'),
   city: z.string().min(2, 'City is required'),
-  role: z.enum(ROLES),
+  role: z.enum(ROLES).optional(),
   partnerName: z.string().optional(),
   emergencyContactName: z.string().optional(),
   emergencyContactPhone: z.string().optional(),
@@ -38,17 +38,22 @@ const schema = z.object({
 
 type ProfileForm = z.infer<typeof schema>
 
-export function ProfilePage() {
-  const defaults: ProfileForm = {
-    name: currentUser.name,
-    email: currentUser.email,
-    phone: currentUser.phone ?? '',
-    city: currentUser.city ?? '',
-    role: (currentUser.role ?? 'Bride') as (typeof ROLES)[number],
-    partnerName: currentUser.partnerName ?? '',
-    emergencyContactName: currentUser.emergencyContactName ?? '',
-    emergencyContactPhone: currentUser.emergencyContactPhone ?? '',
+function toForm(user: ClientUser | null): ProfileForm {
+  return {
+    name: user?.name ?? '',
+    email: user?.email ?? '',
+    phone: user?.phone ?? '',
+    city: user?.city ?? '',
+    role: user?.role,
+    partnerName: user?.partnerName ?? '',
+    emergencyContactName: user?.emergencyContactName ?? '',
+    emergencyContactPhone: user?.emergencyContactPhone ?? '',
   }
+}
+
+export function ProfilePage() {
+  const user = useCurrentUser()
+  const defaults = toForm(user)
 
   const {
     register,
@@ -68,23 +73,13 @@ export function ProfilePage() {
     register('role')
   }, [register])
 
-  async function onSubmit(values: ProfileForm) {
-    await new Promise((r) => setTimeout(r, 400))
-    // Mutate in-memory copy so the header/consultant card etc. reflect changes locally.
-    Object.assign(currentUser, {
-      name: values.name,
-      email: values.email,
-      phone: values.phone,
-      city: values.city,
-      role: values.role,
-      partnerName: values.partnerName,
-      emergencyContactName: values.emergencyContactName,
-      emergencyContactPhone: values.emergencyContactPhone,
-    })
-    toast.success('Profile updated', {
-      description: 'Your details are safe with us.',
-    })
-    reset(values)
+  // Load the signed-in user's details into the form once available.
+  useEffect(() => {
+    reset(toForm(user))
+  }, [user, reset])
+
+  function onSubmit(_values: ProfileForm) {
+    // TODO(backend): save the profile via the API, then reset the form to the saved values.
   }
 
   return (
@@ -98,32 +93,36 @@ export function ProfilePage() {
       <header className="bg-radial-fade shadow-card border-border/10 mb-8 flex flex-wrap items-center gap-6 rounded-3xl border p-6">
         <Avatar className="h-24 w-24">
           <AvatarFallback className="text-2xl">
-            {currentUser.avatarInitials}
+            {user?.avatarInitials ?? ''}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-text text-3xl">{currentUser.name}</h1>
+          <h1 className="font-display text-text text-3xl">{user?.name ?? 'Your profile'}</h1>
           <div className="text-muted mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
-            <span className="flex items-center gap-1.5">
-              <Mail className="h-3.5 w-3.5" />
-              {currentUser.email}
-            </span>
-            {currentUser.phone && (
+            {user?.email && (
               <span className="flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5" />
-                {currentUser.phone}
+                <Mail className="h-3.5 w-3.5" />
+                {user.email}
               </span>
             )}
-            {currentUser.city && (
+            {user?.phone && (
+              <span className="flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5" />
+                {user.phone}
+              </span>
+            )}
+            {user?.city && (
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5" />
-                {currentUser.city}
+                {user.city}
               </span>
             )}
           </div>
           <div className="mt-3 flex items-center gap-2">
-            {currentUser.role && <Badge variant="accent">{currentUser.role}</Badge>}
-            <Badge variant="sage">Access until {formatDate(currentUser.accessExpiresAt)}</Badge>
+            {user?.role && <Badge variant="accent">{user.role}</Badge>}
+            {user && (
+              <Badge variant="sage">Access until {formatDate(user.accessExpiresAt)}</Badge>
+            )}
           </div>
         </div>
       </header>
@@ -238,32 +237,36 @@ export function ProfilePage() {
             <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
               Your consultant
             </p>
-            <div className="mt-4 flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarFallback className="text-lg">
-                  {currentUser.consultant.avatarInitials ?? 'AM'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="font-display text-text text-lg leading-tight">
-                  {currentUser.consultant.name}
-                </p>
-                <p className="text-muted mt-0.5 flex items-center gap-1.5 text-xs">
-                  <Mail className="h-3 w-3" />
-                  {currentUser.consultant.email}
-                </p>
+            {user ? (
+              <div className="mt-4 flex items-center gap-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarFallback className="text-lg">
+                    {user.consultant.avatarInitials ?? ''}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="font-display text-text text-lg leading-tight">
+                    {user.consultant.name}
+                  </p>
+                  <p className="text-muted mt-0.5 flex items-center gap-1.5 text-xs">
+                    <Mail className="h-3 w-3" />
+                    {user.consultant.email}
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <p className="text-muted mt-4 text-sm">No consultant assigned yet.</p>
+            )}
 
             <p className="text-muted mt-4 text-xs leading-relaxed">
-              Ayesha is your primary point of contact at Elation — send her a note any time and
-              she'll get back with the same warmth we're planning your day with.
+              Your consultant is your primary point of contact at Elation — send a note any
+              time.
             </p>
 
             <Button asChild className="mt-5 w-full">
               <Link to="/messages">
                 <MessageCircle className="h-4 w-4" />
-                Message {currentUser.consultant.name.split(' ')[0]}
+                {user ? `Message ${user.consultant.name.split(' ')[0]}` : 'Open messages'}
               </Link>
             </Button>
 
@@ -272,13 +275,12 @@ export function ProfilePage() {
             <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
               Access
             </p>
-            <p className="text-text mt-2 text-sm">
-              Your temporary access is valid until{' '}
-              <span className="font-semibold">
-                {formatDate(currentUser.accessExpiresAt)}
-              </span>
-              . We'll email you before it expires.
-            </p>
+            {user && (
+              <p className="text-text mt-2 text-sm">
+                Your temporary access is valid until{' '}
+                <span className="font-semibold">{formatDate(user.accessExpiresAt)}</span>.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

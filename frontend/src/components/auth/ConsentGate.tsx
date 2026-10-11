@@ -64,16 +64,13 @@ export function ConsentGate() {
       studioShare,
       marketing,
     }
+    // TODO(backend): record consent against the client account; stored locally for now.
     window.localStorage.setItem(CONSENT_KEY, JSON.stringify(record))
-    setTimeout(() => {
-      setOpen(false)
-      setSubmitting(false)
-      toast.success('Welcome to Elation X. Your studio is ready.')
-    }, 400)
+    setOpen(false)
+    setSubmitting(false)
   }
 
   function decline() {
-    window.localStorage.setItem('elation-auth', 'off')
     setOpen(false)
     toast('You can accept later to continue. See you soon.', { duration: 3000 })
     navigate('/auth?mode=signin', { replace: true })

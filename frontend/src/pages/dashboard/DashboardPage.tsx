@@ -6,7 +6,8 @@ import { NextStepCard } from '@/components/dashboard/NextStepCard'
 import { RecentMoodboards } from '@/components/dashboard/RecentMoodboards'
 import { QuickActions } from '@/components/dashboard/QuickActions'
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed'
-import { currentUser } from '@/mocks/fixtures'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { useResolvedEvents } from '@/hooks/useResolvedEvent'
 
 function greeting() {
   const h = new Date().getHours()
@@ -16,7 +17,10 @@ function greeting() {
 }
 
 export function DashboardPage() {
-  const firstName = currentUser.name.split(' ')[0]
+  const user = useCurrentUser()
+  const events = useResolvedEvents()
+  const event = events[0]
+  const firstName = user?.name.split(' ')[0]
 
   return (
     <div className="pb-16">
@@ -30,23 +34,22 @@ export function DashboardPage() {
           {greeting()}
         </p>
         <h1 className="font-display text-text mt-1 flex items-center gap-3 text-4xl leading-tight">
-          Welcome back, {firstName}
+          Welcome back{firstName ? `, ${firstName}` : ''}
           <Sparkles className="text-accent h-6 w-6" />
         </h1>
         <p className="text-muted mt-2 max-w-lg text-sm">
-          Your Whispers of Noor is on track. Elation refreshed a moodboard this morning —
-          take a look when you have a moment.
+          Here's where your event planning stands.
         </p>
       </motion.header>
 
       <div className="mt-6 space-y-6 px-6 md:px-10">
-        <CountdownCard />
+        {event && <CountdownCard event={event} />}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <ProgressOverview />
+            <ProgressOverview event={event} />
           </div>
-          <NextStepCard />
+          <NextStepCard event={event} />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -56,7 +59,7 @@ export function DashboardPage() {
           <ActivityFeed />
         </div>
 
-        <QuickActions />
+        <QuickActions event={event} />
       </div>
     </div>
   )

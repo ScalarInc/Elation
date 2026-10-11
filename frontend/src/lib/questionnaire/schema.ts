@@ -7,7 +7,7 @@ export type QuestionKind =
   | 'textarea'    // long free text
   | 'number'
   | 'date'
-  | 'upload'      // mock — shows dropzone
+  | 'upload'      // file dropzone (uploads not connected yet)
   | 'dimensions'  // "w × d × h" style
   | 'color'       // free-form colour + optional hex chips
   | 'range-select' // pre-set ranges (used for budget bands)

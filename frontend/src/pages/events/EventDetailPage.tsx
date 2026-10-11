@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -15,7 +16,7 @@ import {
   Clock,
   Loader2,
 } from 'lucide-react'
-import { moodboards, budgets, messages } from '@/mocks/fixtures'
+import { api } from '@/api'
 import { MoodboardViewer } from '@/components/moodboard/MoodboardViewer'
 import { useResolvedEvent } from '@/hooks/useResolvedEvent'
 import {
@@ -32,7 +33,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { formatDate, formatPKRCompact, daysUntil } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type { ClientEvent, ModuleStatus } from '@/types'
+import type { BudgetSnapshot, ClientEvent, Message, ModuleStatus, Moodboard } from '@/types'
 
 const weight: Record<ModuleStatus, number> = { complete: 1, in_progress: 0.5, pending: 0 }
 
@@ -49,7 +50,7 @@ const moduleMeta: Record<
 > = {
   questionnaire: {
     label: 'Questionnaire',
-    body: '134 guided questions to shape every decision.',
+    body: 'Guided questions to shape every decision.',
     href: (id) => `/events/${id}?tab=questionnaire`,
   },
   moodboard: {
@@ -199,8 +200,26 @@ function OverviewTab({ event }: { event: ClientEvent }) {
       4) *
       100,
   )
-  const boards = moodboards.filter((m) => m.eventId === event.id)
-  const budgetSnap = budgets.find((b) => b.eventId === event.id)
+  const [boards, setBoards] = useState<Moodboard[]>([])
+  const [budgetSnap, setBudgetSnap] = useState<BudgetSnapshot | undefined>()
+  const [recent, setRecent] = useState<Message[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      api.moodboards.byEvent(event.id),
+      api.budget.forEvent(event.id),
+      api.messages.thread(),
+    ]).then(([eventBoards, snap, thread]) => {
+      if (cancelled) return
+      setBoards(eventBoards)
+      setBudgetSnap(snap)
+      setRecent(thread.slice(0, 3))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [event.id])
 
   return (
     <div className="mt-4 space-y-6">
@@ -312,12 +331,15 @@ function OverviewTab({ event }: { event: ClientEvent }) {
         </Card>
       </div>
 
-      {/* Recent activity — from messages fixture */}
+      {/* Recent activity */}
       <Card>
         <CardContent className="p-6">
           <h2 className="font-display text-text text-lg">Recent activity</h2>
+          {recent.length === 0 && (
+            <p className="text-muted mt-4 text-sm">No activity yet.</p>
+          )}
           <ul className="mt-4 space-y-3">
-            {messages.slice(0, 3).map((m) => (
+            {recent.map((m) => (
               <li key={m.id} className="flex items-start gap-3 text-sm">
                 <span
                   className={cn(
@@ -531,13 +553,13 @@ export function EventDetailPage() {
         <TabsContent value="files">
           <TabPlaceholder
             title="Files & references"
-            body="Venue photos, floor plans, inspiration boards. Sprint 12."
+            body="Venue photos, floor plans, inspiration boards."
           />
         </TabsContent>
         <TabsContent value="messages">
           <ModuleHandoff
             title="Consultant thread"
-            body="A direct line to Ayesha and the Elation studio — moodboard notes, quick calls, follow-ups."
+            body="A direct line to your consultant and the Elation studio — moodboard notes, quick calls, follow-ups."
             href="/messages"
             cta="Open messages"
           />

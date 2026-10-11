@@ -44,6 +44,10 @@ export function AuthPage() {
     setParams(next === 'signup' ? {} : { mode: 'signin' }, { replace: true })
   }
 
+  function signIn(_credentials: Record<string, string>) {
+    // TODO(backend): authenticate via the API and redirect on success.
+  }
+
   const active = slides[slideIdx]
 
   return (
@@ -139,7 +143,7 @@ export function AuthPage() {
           <AuthSwitch
             mode={mode}
             onModeChange={setMode}
-            onSubmit={() => navigate('/')}
+            onSubmit={signIn}
           />
         </div>
       </div>

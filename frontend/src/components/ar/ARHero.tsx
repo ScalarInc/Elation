@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion'
 import { Headphones } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { toast } from '@/components/ui/toast'
 
 const STEPS = [
   { n: 1, title: 'Elation curates the scene', body: 'Your consultant assembles decor, florals, and lighting into a walkable set.' },
@@ -59,9 +58,9 @@ export function ARHero({ image, title, kicker = 'AR PREVIEW', subhead }: {
             </p>
             <Button
               size="lg"
-              onClick={() =>
-                toast.success('Your consultant will reach out to schedule a session.')
-              }
+              onClick={() => {
+                // TODO(backend): send an AR session request to the client's consultant.
+              }}
             >
               <Headphones className="h-4 w-4" />
               Request a demo session

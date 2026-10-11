@@ -1,17 +1,10 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
 
 /**
- * Frontend-only auth stub. In the mock phase every route is "authenticated"
- * — flipping localStorage.elation-auth = "off" lets us test the redirect.
- * Real auth wiring is out of scope for this phase (see PLAN.md scope note).
+ * Route guard for the client area.
+ * TODO(backend): check the real session and redirect to /auth when missing or expired.
+ * Until auth exists this performs no check.
  */
 export function ProtectedRoute() {
-  const location = useLocation()
-  const auth =
-    typeof window === 'undefined' ? 'on' : window.localStorage.getItem('elation-auth') ?? 'on'
-
-  if (auth === 'off') {
-    return <Navigate to="/auth?mode=signin" replace state={{ from: location }} />
-  }
   return <Outlet />
 }

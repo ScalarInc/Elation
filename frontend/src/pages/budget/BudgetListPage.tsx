@@ -97,9 +97,7 @@ export function BudgetListPage() {
     return () => {
       cancelled = true
     }
-    // Load once — event overrides don't affect the fixture snapshots.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [events])
 
   const invById = useMemo(
     () => new Map(inventoryList.map((i) => [i.id, i])),

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowRight,
@@ -25,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { toast } from '@/components/ui/toast'
 import { api } from '@/api'
 import { cn } from '@/lib/utils'
 import { useResolvedEvents } from '@/hooks/useResolvedEvent'
@@ -67,11 +66,9 @@ function splitStyles(style: string): string[] {
 }
 
 export function InspirationsPage() {
-  const navigate = useNavigate()
   const events = useResolvedEvents()
 
   const [items, setItems] = useState<Inspiration[] | null>(null)
-  const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
 
   const [selectedType, setSelectedType] = useState<EventType | 'All'>('All')
@@ -98,14 +95,11 @@ export function InspirationsPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    Promise.all([api.inspirations.list(), api.inventory.list()]).then(
-      ([insp, inv]) => {
-        if (cancelled) return
-        setItems(insp)
-        setInventory(inv)
-        setLoading(false)
-      },
-    )
+    api.inspirations.list().then((insp) => {
+      if (cancelled) return
+      setItems(insp)
+      setLoading(false)
+    })
     return () => {
       cancelled = true
     }
@@ -154,8 +148,14 @@ export function InspirationsPage() {
     })
   }, [items, selectedType, selectedStyles, budgetTier, selectedPalette])
 
+  // Local only — favourites are not persisted yet.
   function toggleLike(id: string) {
     setLikes((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  function adopt(_inspiration: Inspiration, _eventId: string) {
+    // TODO(backend): adopt the concept into the event's moodboard and budget, then
+    // open /events/:id?tab=moodboard.
   }
 
   function toggleStyle(s: string) {
@@ -394,12 +394,7 @@ export function InspirationsPage() {
         inspiration={openInspiration}
         onOpenChange={(open) => !open && setOpenInspiration(null)}
         events={events}
-        inventory={inventory}
-        onAdopt={(_inspiration, eventId) => {
-          toast.success('Concept adopted — opening your moodboard.')
-          setOpenInspiration(null)
-          navigate(`/events/${eventId}?tab=moodboard`)
-        }}
+        onAdopt={adopt}
       />
     </div>
   )
@@ -573,13 +568,11 @@ function InspirationDetailDialog({
   inspiration,
   onOpenChange,
   events,
-  inventory,
   onAdopt,
 }: {
   inspiration: Inspiration | null
   onOpenChange: (open: boolean) => void
   events: ClientEvent[]
-  inventory: InventoryItem[]
   onAdopt: (inspiration: Inspiration, eventId: string) => void
 }) {
   const [targetEventId, setTargetEventId] = useState<string>('')
@@ -590,30 +583,8 @@ function InspirationDetailDialog({
     }
   }, [inspiration, events, targetEventId])
 
-  const recommendedInventory = useMemo(() => {
-    if (!inspiration) return []
-    const styleTokens = splitStyles(inspiration.style).map((s) =>
-      s.toLowerCase(),
-    )
-    const eventTokens = inspiration.eventTypes.map((t) => t.toLowerCase())
-    const matches = inventory.filter((it) => {
-      const tags = it.tags.map((t) => t.toLowerCase())
-      return (
-        tags.some((tg) => styleTokens.some((st) => st.includes(tg))) ||
-        tags.some((tg) => eventTokens.includes(tg))
-      )
-    })
-    const first = matches.length >= 4 ? matches : [...matches, ...inventory]
-    const seen = new Set<string>()
-    const dedup: InventoryItem[] = []
-    for (const it of first) {
-      if (seen.has(it.id)) continue
-      seen.add(it.id)
-      dedup.push(it)
-      if (dedup.length >= 4) break
-    }
-    return dedup
-  }, [inspiration, inventory])
+  // TODO(backend): inventory recommended for this concept.
+  const recommendedInventory: InventoryItem[] = []
 
   const targetEvent = events.find((e) => e.id === targetEventId)
 

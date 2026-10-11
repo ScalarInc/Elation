@@ -38,11 +38,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useTheme, type Theme } from '@/lib/theme'
-import { currentUser } from '@/mocks/fixtures'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
+import type { ClientUser } from '@/types'
 
-type NotificationKey = keyof NonNullable<typeof currentUser.notifications>
+type NotificationPrefs = NonNullable<ClientUser['notifications']>
+type NotificationKey = keyof NotificationPrefs
 
 const SECTIONS = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -257,24 +259,18 @@ function AppearanceSection() {
   )
 }
 
-function NotificationsSection() {
-  const [prefs, setPrefs] = useState(
-    currentUser.notifications ?? {
-      moodboardUpdates: true,
-      budgetAlerts: true,
-      consultantMessages: true,
-      weeklyDigest: false,
-      marketing: false,
-    },
-  )
+function NotificationsSection({ user }: { user: ClientUser | null }) {
+  // Local edits layered over the saved preferences; nothing is persisted yet.
+  const [edits, setEdits] = useState<Partial<NotificationPrefs>>({})
+  const saved = user?.notifications
 
-  function togglePref(key: NotificationKey, value: boolean) {
-    setPrefs((prev) => ({ ...prev, [key]: value }))
-    toast.success(`${value ? 'Enabled' : 'Muted'} ${labelFor(key)}`)
+  function isOn(key: NotificationKey) {
+    return edits[key] ?? saved?.[key] ?? false
   }
 
-  function labelFor(key: NotificationKey) {
-    return notificationRows.find((r) => r.key === key)?.label ?? key
+  function togglePref(key: NotificationKey, value: boolean) {
+    setEdits((prev) => ({ ...prev, [key]: value }))
+    // TODO(backend): persist the notification preference.
   }
 
   return (
@@ -303,7 +299,7 @@ function NotificationsSection() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs[row.key]}
+                  checked={isOn(row.key)}
                   onCheckedChange={(v) => togglePref(row.key, v)}
                   aria-label={row.label}
                 />
@@ -320,19 +316,18 @@ function SecuritySection() {
   const {
     register,
     handleSubmit,
-    reset,
     formState: { errors, isSubmitting },
   } = useForm<PasswordForm>({
     resolver: zodResolver(passwordSchema),
     defaultValues: { current: '', next: '', confirm: '' },
   })
 
-  async function onSubmit() {
-    await new Promise((r) => setTimeout(r, 400))
-    reset()
-    toast.success('Password updated', {
-      description: 'You\'re still signed in on this device.',
-    })
+  function onSubmit(_values: PasswordForm) {
+    // TODO(backend): change the password via the API, then reset the form.
+  }
+
+  function signOutOtherSessions() {
+    // TODO(backend): revoke the client's other sessions.
   }
 
   return (
@@ -378,18 +373,8 @@ function SecuritySection() {
             <p className="text-text text-sm font-semibold">
               You're signed in on this device
             </p>
-            <p className="text-muted/70 mt-0.5 text-xs">
-              Chrome · Windows · Islamabad · signed in {formatDate(new Date().toISOString())}
-            </p>
           </div>
-          <Button
-            variant="ghost"
-            onClick={() =>
-              toast('Other sessions cleared', {
-                description: 'You\'ll be prompted to sign in again on those devices.',
-              })
-            }
-          >
+          <Button variant="ghost" onClick={signOutOtherSessions}>
             Sign out other sessions
           </Button>
         </div>
@@ -398,7 +383,11 @@ function SecuritySection() {
   )
 }
 
-function DataSection() {
+function DataSection({ user }: { user: ClientUser | null }) {
+  function requestExport() {
+    // TODO(backend): request a data export for the client.
+  }
+
   return (
     <Card id="data">
       <CardContent className="p-6">
@@ -423,7 +412,7 @@ function DataSection() {
                 variant="outline"
                 size="sm"
                 className="mt-3"
-                onClick={() => toast('Frontend mock — export is not wired.')}
+                onClick={requestExport}
               >
                 <Download className="h-3.5 w-3.5" />
                 Request export
@@ -432,19 +421,21 @@ function DataSection() {
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-3">
-          <Badge variant="sage">
-            <Calendar className="h-3 w-3" />
-            Access active
-          </Badge>
-          <p className="text-muted/80 text-xs">
-            Your temporary access expires on{' '}
-            <span className="text-text font-semibold">
-              {formatDate(currentUser.accessExpiresAt)}
-            </span>
-            .
-          </p>
-        </div>
+        {user && (
+          <div className="mt-4 flex items-center gap-3">
+            <Badge variant="sage">
+              <Calendar className="h-3 w-3" />
+              Access active
+            </Badge>
+            <p className="text-muted/80 text-xs">
+              Your temporary access expires on{' '}
+              <span className="text-text font-semibold">
+                {formatDate(user.accessExpiresAt)}
+              </span>
+              .
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -452,6 +443,10 @@ function DataSection() {
 
 function AccountSection() {
   const [open, setOpen] = useState(false)
+
+  function deleteAccount() {
+    // TODO(backend): delete the account via the API, then sign the client out.
+  }
 
   return (
     <Card id="account" className="border-danger/40">
@@ -489,15 +484,7 @@ function AccountSection() {
                 <Button variant="ghost" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    setOpen(false)
-                    toast('Frontend mock — account was not deleted.', {
-                      description: 'Real deletion will be wired in a later sprint.',
-                    })
-                  }}
-                >
+                <Button variant="destructive" onClick={deleteAccount}>
                   Delete forever
                 </Button>
               </div>
@@ -510,6 +497,7 @@ function AccountSection() {
 }
 
 export function SettingsPage() {
+  const user = useCurrentUser()
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -562,9 +550,9 @@ export function SettingsPage() {
 
         <div className="space-y-6">
           <AppearanceSection />
-          <NotificationsSection />
+          <NotificationsSection user={user} />
           <SecuritySection />
-          <DataSection />
+          <DataSection user={user} />
           <AccountSection />
         </div>
       </div>

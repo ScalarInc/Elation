@@ -189,7 +189,8 @@ export function EventARPage() {
         </section>
       )}
 
-      <ARAssetList />
+      {/* TODO(backend): load this set's 3D assets. */}
+      <ARAssetList assets={[]} />
     </div>
   )
 }

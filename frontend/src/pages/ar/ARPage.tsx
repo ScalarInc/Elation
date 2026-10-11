@@ -59,7 +59,8 @@ export function ARPage() {
 
       {sets && sets.length > 0 && <ARFloorPlanGallery sets={sets} />}
 
-      <ARAssetList />
+      {/* TODO(backend): load the 3D assets for the client's sets. */}
+      <ARAssetList assets={[]} />
     </div>
   )
 }

@@ -159,18 +159,6 @@ function sortedCategoriesFromLines(
   return [...totals, ...extras]
 }
 
-function seedLinesFromEventType(): BudgetLine[] {
-  // Minimal starter kit — used by the empty-state CTA.
-  return [
-    { id: makeLineId(), category: 'Stage', itemId: 'i_backdrop_arch', qty: 1, included: true },
-    { id: makeLineId(), category: 'Stage', itemId: 'i_sofa_ivory', qty: 2, included: true },
-    { id: makeLineId(), category: 'Seating', itemId: 'i_chair_gold', qty: 100, included: true },
-    { id: makeLineId(), category: 'Ceiling', itemId: 'i_chand_crystal', qty: 1, included: true },
-    { id: makeLineId(), category: 'Florals', itemId: 'i_floral_wild', qty: 8, included: true },
-    { id: makeLineId(), category: 'Lighting', itemId: 'i_light_candle', qty: 6, included: true },
-  ]
-}
-
 // -----------------------------------------------------------------------------
 // Not-found panel
 // -----------------------------------------------------------------------------
@@ -623,7 +611,6 @@ export function BudgetPage() {
         } else {
           setSnapshot(undefined)
           setSnapshotMissing(true)
-          setBudget(event?.budgetPKR ?? 2_500_000)
         }
       })
       .finally(() => {
@@ -632,7 +619,6 @@ export function BudgetPage() {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   const invById = useMemo(
@@ -701,17 +687,16 @@ export function BudgetPage() {
   }
 
   function sendToConsultant() {
-    toast.success("Sent to Ayesha — she'll be in touch shortly.")
+    // TODO(backend): share the current budget with the assigned consultant.
   }
 
   function requestQuote() {
-    toast.success("Quote request logged — Elation will confirm within 24 hours.")
+    // TODO(backend): submit a quote request for the current budget.
   }
 
   function seedFromQuestionnaire() {
-    setLines(seedLinesFromEventType())
-    setSnapshotMissing(false)
-    toast.success('We seeded a starter budget from your answers.')
+    // TODO(backend): request a starter budget generated from the questionnaire and
+    // inventory, then load it like a regular snapshot.
   }
 
   // ---------------- Render ----------------

@@ -154,9 +154,8 @@ function UploadField({ eventId, question }: Props) {
   const files = useValue(eventId, question.id) as string[] | undefined
   const set = useQuestionnaire((s) => s.setAnswer)
 
-  function fake(e: React.ChangeEvent<HTMLInputElement>) {
-    const names = Array.from(e.target.files ?? []).map((f) => f.name)
-    if (names.length) set(eventId, question.id, [...(files ?? []), ...names])
+  function handleFiles(_e: React.ChangeEvent<HTMLInputElement>) {
+    // TODO(backend): upload the selected files and store their references as the answer.
   }
   function removeFile(name: string) {
     set(eventId, question.id, (files ?? []).filter((n) => n !== name))
@@ -170,9 +169,9 @@ function UploadField({ eventId, question }: Props) {
         </span>
         <p className="text-text mt-1 text-sm font-semibold">Drop files here or tap to upload</p>
         <p className="text-muted/70 text-xs">
-          Frontend preview — files aren't stored yet.
+          Uploads aren't available yet.
         </p>
-        <input type="file" multiple onChange={fake} className="hidden" />
+        <input type="file" multiple onChange={handleFiles} className="hidden" />
       </label>
       {files && files.length > 0 && (
         <ul className="flex flex-wrap gap-2">

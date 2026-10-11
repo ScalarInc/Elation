@@ -1,15 +1,3 @@
-import {
-  activity,
-  arSets,
-  budgets,
-  currentUser,
-  events,
-  inspirations,
-  inventory,
-  messages,
-  moodboards,
-  threads,
-} from '@/mocks/fixtures'
 import type {
   ActivityEntry,
   ARSet,
@@ -24,72 +12,56 @@ import type {
   UUID,
 } from '@/types'
 
-// Simulates a real network call so we get skeletons + loading states in dev.
-function delay<T>(value: T, ms = 300): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms))
-}
-
+/**
+ * Data access layer for the client app.
+ *
+ * The backend is not connected yet: reads resolve to empty results and writes
+ * reject. Replace each method body with a real request once its endpoint exists;
+ * the signatures are what the pages already consume.
+ */
 export const api = {
-  me: (): Promise<ClientUser> => delay(currentUser, 150),
+  me: async (): Promise<ClientUser | null> => null,
 
   events: {
-    list: (): Promise<ClientEvent[]> => delay(events),
-    get: (id: UUID): Promise<ClientEvent | undefined> =>
-      delay(events.find((e) => e.id === id)),
+    list: async (): Promise<ClientEvent[]> => [],
+    get: async (_id: UUID): Promise<ClientEvent | undefined> => undefined,
   },
 
   moodboards: {
-    list: (): Promise<Moodboard[]> => delay(moodboards),
-    byEvent: (eventId: UUID): Promise<Moodboard[]> =>
-      delay(moodboards.filter((m) => m.eventId === eventId)),
-    get: (id: UUID): Promise<Moodboard | undefined> =>
-      delay(moodboards.find((m) => m.id === id)),
+    list: async (): Promise<Moodboard[]> => [],
+    byEvent: async (_eventId: UUID): Promise<Moodboard[]> => [],
+    get: async (_id: UUID): Promise<Moodboard | undefined> => undefined,
   },
 
   inspirations: {
-    list: (): Promise<Inspiration[]> => delay(inspirations),
-    get: (slug: string): Promise<Inspiration | undefined> =>
-      delay(inspirations.find((i) => i.slug === slug)),
+    list: async (): Promise<Inspiration[]> => [],
+    get: async (_slug: string): Promise<Inspiration | undefined> => undefined,
   },
 
   inventory: {
-    list: (): Promise<InventoryItem[]> => delay(inventory),
-    get: (id: UUID): Promise<InventoryItem | undefined> =>
-      delay(inventory.find((i) => i.id === id)),
+    list: async (): Promise<InventoryItem[]> => [],
+    get: async (_id: UUID): Promise<InventoryItem | undefined> => undefined,
   },
 
   budget: {
-    forEvent: (eventId: UUID): Promise<BudgetSnapshot | undefined> =>
-      delay(budgets.find((b) => b.eventId === eventId)),
+    forEvent: async (_eventId: UUID): Promise<BudgetSnapshot | undefined> => undefined,
   },
 
   messages: {
-    thread: (): Promise<Message[]> => delay(messages),
-    threads: (): Promise<MessageThread[]> => delay(threads),
-    send: (body: string): Promise<Message> =>
-      delay(
-        {
-          id: `msg_${Date.now()}`,
-          authorId: currentUser.id,
-          authorName: currentUser.name,
-          authorRole: 'client',
-          body,
-          createdAt: new Date().toISOString(),
-          read: true,
-        },
-        200,
-      ),
+    thread: async (): Promise<Message[]> => [],
+    threads: async (): Promise<MessageThread[]> => [],
+    send: async (_body: string): Promise<Message> => {
+      throw new Error('Messaging is not connected yet.')
+    },
   },
 
   ar: {
-    list: (): Promise<ARSet[]> => delay(arSets),
-    forEvent: (eventId: UUID): Promise<ARSet | undefined> =>
-      delay(arSets.find((s) => s.eventId === eventId)),
+    list: async (): Promise<ARSet[]> => [],
+    forEvent: async (_eventId: UUID): Promise<ARSet | undefined> => undefined,
   },
 
   activity: {
-    list: (): Promise<ActivityEntry[]> => delay(activity),
-    forEvent: (eventId: UUID): Promise<ActivityEntry[]> =>
-      delay(activity.filter((a) => a.eventId === eventId)),
+    list: async (): Promise<ActivityEntry[]> => [],
+    forEvent: async (_eventId: UUID): Promise<ActivityEntry[]> => [],
   },
 }
