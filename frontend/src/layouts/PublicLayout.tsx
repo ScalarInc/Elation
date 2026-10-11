@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import { Camera, MessageSquare, Play, Mail, Phone, MapPin } from 'lucide-react'
+import { Camera, MessageSquare, Play, Mail, MapPin } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -134,12 +134,7 @@ function Footer() {
                 hello@elationbyfmh.com
               </a>
             </li>
-            <li className="flex items-start gap-2">
-              <Phone className="mt-0.5 h-4 w-4 shrink-0" />
-              <a href="tel:+92510000000" className="hover:text-text">
-                +92 51 000 0000
-              </a>
-            </li>
+            {/* TODO(content): add the studio phone number. */}
           </ul>
         </div>
 

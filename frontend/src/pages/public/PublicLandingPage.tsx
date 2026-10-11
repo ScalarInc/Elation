@@ -74,39 +74,20 @@ const approachCards = [
 ]
 
 const gallery = [
-  { img: gallery1, label: 'Mehndi', concept: 'Marigold Courtyard' },
-  { img: gallery2, label: 'Baraat', concept: 'Rose & Ivory' },
-  { img: gallery3, label: 'Walima', concept: 'Blush Cathedral' },
-  { img: gallery4, label: 'Nikkah', concept: 'Sage Whisper' },
-  { img: gallery5, label: 'Mayoun', concept: 'Sunset Grove' },
-  { img: gallery6, label: 'Reception', concept: 'Candlelit Manor' },
+  { img: gallery1, label: 'Mehndi' },
+  { img: gallery2, label: 'Baraat' },
+  { img: gallery3, label: 'Walima' },
+  { img: gallery4, label: 'Nikkah' },
+  { img: gallery5, label: 'Mayoun' },
+  { img: gallery6, label: 'Reception' },
 ]
 
-const testimonials = [
-  {
-    quote:
-      'From the first moodboard to the last candle, Elation understood us. They gave us a night that felt like a memory before it began.',
-    name: 'Malaika K.',
-    event: 'Their Mehndi',
-    palette: ['#E3BFB9', '#E1CBAD', '#9AB1AE'],
-  },
-  {
-    quote:
-      'The AR walkthrough saved us so many small heartbreaks. We saw the room in full before it existed — and it was exactly what we had dreamed of.',
-    name: 'Anaya H.',
-    event: 'Their Baraat',
-    palette: ['#CFAE96', '#FAF3EF', '#D3A79F'],
-  },
-  {
-    quote:
-      'It never once felt transactional. Every call, every board, every fitting felt like family planning our wedding beside us.',
-    name: 'Zainab F.',
-    event: 'Their Walima',
-    palette: ['#7E9895', '#E3BFB9', '#3B3A3F'],
-  },
-]
+type Testimonial = { quote: string; name: string; event: string; palette: string[] }
 
-const press = ['VOGUE PAKISTAN', 'BRIDES', 'ELLE', "HELLO!", 'PAPER']
+// TODO(content): add real client testimonials and press mentions supplied by Elation.
+const testimonials: Testimonial[] = []
+
+const press: string[] = []
 
 function TestimonialsCarousel() {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' })
@@ -399,7 +380,7 @@ export function PublicLandingPage() {
               >
                 <img
                   src={g.img}
-                  alt={g.concept}
+                  alt={g.label}
                   className={cn(
                     'w-full object-cover transition-transform duration-700 group-hover:scale-105',
                     i % 3 === 0 ? 'aspect-[4/5]' : i % 3 === 1 ? 'aspect-square' : 'aspect-[4/3]',
@@ -410,7 +391,6 @@ export function PublicLandingPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/70">
                     {g.label}
                   </p>
-                  <p className="font-display mt-2 text-2xl">{g.concept}</p>
                 </figcaption>
               </motion.figure>
             ))}
@@ -419,6 +399,7 @@ export function PublicLandingPage() {
       </section>
 
       {/* TESTIMONIALS */}
+      {testimonials.length > 0 && (
       <section className="bg-cream-panel py-24 md:py-32">
         <div className="mx-auto max-w-7xl px-6 md:px-10">
           <motion.div
@@ -446,8 +427,10 @@ export function PublicLandingPage() {
           </motion.div>
         </div>
       </section>
+      )}
 
       {/* PRESS */}
+      {press.length > 0 && (
       <section className="border-y border-border/10 bg-bg py-14">
         <div className="mx-auto max-w-7xl px-6 md:px-10">
           <p className="mb-8 text-center text-[10px] font-semibold uppercase tracking-[0.35em] text-muted/60">
@@ -465,6 +448,7 @@ export function PublicLandingPage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* FINAL CTA */}
       <section className="bg-bg">
@@ -492,7 +476,7 @@ export function PublicLandingPage() {
               Ready to imagine your night?
             </h2>
             <p className="mt-4 text-base leading-relaxed text-ink/70 dark:text-cream/80">
-              Share the essentials and your consultant will call within 24 hours
+              Share the essentials and your consultant will call
               to walk through everything — no obligation, just conversation.
             </p>
             <div className="mt-8">
