@@ -24,10 +24,11 @@ Thumbs.db
 *.swp
 ~$*
 
-# Env
+# Env / local overrides
 .env
 .env.local
 .env.*.local
+*.local
 
 # TypeScript build info
 *.tsbuildinfo
