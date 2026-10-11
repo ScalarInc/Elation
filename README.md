@@ -1,25 +1,46 @@
 # Elation X
 
-Client-facing webapp for **Elation by FMH** — an AI-driven event mood-board, budget estimator, and AR visualisation platform for luxury weddings.
+Client-facing webapp for **Elation by FMH**: an event mood-board, budget estimator, and AR visualisation platform for luxury weddings.
 
-## Structure
+## Repository layout
 
-- `webapp/` — Vite + React + TypeScript + TailwindCSS frontend
-- `ELATION questionnaire.docx` — 134-question conditional-branching client brief
-- `Elation X_Modular_Report.docx` — scope, timeline, and module breakdown
-- `Inventory/` — physical inventory scans (chairs, sofas, décor)
-- `Moodboard_Isnpirations/` — FMH Lookbook (source for About Us + inspiration gallery)
-- `Sets/` — per-set concept PDFs for the 3 AR visualisation sets
+```
+.
+├── docs/
+│   ├── frontend-build-plan.md       # page-by-page build plan and data-flow rules
+│   ├── requirements/
+│   │   ├── elation-x-modular-report.docx   # scope, timeline, module breakdown
+│   │   └── elation-questionnaire.docx      # 134-question conditional client brief
+│   └── reference/
+│       ├── ar-sets/                 # concept files for the 3 AR visualisation sets
+│       ├── inventory/               # scanned physical inventory (chairs, sofas, décor)
+│       └── lookbook/                # FMH Lookbook (About Us + inspiration source)
+└── frontend/                        # Vite + React + TypeScript + TailwindCSS
+    └── src/
+        ├── api/                     # data access layer (mock today)
+        ├── assets/                  # brand/ and images/
+        ├── components/              # ui/ primitives + feature folders
+        ├── hooks/                   # shared React hooks
+        ├── layouts/                 # page shells (client, admin, public)
+        ├── lib/                     # pure helpers, questionnaire schema/derivations
+        ├── mocks/                   # fixtures and seed data
+        ├── pages/                   # grouped by route area
+        ├── routes/                  # route guards
+        ├── stores/                  # Zustand stores
+        └── types/                   # shared domain types
+```
 
-## Frontend — run locally
+## Frontend: run locally
 
 ```bash
-cd webapp
+cd frontend
 npm install
 npm run dev
 ```
 
 Open <http://localhost:5173/>.
+
+Other scripts: `npm run build` (type-check + production build), `npm run lint` (oxlint).
 
 ## Brand system
 
