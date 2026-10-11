@@ -8,6 +8,10 @@ Client-facing webapp for **Elation by FMH**: an event mood-board, budget estimat
 .
 ├── docs/
 │   ├── frontend-build-plan.md       # page-by-page build plan and data-flow rules
+│   ├── product/
+│   │   ├── decision-log.md          # confirmed product/backend decisions (append-only)
+│   │   ├── backend-plan.md          # backend architecture, tables, endpoints, pricing
+│   │   └── backend-requirements.md  # credentials, .env outline, open decisions
 │   ├── requirements/
 │   │   ├── elation-x-modular-report.docx   # scope, timeline, module breakdown
 │   │   └── elation-questionnaire.docx      # 134-question conditional client brief

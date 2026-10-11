@@ -5,6 +5,8 @@
 
 ## Data flow (which page reads which store)
 
+> **Superseded (2026-10-15):** `src/mocks/` was deleted and pages now read through `src/api/index.ts`, which returns empty results until the backend exists. The table below is kept as history of the mock phase. Backend data flow: `docs/product/backend-plan.md`.
+
 Every new page/component MUST declare what it consumes, so we don't
 build features in isolation and leave integration gaps.
 
@@ -465,6 +467,10 @@ Global settings (branding, email templates, integrations).
 ## 9. Deviation log
 
 Track anything we do differently from the spec here as we build. Each entry: `YYYY-MM-DD — page — decision — why`.
+
+- 2026-10-15 - whole app - removed mock fixtures, fake chats and simulated actions; `api/` returns empty data and actions are `TODO(backend)` handlers - prepare for a real backend without fabricated data.
+- 2026-10-16 - backend - planning only: Node + Hono + Drizzle on Supabase (Postgres, Auth, Storage), Groq `openai/gpt-oss-120b` with rule-based fallback, Resend optional - see `docs/product/backend-plan.md` and `docs/product/backend-requirements.md`. Supersedes the "Swapping mock → real fetch is out of scope" note in "Scope for this build".
+- 2026-10-16 - backend - revision 2 confirmed: Python + FastAPI + Pydantic, Supabase Auth with Resend invitation links, live messaging via Supabase Realtime, traffic light yellow < 90 % / green 90–100 % / red > 100 % - see `docs/product/decision-log.md`.
 
 ## Folder layout (frontend/src)
 
