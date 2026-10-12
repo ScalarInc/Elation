@@ -35,7 +35,9 @@ import {
 import { toast } from '@/components/ui/toast'
 import { useArchiveEvent, useDeleteEvent, useDuplicateEvent } from '@/data/events'
 import { cn } from '@/lib/utils'
-import { formatBudget, formatDate, daysUntil } from '@/lib/format'
+import { useBudgets } from '@/data/budget'
+import { BUDGET_TONE } from '@/components/budget/tone'
+import { formatBudget, formatDate, daysUntil, formatPKRCompact } from '@/lib/format'
 import type { ClientEvent } from '@/mocks/types'
 
 function statusBadge(status: ClientEvent['status']) {
@@ -210,6 +212,7 @@ export function EventCard({ event, className }: Props) {
               <Users className="h-3.5 w-3.5" />
               {event.guests} guests · {formatBudget(event.budgetPKR)}
             </li>
+            <BudgetChip eventId={event.id} />
           </ul>
 
           <div className="mt-auto">
@@ -222,5 +225,23 @@ export function EventCard({ event, className }: Props) {
         </div>
       </Link>
     </div>
+  )
+}
+
+/** Traffic-light dot + "PKR 2.3M of 2.5M", or "No budget yet" (docs/step-08-budget.md, J1). */
+function BudgetChip({ eventId }: { eventId: string }) {
+  const { data } = useBudgets()
+  const row = data?.find((r) => r.event.id === eventId)
+  if (!row) return null
+  if (!row.plan) return <li className="text-muted/70 flex items-center gap-2 pl-[22px]">No budget yet</li>
+  const tone = BUDGET_TONE[row.plan.classification.state]
+  return (
+    <li className="flex items-center gap-2">
+      <span className={cn('ml-[3px] h-2 w-2 rounded-full', tone.dot)} aria-hidden />
+      <span className="pl-1">
+        {formatPKRCompact(row.plan.totals.includedPkr)} of {formatPKRCompact(row.plan.targetPkr)}
+        <span className="sr-only"> — {tone.label}</span>
+      </span>
+    </li>
   )
 }

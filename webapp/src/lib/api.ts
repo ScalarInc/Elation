@@ -1,7 +1,6 @@
 import {
   activity,
   arSets,
-  budgets,
   currentUser,
   inspirations,
   inventory,
@@ -12,7 +11,6 @@ import {
 import type {
   ActivityEntry,
   ARSet,
-  BudgetSnapshot,
   ClientUser,
   Inspiration,
   InventoryItem,
@@ -48,11 +46,6 @@ export const api = {
     list: (): Promise<InventoryItem[]> => delay(inventory),
     get: (id: UUID): Promise<InventoryItem | undefined> =>
       delay(inventory.find((i) => i.id === id)),
-  },
-
-  budget: {
-    forEvent: (eventId: UUID): Promise<BudgetSnapshot | undefined> =>
-      delay(budgets.find((b) => b.eventId === eventId)),
   },
 
   messages: {

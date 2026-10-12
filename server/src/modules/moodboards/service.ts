@@ -261,6 +261,27 @@ export async function generateForEvent(
   return { generationId, concepts: rows.map((m) => toMoodboardDto(m, { staff: staffOf(actor) })) }
 }
 
+/**
+ * One rules-engine concept from priced pieces only, not persisted — the budget's
+ * "Elation's recommendation" seed (docs/step-08-budget.md).
+ */
+export async function recommendedPieces(db: Db, actor: Actor, event: Event) {
+  const { controls } = await getDefaults(db, actor, event.id)
+  const input = await engineInputFor(db, event, controls, `budget:${event.id}`)
+  const [concept] = generateConcepts({ ...input, inventory: input.inventory.filter((i) => i.pricePkr != null), variants: 1 })
+  const picks = (concept?.tiles ?? []).flatMap((t) => (t.itemId ? [{ itemId: t.itemId, area: t.area }] : []))
+  return { answers: input.answers, picks }
+}
+
+/** The concept a budget follows: the lead, else the newest saved, else the newest draft. */
+export async function leadMoodboard(db: Db, eventId: string) {
+  return db.moodboard.findFirst({
+    where: { eventId, status: { not: 'ARCHIVED' } },
+    orderBy: [{ isPrimary: 'desc' }, { status: 'desc' }, { createdAt: 'desc' }],
+    include: { tiles: { orderBy: { position: 'asc' } } },
+  })
+}
+
 /** After the questionnaire is submitted: first concepts, unless the event already has some. */
 export async function generateFirstConcepts(db: Db, actor: Actor, eventId: string) {
   const existing = await db.moodboard.count({ where: { eventId, status: { not: 'ARCHIVED' } } })

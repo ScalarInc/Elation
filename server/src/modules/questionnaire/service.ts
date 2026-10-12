@@ -101,6 +101,10 @@ async function writeThroughToEvent(tx: DbTx, event: Event, answers: Answers, cha
   }
 
   if (Object.keys(data).length) await tx.event.update({ where: { id: event.id }, data })
+  // Bump the plan version so an open estimator can't save its old target back over this one.
+  if (typeof data.budgetPkr === 'number') {
+    await tx.budgetPlan.updateMany({ where: { eventId: event.id }, data: { targetPkr: data.budgetPkr, version: { increment: 1 } } })
+  }
 }
 
 async function recordActivity(tx: DbTx, event: Event, actorId: string, touchedCategories: string[]) {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Crown, GripVertical, Heart, Info, Lock, MessageCircle, Repeat, Save, Sparkles, Star, Unlock, X } from 'lucide-react'
+import { Crown, GripVertical, Heart, Info, Lock, MessageCircle, Repeat, Save, Sparkles, Star, Unlock, Wallet, X } from 'lucide-react'
 import {
   DndContext,
   PointerSensor,
@@ -22,6 +22,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import { formatPKR } from '@/lib/format'
+import { useMoodboardBudget } from '@/data/budget'
+import { useNavigate } from 'react-router-dom'
 import {
   eventMoodboardsKey,
   useEventMoodboards,
@@ -230,6 +232,7 @@ export function MoodboardViewer({ eventId }: Props) {
                   Make this my lead concept
                 </Button>
               )}
+              {active && <ApplyToBudget board={active} />}
               {active?.tileItems.some((t) => t.locked) && (
                 <p className="text-muted/70 text-center text-[11px]">Locked pieces stay when you regenerate.</p>
               )}
@@ -426,8 +429,39 @@ function SortableTile({
   )
 }
 
+/** Every priced piece of this concept into the event's budget (docs/step-08-budget.md). */
+function ApplyToBudget({ board }: { board: MoodboardDto }) {
+  const { applyConcept } = useMoodboardBudget(board.eventId)
+  const navigate = useNavigate()
+  return (
+    <Button
+      variant="outline"
+      className="w-full"
+      disabled={applyConcept.isPending}
+      onClick={() =>
+        applyConcept.mutate(board.id, {
+          onSuccess: ({ added, unpricedItems }) => {
+            const onRequest = unpricedItems.length
+              ? ` ${unpricedItems.length} ${unpricedItems.length === 1 ? 'piece is' : 'pieces are'} priced on request — your consultant will add ${unpricedItems.length === 1 ? 'it' : 'them'}.`
+              : ''
+            toast.success(added ? `Added ${added} ${added === 1 ? 'piece' : 'pieces'} to your budget` : 'Everything priced is already in your budget', {
+              description: onRequest || undefined,
+              action: { label: 'Open budget', onClick: () => navigate(`/events/${board.eventId}/budget?from=event`) },
+            })
+          },
+          onError: (err) => toast.error('Could not add to your budget', { description: err.message }),
+        })
+      }
+    >
+      <Wallet className="h-4 w-4" />
+      Apply to budget
+    </Button>
+  )
+}
+
 function TileDrawer({ board, tile, onClose }: { board: MoodboardDto; tile: MoodboardTileDto; onClose: () => void }) {
   const actions = useMoodboardAction()
+  const { addPiece } = useMoodboardBudget(board.eventId)
   const [showAlternatives, setShowAlternatives] = useState(false)
   const [note, setNote] = useState('')
   const [asking, setAsking] = useState(false)
@@ -496,6 +530,24 @@ function TileDrawer({ board, tile, onClose }: { board: MoodboardDto; tile: Moodb
               <MessageCircle className="h-4 w-4" />
               Ask my consultant
             </Button>
+            {item && item.pricePKR != null && (
+              <Button
+                variant="ghost"
+                disabled={addPiece.isPending}
+                onClick={() =>
+                  addPiece.mutate(
+                    { inventoryItemId: item.id, area: tile.area ?? undefined },
+                    {
+                      onSuccess: () => toast.success(`${item.name} is in your budget`),
+                      onError: (err) => toast.error('Could not add to your budget', { description: err.message }),
+                    },
+                  )
+                }
+              >
+                <Wallet className="h-4 w-4" />
+                Add to budget
+              </Button>
+            )}
           </div>
 
           {asking && (

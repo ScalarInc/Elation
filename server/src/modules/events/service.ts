@@ -16,7 +16,7 @@ import type { Db, DbTx } from '../../plugins/db'
 type Actor = Pick<User, 'id' | 'role'>
 
 /** What every EventDto needs loaded alongside the event row. */
-const eventInclude = {
+export const eventInclude = {
   questionnaire: { select: { percentComplete: true, submittedAt: true } },
   moodboards: { select: { status: true, isPrimary: true } },
   budgetPlan: { select: { status: true } },
@@ -249,6 +249,11 @@ export async function updateEvent(db: Db, actor: Actor, eventId: string, input: 
         ...(input.budgetPkr !== undefined && { budgetPkr: input.budgetPkr }),
       },
     })
+    // The budget plan's target follows the event budget (docs/step-08-budget.md).
+    // Version bump: an open estimator must reload rather than save its old target back.
+    if (input.budgetPkr != null) {
+      await tx.budgetPlan.updateMany({ where: { eventId }, data: { targetPkr: input.budgetPkr, version: { increment: 1 }, updatedById: actor.id } })
+    }
     await syncBasicsToQuestionnaire(
       tx,
       eventId,

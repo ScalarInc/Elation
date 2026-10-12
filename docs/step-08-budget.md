@@ -136,9 +136,17 @@ Validation: `qty` 1–10 000; `inventoryItemId` must be active (archived items a
 
 ## Definition of done
 
-- [ ] From My Events, the estimator is one click away (card quick action) and two at most (card → module card).
-- [ ] `/budget` lists every event, with or without a plan.
-- [ ] Budget edits survive navigation and reload (mock store in Part A, server in Part B).
-- [ ] Starter budget reflects event type, guest count and the chosen moodboard.
-- [ ] Traffic light follows the spec (green on, yellow under, red over) everywhere it appears.
-- [ ] "Request a quote" creates a real quote request that the consultant sees in admin.
+- [x] From My Events, the estimator is one click away (card quick action) and two at most (card → module card).
+- [x] `/budget` lists every event, with or without a plan.
+- [x] Budget edits survive navigation and reload (mock store in Part A, server in Part B).
+- [x] Starter budget reflects event type, guest count and the chosen moodboard.
+- [x] Traffic light follows the spec (green on, yellow under, red over) everywhere it appears.
+- [x] "Request a quote" creates a real quote request that the consultant sees in admin. *(stored + emailed + thread message now; admin inbox screen in Step 12)*
+
+## As built (2026-10-13)
+
+- **Shared** (`packages/shared/src/budget/`): `BUDGET_CATEGORIES` + `budgetCategoryFor` (florals/seating/tables/lights by kind, the rest by area), `budgetTotals`, `seedQuantity` (rules above, with P29 for per-foot pieces), `seedBudgetLines` (skips unpriced pieces, P31), `fitToTarget` (P28). `classifyBudget` (P8) is used by the server, the estimator, the budget list, the event tab and the event cards.
+- **API** (`server/src/modules/budget/`): every endpoint in the table, plus `POST /moodboards/:id/apply-to-budget` (Step 7's deferred endpoint). PUT is a full replace guarded by `version` (atomic `updateMany … where version`); new lines snapshot today's price, existing lines keep theirs (P7); `pricesChanged` / reprice; `changedSinceQuote` compares against the frozen quote snapshot. Target ↔ `Event.budgetPkr` written through in both directions, with a version bump when the event side changes. Hand-offs write an activity entry, a SYSTEM message in the client's thread (if one exists — Step 10 owns threads) and email the consultant; 20/hour per user.
+- **"Elation's recommendation"** = one rules-engine concept (Step 7) restricted to priced pieces, not persisted, plus chairs and tables for every guest unless dining is declined.
+- **Webapp**: `BudgetPage` keeps a local draft and autosaves 800 ms after the last edit (one save at a time, version-chained; "Saving… / Saved"), flushes on leave and warns on tab close; the start screen offers moodboard / recommendation / blank; the back link follows `?from=` (events, budget, dashboard, event); consultant name from `/me`; the picker shows unpriced pieces as "Price on request" (disabled). `/budget` lists every event (`GET /budgets`). The event tab shows the live summary; key numbers show the estimate; event cards show a traffic-light chip; the card menu and dashboard quick action link straight to the estimator.
+- **Deviations**: mock mode has no budget store (Part A's persist store was superseded by the API); thresholds use `DEFAULT_BUDGET_THRESHOLDS` until the admin settings screen (Step 12); the venue-length cap for fabric waits for structured dimensions. Review: [step-08-review.md](reviews/step-08-review.md).

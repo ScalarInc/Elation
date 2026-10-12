@@ -191,3 +191,9 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-13 — Step 7 — Tile scores are staff-only (they fold in stock levels).
 - 2026-10-13 — Step 7 — A new generation archives the event's earlier unsaved drafts .
 - 2026-10-13 — Step 7 — `POST /moodboards/:id/tiles` (client reference images) moves to Step 11 (needs file storage); "Add to budget"/`apply-to-budget` land in Step 8.
+- 2026-10-13 — Step 8 — P28: starter budgets switch off the priciest optional lines to land on target (seating/tables stay on).
+- 2026-10-13 — Step 8 — P29: per-foot quantities — Fabric 2 ft/guest; other per-foot pieces one 40 ft run.
+- 2026-10-13 — Step 8 — P30: send-to-consultant and quote both mark the plan submitted; later edits flagged "changed since your request".
+- 2026-10-13 — Step 8 — P31: unpriced pieces never enter a budget; seeds report them as "priced on request".
+- 2026-10-13 — Step 8 — Mock mode has no budget store; the estimator needs the server.
+- 2026-10-13 — Step 8 — Changing the event budget bumps the plan version (stale estimator tabs get 409).

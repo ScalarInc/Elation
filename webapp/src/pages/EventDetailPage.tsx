@@ -16,7 +16,9 @@ import {
   Clock,
   Loader2,
 } from 'lucide-react'
-import { budgets, messages } from '@/mocks/fixtures'
+import { messages } from '@/mocks/fixtures'
+import { useEventBudget } from '@/data/budget'
+import { BUDGET_TONE } from '@/components/budget/tone'
 import { useEventMoodboards } from '@/data/moodboards'
 import { MoodboardViewer } from '@/components/MoodboardViewer'
 import { useEventView } from '@/data/events'
@@ -33,7 +35,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { formatDate, daysUntil, formatBudget } from '@/lib/format'
+import { formatDate, daysUntil, formatBudget, formatPKR, formatPKRCompact } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { ClientEvent, ModuleStatus } from '@/mocks/types'
 
@@ -63,7 +65,7 @@ const moduleMeta: Record<
   budget: {
     label: 'Budget Estimator',
     body: 'Live pricing with a traffic-light indicator vs. your budget.',
-    href: (id) => `/events/${id}?tab=budget`,
+    href: (id) => `/events/${id}/budget?from=event`,
   },
   ar: {
     label: 'AR Visualization',
@@ -205,7 +207,8 @@ function OverviewTab({ event }: { event: ClientEvent }) {
   const { data: eventBoards = [] } = useEventMoodboards(event.id)
   // Lead concept first, then the newest.
   const boards = [...eventBoards].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
-  const budgetSnap = budgets.find((b) => b.eventId === event.id)
+  const { data: budget } = useEventBudget(event.id)
+  const plan = budget?.plan
 
   return (
     <div className="mt-4 space-y-6">
@@ -296,10 +299,10 @@ function OverviewTab({ event }: { event: ClientEvent }) {
                 <dt className="text-muted">Budget</dt>
                 <dd className="text-text font-semibold">{formatBudget(event.budgetPKR)}</dd>
               </div>
-              {budgetSnap && (
+              {plan && (
                 <div className="flex justify-between">
-                  <dt className="text-muted">Line items</dt>
-                  <dd className="text-text font-semibold">{budgetSnap.lines.length}</dd>
+                  <dt className="text-muted">Estimate</dt>
+                  <dd className="text-text font-semibold">{formatPKRCompact(plan.totals.includedPkr)} · {plan.lines.length} pieces</dd>
                 </div>
               )}
               <div className="flex justify-between">
@@ -437,6 +440,65 @@ function TabPlaceholder({ title, body }: { title: string; body: string }) {
   )
 }
 
+/** Budget tab: the live numbers, one click from the estimator (docs/step-08-budget.md, J2). */
+function BudgetSummary({ eventId }: { eventId: string }) {
+  const { data, isPending } = useEventBudget(eventId)
+  const href = `/events/${eventId}/budget?from=event`
+  if (isPending) return <Skeleton className="mt-4 h-56 w-full rounded-3xl" />
+  const plan = data?.plan
+  if (!plan) {
+    return (
+      <ModuleHandoff
+        title="Smart Budget Estimator"
+        body="Start from your moodboard or Elation's recommendation — live pricing and a traffic light against your target."
+        href={href}
+        cta="Start your budget"
+      />
+    )
+  }
+  const tone = BUDGET_TONE[plan.classification.state]
+  const Icon = tone.Icon
+  return (
+    <Card className="mt-4">
+      <CardContent className="grid gap-6 p-6 md:grid-cols-[1fr_1fr]">
+        <div className="space-y-4">
+          <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold', tone.pill)}>
+            <Icon className="h-3.5 w-3.5" />
+            {tone.label}
+          </span>
+          <div>
+            <p className="font-display text-text text-3xl tabular-nums">{formatPKR(plan.totals.includedPkr)}</p>
+            <p className="text-muted mt-1 text-sm">
+              of {formatPKR(plan.targetPkr)} ·{' '}
+              {plan.classification.deltaPkr > 0
+                ? `${formatPKRCompact(plan.classification.deltaPkr)} over`
+                : `${formatPKRCompact(-plan.classification.deltaPkr)} to spare`}
+            </p>
+          </div>
+          <Button asChild>
+            <Link to={href}>
+              Open the estimator
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+        <div>
+          <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">Top categories</p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {plan.totals.byCategory.slice(0, 3).map((c) => (
+              <li key={c.category} className="flex justify-between">
+                <span className="text-text font-semibold">{c.category}</span>
+                <span className="text-muted tabular-nums">{formatPKRCompact(c.totalPkr)}</span>
+              </li>
+            ))}
+            {plan.totals.byCategory.length === 0 && <li className="text-muted">Nothing included yet.</li>}
+          </ul>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function ModuleHandoff({
   title,
   body,
@@ -533,12 +595,7 @@ export function EventDetailPage() {
           <MoodboardViewer eventId={event.id} />
         </TabsContent>
         <TabsContent value="budget">
-          <ModuleHandoff
-            title="Smart Budget Estimator"
-            body="Live line items, real inventory pricing, and a traffic-light indicator against your target."
-            href={`/events/${event.id}/budget`}
-            cta="Open the estimator"
-          />
+          <BudgetSummary eventId={event.id} />
         </TabsContent>
         <TabsContent value="ar">
           <ModuleHandoff

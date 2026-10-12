@@ -73,6 +73,44 @@ Elation by FMH`,
   }
 }
 
+export function budgetForConsultantEmail(input: {
+  to: string
+  consultantName: string
+  clientName: string
+  eventName: string
+  totalPkr: number
+  targetPkr: number
+  note?: string
+  kind: 'review' | 'quote'
+  url: string
+}): Mail {
+  const pkr = (n: number) => `PKR ${n.toLocaleString('en-PK')}`
+  const action = input.kind === 'quote' ? 'requested a quote' : 'sent you their budget to review'
+  const subject = `${input.clientName} ${input.kind === 'quote' ? 'requested a quote' : 'sent a budget'} — ${input.eventName}`
+  const quoted = input.note ? `
+
+“${input.note}”` : ''
+  return {
+    to: input.to,
+    subject,
+    text: `Hi ${input.consultantName},
+
+${input.clientName} ${action} for ${input.eventName}: ${pkr(input.totalPkr)} against a target of ${pkr(input.targetPkr)}.${quoted}
+
+Open the estimator:
+${input.url}
+
+Elation X`,
+    html: layout(
+      escapeHtml(subject),
+      `<p>Hi ${escapeHtml(input.consultantName)}, ${escapeHtml(input.clientName)} ${action} for <strong>${escapeHtml(input.eventName)}</strong>.</p>
+       <p style="font-size:18px">${pkr(input.totalPkr)} <span style="color:#7a7a80;font-size:13px">of ${pkr(input.targetPkr)}</span></p>
+       ${input.note ? `<blockquote style="border-left:3px solid #E3BFB9;margin:0;padding:4px 12px;color:#55545a">${escapeHtml(input.note)}</blockquote>` : ''}`,
+      { label: 'Open the estimator', url: input.url },
+    ),
+  }
+}
+
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 }

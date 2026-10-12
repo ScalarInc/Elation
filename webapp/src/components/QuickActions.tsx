@@ -22,7 +22,7 @@ export function QuickActions({ event: e }: { event: ClientEvent }) {
       title: 'Tune the budget',
       body: 'Line items, live totals and a traffic-light indicator.',
       icon: <Calculator className="h-5 w-5" />,
-      to: `/events/${e.id}/budget`,
+      to: `/events/${e.id}/budget?from=dashboard`,
     },
     {
       title: 'Preview in AR',
