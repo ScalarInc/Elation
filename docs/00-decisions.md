@@ -160,3 +160,8 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-12 — Step 1 — Server dev uses `node --watch --import tsx` — `tsx watch` hangs when `concurrently` gives it a piped stdin.
 - 2026-10-12 — Step 1 — `@fastify/cors` and `@fastify/sensible` not installed — same-origin deploy needs no CORS; errors use our own `AppError`.
 - 2026-10-12 — Step 1 — `npm audit` reports high-severity issues in `mysql2` / `deepmerge-ts`, pulled in by the Prisma 7 CLI's tooling (unused for Postgres, not in the request path). Not gated in CI until Prisma ships a fix; re-check on Prisma upgrades.
+- 2026-10-12 — Step 2 — Demo images moved to `webapp/public/media` and referenced by URL — lets mock fixtures load in Node for seeding and gives DB rows stable URLs that work in dev and production.
+- 2026-10-12 — Step 2 — Seed owns a JSON snapshot of the mocks (`server/prisma/seed/fixtures.json`) instead of importing webapp code — the mocks get deleted in Step 13.
+- 2026-10-12 — Step 2 — Seed rows use deterministic UUIDv7 ids — idempotent upserts without natural keys on every table.
+- 2026-10-12 — Step 2 — ER diagram in Mermaid (`docs/assets/erd.md`) instead of a generated SVG — no headless-browser toolchain needed; GitHub renders it.
+- 2026-10-12 — Step 2 — Inventory references from tiles, budget lines and inspiration items are real foreign keys.

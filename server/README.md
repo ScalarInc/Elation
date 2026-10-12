@@ -10,8 +10,12 @@ From the repo root:
 npm install                  # installs every workspace, generates the Prisma client
 npm run db:up                # Postgres 16 in Docker on localhost:55432
 cp server/.env.example server/.env
+npm run db:deploy -w server  # apply migrations
+npm run db:seed -w server    # demo data (idempotent)
 npm run dev                  # server on :4000 + webapp on :5173 (Vite proxies /api)
 ```
+
+Demo logins (password `elation-dev`): client `malaika.khan@example.com`, consultant `ayesha@elationbyfmh.com`, admin `admin@elationx.local`. Login itself arrives in Step 3.
 
 Check: <http://localhost:5173/api/v1/readyz> → `{"ok":true,"checks":{"database":"up"}}`.
 
@@ -28,6 +32,8 @@ The database runs on host port **55432** so it never collides with a locally ins
 | `db:migrate` | Create + apply a migration in development (`prisma migrate dev`) |
 | `db:deploy` | Apply pending migrations (CI / Railway pre-deploy) |
 | `db:generate` | Regenerate the Prisma client into `src/generated/prisma` (also runs on install) |
+| `db:seed` | Load demo data from `prisma/seed/fixtures.json` (idempotent) |
+| `db:reset` | Drop the dev database, re-run migrations and the seed |
 | `db:studio` | Prisma Studio |
 
 ## Layout
@@ -63,4 +69,7 @@ prisma.config.ts    Prisma 7 config: schema path, migrations path, DATABASE_URL
 
   Module-specific codes (`EVENT_NOT_FOUND`, `ACCESS_EXPIRED`, `VERSION_CONFLICT`, …) are documented in each step doc.
 - **Routes** live under `/api/v1`. `GET /api/v1/healthz` = process up; `GET /api/v1/readyz` = database reachable.
-- **Adding a migration:** edit `prisma/schema.prisma`, run `npm run db:migrate -w server -- --name <change>`, commit the generated folder under `prisma/migrations/`.
+- **Adding a migration:** edit `prisma/schema.prisma`, run `npm run db:migrate -w server -- --name <change>` in an interactive terminal (it can prompt), commit the generated folder under `prisma/migrations/`. Raw SQL that Prisma can't express (partial indexes, extensions) goes into the migration file via `--create-only` before applying.
+- **Soft delete:** `User`, `Event`, `File` reads hide rows with `deletedAt` set (Prisma extension in `plugins/db.ts`). Pass an explicit `deletedAt` filter to see them. Nested `include`s are not filtered.
+- **Enums:** the API uses display labels (`'Corporate Event'`), the DB uses keys (`CORPORATE_EVENT`); convert only through `src/lib/enums.ts`.
+- **Tests** run against `DATABASE_URL_TEST`; the global setup migrates it, and `src/test/db.ts` has `resetDb()` + fixtures helpers.

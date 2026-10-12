@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import img_04 from '@/assets/from-docx/img_04.jpg'
+import { img_04 } from '@/lib/media'
 import { api } from '@/lib/api'
 import type { ARSet } from '@/mocks/types'
 import { ARHero } from '@/components/ARHero'

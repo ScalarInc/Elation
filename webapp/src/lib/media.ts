@@ -1,0 +1,22 @@
+// Seed/demo imagery served from public/media (same URLs the server seed stores).
+// Plain URLs instead of bundled imports so mock fixtures are plain data the
+// server seed can load (docs/step-02-database.md).
+export const img_01 = '/media/img_01.jpg'
+export const img_02 = '/media/img_02.jpg'
+export const img_03 = '/media/img_03.jpg'
+export const img_04 = '/media/img_04.jpg'
+export const img_05 = '/media/img_05.png'
+export const img_06 = '/media/img_06.jpg'
+export const img_07 = '/media/img_07.jpg'
+export const img_08 = '/media/img_08.png'
+export const img_09 = '/media/img_09.png'
+export const img_10 = '/media/img_10.jpg'
+export const img_11 = '/media/img_11.jpg'
+export const img_12 = '/media/img_12.jpg'
+export const img_13 = '/media/img_13.jpg'
+export const img_14 = '/media/img_14.jpg'
+export const img_15 = '/media/img_15.png'
+export const img_16 = '/media/img_16.jpg'
+export const img_17 = '/media/img_17.png'
+export const img_18 = '/media/img_18.jpg'
+export const img_19 = '/media/img_19.jpg'

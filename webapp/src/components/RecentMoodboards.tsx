@@ -3,7 +3,7 @@ import { ArrowRight, Heart } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { moodboards, events } from '@/mocks/fixtures'
 
-import extra from '@/assets/from-docx/img_19.jpg'
+import { img_19 as extra } from '@/lib/media'
 const boards = [
   ...moodboards,
   {

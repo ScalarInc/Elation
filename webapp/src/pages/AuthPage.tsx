@@ -4,9 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { AuthSwitch } from '@/components/ui/auth-switch'
 import { cn } from '@/lib/utils'
-import slide1 from '@/assets/from-docx/img_13.jpg'
-import slide2 from '@/assets/from-docx/img_18.jpg'
-import slide3 from '@/assets/from-docx/img_19.jpg'
+import { img_13 as slide1, img_18 as slide2, img_19 as slide3 } from '@/lib/media'
 
 type Mode = 'signin' | 'signup'
 

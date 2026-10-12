@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toast'
 import { events, currentUser } from '@/mocks/fixtures'
-import img_11 from '@/assets/from-docx/img_11.jpg'
+import { img_11 } from '@/lib/media'
 import type { EventType } from '@/mocks/types'
 
 const EVENT_TYPES: EventType[] = [

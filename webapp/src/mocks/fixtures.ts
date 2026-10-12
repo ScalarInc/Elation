@@ -1,18 +1,4 @@
-import img_03 from '@/assets/from-docx/img_03.jpg'
-import img_04 from '@/assets/from-docx/img_04.jpg'
-import img_07 from '@/assets/from-docx/img_07.jpg'
-import img_08 from '@/assets/from-docx/img_08.png'
-import img_09 from '@/assets/from-docx/img_09.png'
-import img_10 from '@/assets/from-docx/img_10.jpg'
-import img_11 from '@/assets/from-docx/img_11.jpg'
-import img_12 from '@/assets/from-docx/img_12.jpg'
-import img_13 from '@/assets/from-docx/img_13.jpg'
-import img_14 from '@/assets/from-docx/img_14.jpg'
-import img_15 from '@/assets/from-docx/img_15.png'
-import img_16 from '@/assets/from-docx/img_16.jpg'
-import img_17 from '@/assets/from-docx/img_17.png'
-import img_18 from '@/assets/from-docx/img_18.jpg'
-import img_19 from '@/assets/from-docx/img_19.jpg'
+import { img_03, img_04, img_07, img_08, img_09, img_10, img_11, img_12, img_13, img_14, img_15, img_16, img_17, img_18, img_19 } from '../lib/media'
 import type {
   ActivityEntry,
   ARSet,

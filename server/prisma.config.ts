@@ -5,6 +5,7 @@ export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
     path: 'prisma/migrations',
+    seed: 'tsx prisma/seed/seed.ts',
   },
   datasource: {
     // `prisma generate` doesn't need a database, so don't fail when the URL is

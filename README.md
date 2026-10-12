@@ -14,7 +14,7 @@ The platform is **never public**: client accounts are created by the Elation tea
 | --- | --- |
 | Client-facing frontend (`webapp/`) | Built — every page runs on mock data |
 | Admin area (`/admin/*`) | Routes + layout only, pages are placeholders |
-| Backend | **In progress** on `feature/backend` — Step 1 (foundation) done; plan in [`docs/`](docs/README.md) |
+| Backend | **In progress** on `feature/backend` — Steps 1–2 (foundation, database) done; plan in [`docs/`](docs/README.md) |
 | AR sets (Meta Quest 3) | Separate track; web app shows status + assets |
 
 Today every page reads from `webapp/src/mocks/*` through `webapp/src/lib/api.ts` (a `setTimeout` wrapper), and questionnaire answers live in a Zustand store persisted to `localStorage`. Nothing survives a browser change, and events created in the UI are lost on refresh. The backend plan replaces this layer step by step.
@@ -82,6 +82,8 @@ Requires Node 24 (`.nvmrc`) and Docker.
 npm install                          # all workspaces (webapp, server, packages/shared)
 npm run db:up                        # Postgres 16 in Docker on localhost:55432
 cp server/.env.example server/.env
+npm run db:deploy -w server          # create tables
+npm run db:seed -w server            # demo data
 npm run dev                          # API on :4000 + webapp on :5173
 ```
 
