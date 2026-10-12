@@ -72,6 +72,8 @@ This folder is the plan for building the Elation X backend and wiring the existi
 
 ## How to use these docs
 
+- All work happens on the **`feature/backend`** branch, committed and pushed after every step; merged into `main` when done.
+
 - Each step ends with a **Definition of done** checklist. Tick it in the PR description that closes the step.
 - If implementation deviates from a doc, update the doc in the same PR and add a line to the deviation log in [00-decisions.md](00-decisions.md).
 - Open questions that need Elation (the client) are marked **❓ Needs Elation** — collect them for the next client call.

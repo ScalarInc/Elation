@@ -24,6 +24,7 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 
 ### D2. Hosting — Railway (or Render) + Neon (or Railway Postgres) + Cloudflare R2
 - Why: a long-lived Node process (needed for websockets) at low cost, managed Postgres with branching/backups, and R2 object storage with no egress fees for images and 3D assets.
+- Update (A4): everything runs on **Railway** — API service, static web service, Railway Postgres. R2 stays for files.
 
 ### D3. Moodboard curation — rules-based scoring in v1, LLM re-rank in v2
 - Why: v1 ships quickly, is explainable to consultants ("picked because: blush palette, romantic mood, stage area"), and costs nothing per generation. v2 adds a Claude-powered re-rank and concept narrative behind the same endpoint.
@@ -79,7 +80,7 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
   - **red**: total > target × 1.02 (over)
   - **green**: target × 0.85 ≤ total ≤ target × 1.02 (on budget)
   - **yellow**: total < target × 0.85 (under — room to add)
-- ❓ **Needs Elation**: confirm the 2% tolerance and 85% floor.
+- Confirmed by owner (A2); thresholds are an admin setting.
 - Vote: P ✅ (spec), F ✅ (one function), others ✅.
 
 ### P9. Realtime — `@fastify/websocket`, Postgres LISTEN/NOTIFY when we scale out
@@ -126,15 +127,30 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 
 ---
 
+## Owner answers (2026-10-12)
+
+| # | Question | Answer |
+| --- | --- | --- |
+| A1 | Default access period for client accounts | **90 days**, stored as setting `DEFAULT_CLIENT_ACCESS_DAYS` so it can be shortened later without code changes |
+| A2 | Traffic-light thresholds (P8) | **Option B** — green from 15 % under to 2 % over; yellow below that; red above. Stored in admin settings so Elation can tune |
+| A3 | Inventory data source | **Build on the 18 placeholder items now; transcribe the scanned sheets in `Inventory/` in parallel** and have Elation confirm prices/tags. Placeholder rows are flagged `notes = "placeholder"` and must be gone before launch ([step-06](step-06-inventory.md)) |
+| A4 | Domain | Not needed yet. Everything deploys on **Railway** using Railway-provided URLs ([step-14](step-14-deploy-ops.md)) |
+| A5 | Data retention for expired clients | **7 days** after access expiry, then anonymised/deleted. Stored as setting `EXPIRED_DATA_RETENTION_DAYS`. Known trade-off: a client who returns after a week to extend starts from scratch |
+
 ## Open questions for Elation (❓)
 
-1. Default access period for new client accounts (panel assumption: **90 days**, extendable).
-2. Traffic-light thresholds (P8).
-3. Who supplies the inventory spreadsheet, and with which columns (see [step-06](step-06-inventory.md)). The `Inventory/` folder only has scanned PDFs.
-4. Can a client have more than one consultant? (Assumption: one assigned consultant, admins see all.)
-5. Should a client be able to delete their account themselves, or only request deletion? (Assumption: request → admin confirms.)
-6. Is the public "Book consultation" form in scope for launch? (Assumption: yes, it feeds `/admin/inquiries`.)
+1. Can a client have more than one consultant? (Assumption: one assigned consultant, admins see all.)
+2. Should a client be able to delete their account themselves, or only request deletion? (Assumption: request → admin confirms.)
+3. Is the public "Book consultation" form in scope for launch? (Assumption: yes, it feeds `/admin/inquiries`.)
+4. Confirm prices/tags of the transcribed inventory (A3).
+
+## Working agreement
+
+- All backend work happens on the **`feature/backend`** branch; it is merged into `main` when the backend is done.
+- Commit and push to `feature/backend` at the end of every step in [README](README.md#steps).
 
 ## Deviation log
 
 `YYYY-MM-DD — step — decision — why`
+
+- 2026-10-12 — D2 — Hosting simplified to Railway for API, web and Postgres (Neon dropped); R2 kept for files — owner wants one platform.

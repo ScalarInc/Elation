@@ -12,10 +12,11 @@ Elation's real inventory in the database, tagged well enough for the moodboard e
 
 `Inventory/` contains four CamScanner PDFs — photos of handwritten/printed sheets, not structured data. The 18 items in `fixtures.ts` are placeholders.
 
-**Plan:**
-1. Agree an import template with Elation (below) — ❓ **Needs Elation**: who fills it, by when.
-2. Until it arrives, transcribe the scanned sheets into the template ourselves (one afternoon; flag unclear rows for Elation to confirm).
-3. Import via the admin CSV importer; re-imports upsert by `sku`.
+**Plan (decided — A3 in [00-decisions](00-decisions.md#owner-answers-2026-10-12)):**
+1. **Now:** build and test everything on the 18 placeholder items (seeded in Step 2 with `notes = "placeholder"`), enriched with area/mood/style tags so the moodboard engine has something meaningful to score.
+2. **In parallel:** transcribe the scanned sheets in `Inventory/` into the template below; mark uncertain cells; send the sheet to Elation to confirm prices and tags.
+3. Import the confirmed sheet via the admin CSV importer (re-imports upsert by `sku`), then archive the placeholders.
+4. **Launch gate:** zero active items with `notes = "placeholder"`.
 
 ### Import template (`docs/assets/inventory-template.csv`)
 

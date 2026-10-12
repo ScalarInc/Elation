@@ -81,6 +81,8 @@ WEB_ORIGIN=http://localhost:5173
 SESSION_COOKIE_DOMAIN=
 SESSION_TTL_DAYS=14
 DEFAULT_CLIENT_ACCESS_DAYS=90
+EXPIRED_DATA_RETENTION_DAYS=7
+SERVE_WEBAPP_DIST=           # path to webapp/dist in production (one-service deploy)
 
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
@@ -90,7 +92,7 @@ R2_PUBLIC_BUCKET=elation-public
 R2_PUBLIC_BASE_URL=
 
 RESEND_API_KEY=
-MAIL_FROM="Elation X <studio@elationx.com>"
+MAIL_FROM="Elation X <studio@example.com>"
 
 SENTRY_DSN=
 ANTHROPIC_API_KEY=          # v2 moodboard re-rank only

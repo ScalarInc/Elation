@@ -5,13 +5,13 @@
 ```
                          ┌──────────────────────────────────────────┐
   Browser (client,       │  webapp/  (Vite + React, static build)   │
-  consultant, admin) ───▶│  app.elationx.com                        │
+  consultant, admin) ───▶│  Railway service (static + API)          │
                          └───────────────┬──────────────────────────┘
                                          │ HTTPS  /api/v1/*  (cookie: elx_sid)
                                          │ WSS    /api/v1/ws
                          ┌───────────────▼──────────────────────────┐
                          │  server/  (Fastify, Node 22)             │
-                         │  api.elationx.com                        │
+                         │  same service, same origin               │
                          │                                          │
                          │  modules: auth · users · events ·        │
                          │  questionnaire · inventory · moodboards ·│
@@ -23,7 +23,7 @@
                                 │              │               │
                      ┌──────────▼───┐  ┌───────▼──────┐  ┌─────▼────────┐
                      │ PostgreSQL   │  │ Cloudflare R2│  │ Resend       │
-                     │ (Neon)       │  │ private +    │  │ (email)      │
+                     │ (Railway)    │  │ private +    │  │ (email)      │
                      │ data + queue │  │ public bucket│  └──────────────┘
                      └──────────────┘  └──────────────┘
                                                          ┌──────────────┐
@@ -33,7 +33,7 @@
                                                          └──────────────┘
 ```
 
-Web and API sit on sibling subdomains of one registrable domain, so the session cookie is **same-site** (`SameSite=Lax`) and no third-party-cookie issues arise. In local dev, Vite proxies `/api` to the server so everything is same-origin.
+In production one Railway service serves both the built webapp and `/api/v1`, so everything is **same-origin**: the `SameSite=Lax` session cookie just works and no CORS is needed (Railway's `*.up.railway.app` domains are on the Public Suffix List, so separate web/API services would be cross-site). In local dev, Vite proxies `/api` to the server for the same effect.
 
 ## Repository layout (after Step 1)
 
