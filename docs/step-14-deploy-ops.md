@@ -13,7 +13,7 @@
 Hosting ([D2](00-decisions.md#d2-hosting--railway-or-render--neon-or-railway-postgres--cloudflare-r2), owner answer A4 — all on Railway):
 
 - **One service serves web + API.** Railway's default domains (`*.up.railway.app`) are on the Public Suffix List, so a separate web service and API service would be *cross-site* and the `SameSite=Lax` session cookie would not be sent. Instead, the Fastify server serves the built `webapp/dist` with `@fastify/static` (SPA fallback to `index.html` for non-`/api` routes) and the API under `/api/v1` — same origin, no CORS, no cookie issues. If a custom domain is added later, the split can stay or be revisited.
-- **Image** — `Dockerfile` at the repo root (multi-stage, `node:22-slim`, non-root): builds `packages/shared`, `webapp`, `server`; copies `webapp/dist` into the runtime image. Health check `/api/v1/readyz`. Starts with 1 instance (512 MB–1 GB). Websockets supported natively.
+- **Image** — `Dockerfile` at the repo root (multi-stage, `node:24-slim`, non-root): builds `packages/shared`, `webapp`, `server`; copies `webapp/dist` into the runtime image. Health check `/api/v1/readyz`. Starts with 1 instance (512 MB–1 GB). Websockets supported natively.
 - **Database** — Railway Postgres 16 in the same project/region; app connects over the private network (`DATABASE_URL` reference variable). Migrations run as the service's pre-deploy command (`npx prisma migrate deploy`).
 - **Storage** — Cloudflare R2: private bucket + public bucket (R2 public dev URL until a custom domain exists).
 - **Email** — Resend; until a sending domain exists, use Resend's test sender in staging only.

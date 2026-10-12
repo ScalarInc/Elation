@@ -1,0 +1,12 @@
+// Elation X database schema.
+// Step 1 ships the plumbing only; the full model lands in Step 2
+// (see docs/step-02-database.md).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

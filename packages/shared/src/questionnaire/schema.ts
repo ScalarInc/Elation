@@ -1,4 +1,4 @@
-import type { Answers } from './store'
+import type { Answers } from './types'
 
 export type QuestionKind =
   | 'single'      // one-of, chip grid

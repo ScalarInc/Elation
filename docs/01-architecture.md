@@ -10,7 +10,7 @@
                                          │ HTTPS  /api/v1/*  (cookie: elx_sid)
                                          │ WSS    /api/v1/ws
                          ┌───────────────▼──────────────────────────┐
-                         │  server/  (Fastify, Node 22)             │
+                         │  server/  (Fastify, Node 24)             │
                          │  same service, same origin               │
                          │                                          │
                          │  modules: auth · users · events ·        │

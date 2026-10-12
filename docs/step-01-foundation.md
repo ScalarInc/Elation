@@ -28,11 +28,11 @@ Root `package.json`:
 ```
 
 - Move `webapp/package-lock.json` to a single root lockfile (`npm install` at root).
-- Add `.nvmrc` → `22`.
+- Add `.nvmrc` → `24` (current LTS).
 
 ### 1.2 `packages/shared` (`@elation/shared`)
 
-- TypeScript library, ESM, built with `tsup` (or consumed as source via TS project references — pick one and document it; source consumption is simpler for Vite).
+- TypeScript library, ESM, **consumed as source** (package `exports` point at `src/*.ts`). Vite compiles it for the webapp; tsx runs it in dev; tsup bundles it into the server build. No separate build step.
 - Only dependency: `zod`.
 - First contents (moved, not rewritten):
   - `domain/enums.ts` — `EventType`, `ModuleStatus`, `InventoryCategory`, `InventoryUnit`, `Role` from `webapp/src/mocks/types.ts`.
@@ -66,7 +66,7 @@ Files:
 - `src/plugins/errors.ts` — maps zod errors, Prisma `P2025` (not found) and `P2002` (unique), and a custom `AppError(code, status, message)` to the error shape in [01-architecture](01-architecture.md#api-conventions).
 - `GET /healthz` (process up) and `GET /readyz` (DB reachable).
 
-Scripts: `dev` (`tsx watch src/server.ts`), `build` (`tsc`), `start`, `typecheck`, `test`, `db:migrate`, `db:seed`, `db:studio`.
+Scripts: `dev` (`node --watch --import tsx src/server.ts`), `build` (tsup bundle), `start`, `typecheck`, `test`, `db:migrate`, `db:deploy`, `db:studio` (`db:seed` arrives in Step 2).
 
 ### 1.4 Environment
 
@@ -75,8 +75,8 @@ Scripts: `dev` (`tsx watch src/server.ts`), `build` (`tsc`), `start`, `typecheck
 ```dotenv
 NODE_ENV=development
 PORT=4000
-DATABASE_URL=postgresql://elation:elation@localhost:5432/elation
-DATABASE_URL_TEST=postgresql://elation:elation@localhost:5432/elation_test
+DATABASE_URL=postgresql://elation:elation@localhost:55432/elation
+DATABASE_URL_TEST=postgresql://elation:elation@localhost:55432/elation_test
 WEB_ORIGIN=http://localhost:5173
 SESSION_COOKIE_DOMAIN=
 SESSION_TTL_DAYS=14
@@ -110,7 +110,7 @@ services:
       POSTGRES_USER: elation
       POSTGRES_PASSWORD: elation
       POSTGRES_DB: elation
-    ports: ["5432:5432"]
+    ports: ["55432:5432"]   # unusual host port avoids locally installed Postgres
     volumes: [pgdata:/var/lib/postgresql/data]
 volumes:
   pgdata:

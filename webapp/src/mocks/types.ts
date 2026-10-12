@@ -1,23 +1,9 @@
+import type { EventType, ModuleStatus } from '@elation/shared/domain'
+
+// Domain enums now live in @elation/shared; re-exported so existing imports keep working.
+export type { EventType, ModuleStatus }
+
 export type UUID = string
-
-export type EventType =
-  | 'Mehndi'
-  | 'Mayoun'
-  | 'Baraat'
-  | 'Walima'
-  | 'Nikkah'
-  | 'Engagement'
-  | 'Birthday'
-  | 'Corporate Event'
-  | 'Milad'
-  | 'Qawwali'
-  | 'Dinner'
-  | 'Bridal Shower'
-  | 'Baby Shower'
-  | 'Anniversary'
-  | 'Other'
-
-export type ModuleStatus = 'complete' | 'in_progress' | 'pending'
 
 export type ClientUser = {
   id: UUID

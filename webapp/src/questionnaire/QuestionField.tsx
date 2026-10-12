@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { useQuestionnaire } from './store'
-import type { Question } from './schema'
+import type { Question } from '@elation/shared/questionnaire'
 
 type Props = { eventId: string; question: Question }
 

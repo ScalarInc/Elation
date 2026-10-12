@@ -154,3 +154,9 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 `YYYY-MM-DD — step — decision — why`
 
 - 2026-10-12 — D2 — Hosting simplified to Railway for API, web and Postgres (Neon dropped); R2 kept for files — owner wants one platform.
+- 2026-10-12 — Step 1 — Node **24** LTS instead of 22 — current LTS, already installed on dev machines.
+- 2026-10-12 — Step 1 — **Prisma 7**: connection URL lives in `server/prisma.config.ts`, generator is `prisma-client` (output `src/generated/prisma`, git-ignored), client uses the `@prisma/adapter-pg` driver adapter.
+- 2026-10-12 — Step 1 — Local Docker Postgres on host port **55432** — dev machines already run native Postgres on 5432/5433.
+- 2026-10-12 — Step 1 — Server dev uses `node --watch --import tsx` — `tsx watch` hangs when `concurrently` gives it a piped stdin.
+- 2026-10-12 — Step 1 — `@fastify/cors` and `@fastify/sensible` not installed — same-origin deploy needs no CORS; errors use our own `AppError`.
+- 2026-10-12 — Step 1 — `npm audit` reports high-severity issues in `mysql2` / `deepmerge-ts`, pulled in by the Prisma 7 CLI's tooling (unused for Postgres, not in the request path). Not gated in CI until Prisma ships a fix; re-check on Prisma upgrades.

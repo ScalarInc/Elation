@@ -10,4 +10,10 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  server: {
+    // Same-origin API in dev, mirroring the single-service production deploy.
+    proxy: {
+      '/api': { target: 'http://localhost:4000', ws: true },
+    },
+  },
 })

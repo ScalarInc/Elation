@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { useResolvedEvent } from '@/questionnaire/derived'
-import { categories, questions, visibleQuestions } from '@/questionnaire/schema'
+import { categories, questions, visibleQuestions } from '@elation/shared/questionnaire'
 import {
   computeCategoryProgress,
   computeOverallPercent,
