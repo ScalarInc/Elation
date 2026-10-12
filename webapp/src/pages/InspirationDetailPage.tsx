@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
 import { api } from '@/lib/api'
-import { useResolvedEvents } from '@/questionnaire/derived'
+import { useEventsView } from '@/data/events'
 import type { Inspiration, InventoryItem } from '@/mocks/types'
 
 function splitStyles(style: string): string[] {
@@ -29,7 +29,7 @@ function splitStyles(style: string): string[] {
 export function InspirationDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
-  const { events } = useResolvedEvents()
+  const { events } = useEventsView()
 
   const [inspiration, setInspiration] = useState<Inspiration | null | undefined>(
     undefined,

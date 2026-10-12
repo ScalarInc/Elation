@@ -40,7 +40,7 @@ import type {
   BudgetSnapshot,
   InventoryItem,
 } from '@/mocks/types'
-import { useResolvedEvent } from '@/questionnaire/derived'
+import { useEventView } from '@/data/events'
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -590,7 +590,7 @@ function LineRow({
 
 export function BudgetPage() {
   const { id } = useParams<{ id: string }>()
-  const { event, isPending: eventPending } = useResolvedEvent(id)
+  const { event, isPending: eventPending } = useEventView(id)
 
   const [loading, setLoading] = useState(true)
   const [snapshot, setSnapshot] = useState<BudgetSnapshot | undefined>(undefined)

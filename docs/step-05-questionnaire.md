@@ -77,8 +77,31 @@ Two tabs (or client + consultant) editing at once: `PATCH` with a stale `version
 
 ## Definition of done
 
-- [ ] All 134 questions from the docx exist in `packages/shared` with correct options and branching (checked against the docx's "Implementation Notes for IT Team").
-- [ ] Answers persist across devices/browsers for the same client.
-- [ ] Consultant opening the same event sees the client's latest answers and the revision history.
-- [ ] Progress % is identical on the questionnaire page, dashboard, event card and admin.
-- [ ] Submitting the questionnaire produces the first moodboard concepts (once Step 7 lands).
+- [x] All 134 questions from the docx exist in `packages/shared` with correct options and branching (checked against the docx's "Implementation Notes for IT Team"; tested gate by gate).
+- [x] Answers persist across devices/browsers for the same client (server is the source of truth; no localStorage).
+- [x] Consultant opening the same event sees the client's latest answers and the revision history (`/revisions`, staff only).
+- [x] Progress % is computed by the same shared function on the server (`questionnairePercent`) and in the browser.
+- [ ] Submitting the questionnaire produces the first moodboard concepts — hooked up in Step 7.
+
+## As built (2026-10-13)
+
+Review: [reviews/step-05-review.md](reviews/step-05-review.md).
+
+| Area | Where |
+| --- | --- |
+| 134 questions, branching, kinds | `packages/shared/src/questionnaire/schema.ts` (ids = docx numbers, decision P19) |
+| Validation, `visibleAnswers`, `missingRequired` | `packages/shared/src/questionnaire/validate.ts` |
+| Contracts | `packages/shared/src/api/questionnaire.ts` |
+| API | `server/src/modules/questionnaire/*` |
+| v1 → v2 id rename for existing data | migration `20261013090000_questionnaire_v2_ids` |
+| Write-behind store + sync hook | `webapp/src/questionnaire/store.ts`, `webapp/src/data/questionnaire.ts` (decision P20) |
+
+Notes:
+
+- `PATCH` body: `{ version, set?, decides?, clear? }`. A no-op save doesn't bump the version.
+- Write-through answers → event: q1–q6 and q121. A budget band only replaces the budget when there is none, or when the current figure is the previous band's midpoint.
+- A DRAFT event becomes ACTIVE at 25 % or on submit.
+- Activity: at most one "Questionnaire updated" entry per event per 30 minutes (categories touched are merged); one "Questionnaire submitted" on submit.
+- Upload questions store file *names* until Step 11 replaces them with file ids.
+- `brief.pdf` is not built (Phase 2); the structured brief is available at `/brief` and gets a screen in Step 12.
+- The Step 4 interim overlay is gone: events come straight from the API, and the questionnaire writes through on the server.

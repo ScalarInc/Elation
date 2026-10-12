@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { CalendarDays, RefreshCw, Sparkles } from 'lucide-react'
 import { EventCard } from '@/components/EventCard'
 import { NewEventDialog } from '@/components/NewEventDialog'
-import { useResolvedEvents } from '@/questionnaire/derived'
+import { useEventsView } from '@/data/events'
 import { useArchivedEvents } from '@/data/events'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
@@ -51,7 +51,7 @@ function sortEvents(list: ClientEvent[], s: Sort) {
 export function MyEventsPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [sort, setSort] = useState<Sort>('date_asc')
-  const { events: allEvents, isPending, isError, refetch } = useResolvedEvents()
+  const { events: allEvents, isPending, isError, refetch } = useEventsView()
   const archived = useArchivedEvents(filter === 'archived')
 
   const filtered = useMemo(() => {

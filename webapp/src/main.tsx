@@ -8,7 +8,8 @@ import { hydrateMocks } from './mocks/hydrate'
 import { queryClient } from './lib/api/query-client'
 
 initTheme()
-hydrateMocks()
+// Demo questionnaire answers only when running without the server.
+if (import.meta.env.VITE_API_MODE === 'mock') hydrateMocks()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

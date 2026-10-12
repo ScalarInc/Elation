@@ -14,6 +14,7 @@ import { expireLapsedClients } from './modules/auth/sweep'
 import { eventRoutes } from './modules/events/routes'
 import { healthRoutes } from './modules/health/routes'
 import { meRoutes } from './modules/me/routes'
+import { questionnaireRoutes } from './modules/questionnaire/routes'
 import authPlugin from './plugins/auth'
 import dbPlugin from './plugins/db'
 import errorsPlugin, { errorBody } from './plugins/errors'
@@ -80,6 +81,7 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
       await api.register(authRoutes)
       await api.register(meRoutes)
       await api.register(eventRoutes)
+      await api.register(questionnaireRoutes)
       await api.register(adminRoutes)
     },
     { prefix: API_PREFIX },

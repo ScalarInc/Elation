@@ -33,7 +33,7 @@ import {
   inventoryUnitToDb,
   venueSettingToDb,
 } from '../../src/lib/enums'
-import { seedId } from '../../src/lib/ids'
+import { SEED_EPOCH, seedId } from '../../src/lib/ids'
 import { createPrisma, type Db } from '../../src/plugins/db'
 
 // ───────────── fixture shapes (as exported from webapp/src/mocks) ─────────────
@@ -50,6 +50,7 @@ type Fixtures = {
     id: string; name: string; type: EventType; concept?: string; date: string
     venue: { name: string; city: string; indoor: VenueSetting }
     guests: number; budgetPKR: number; coverImage: string; status: 'draft' | 'active' | 'past'
+    progress: { questionnaire: 'complete' | 'in_progress' | 'pending' }
   }[]
   moodboards: {
     id: string; eventId: string; title: string; cover: string; tiles: string[]
@@ -195,6 +196,8 @@ export async function seed(db: Db) {
         answers: q.answers as Prisma.InputJsonValue,
         elationDecides: decides,
         percentComplete,
+        // The demo story has these clients finished with the questionnaire.
+        submittedAt: e.progress.questionnaire === 'complete' ? new Date(SEED_EPOCH) : null,
       }
       await db.questionnaireResponse.upsert({
         where: { eventId },

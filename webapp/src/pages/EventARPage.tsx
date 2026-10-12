@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Sparkles } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { ARSet, EventType } from '@/mocks/types'
-import { useResolvedEvent } from '@/questionnaire/derived'
+import { useEventView } from '@/data/events'
 import { ARSetCard, ARStatusPill } from '@/components/ARSetCard'
 import { ARAssetList } from '@/components/ARAssetList'
 import { ARHero } from '@/components/ARHero'
@@ -52,7 +52,7 @@ function PageSkeleton() {
 
 export function EventARPage() {
   const { id } = useParams<{ id: string }>()
-  const { event, isPending } = useResolvedEvent(id)
+  const { event, isPending } = useEventView(id)
   const [set, setSet] = useState<ARSet | null | undefined>(undefined)
   const [siblings, setSiblings] = useState<ARSet[]>([])
 

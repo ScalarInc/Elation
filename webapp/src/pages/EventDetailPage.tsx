@@ -18,7 +18,8 @@ import {
 } from 'lucide-react'
 import { moodboards, budgets, messages } from '@/mocks/fixtures'
 import { MoodboardViewer } from '@/components/MoodboardViewer'
-import { useResolvedEvent } from '@/questionnaire/derived'
+import { useEventView } from '@/data/events'
+import { useQuestionnaireSync } from '@/data/questionnaire'
 import {
   computeCategoryProgress,
   computeOverallPercent,
@@ -480,7 +481,8 @@ export function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
-  const { event, isPending } = useResolvedEvent(id)
+  const { event, isPending } = useEventView(id)
+  useQuestionnaireSync(event ? id : undefined)
 
   if (isPending) return <PageSkeleton />
   if (!event) return <EventNotFound />

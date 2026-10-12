@@ -11,13 +11,18 @@ import {
   Sparkles,
   X,
 } from 'lucide-react'
-import { useResolvedEvent } from '@/questionnaire/derived'
+import { useEventView } from '@/data/events'
+import { useQuestionnaireSync, useSubmitQuestionnaire } from '@/data/questionnaire'
+import { isApiError } from '@/lib/api/client'
+import { questionById } from '@elation/shared/questionnaire'
 import { categories, questions, visibleQuestions } from '@elation/shared/questionnaire'
 import {
   computeCategoryProgress,
   computeOverallPercent,
+  isAnswered,
   EMPTY_ANSWERS,
   EMPTY_DECIDES,
+  type SyncStatus,
   useQuestionnaire,
 } from '@/questionnaire/store'
 import { CategoryRail } from '@/questionnaire/CategoryRail'
@@ -27,17 +32,34 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { toast } from '@/components/ui/toast'
 import { useCurrentUser } from '@/data/auth'
+import { cn } from '@/lib/utils'
 
 // ----------------- helpers -----------------
 
-function SavedIndicator({ ts }: { ts?: number }) {
+function SavedIndicator({ status }: { status?: SyncStatus }) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 5000)
     return () => clearInterval(t)
   }, [])
-  if (!ts) return null
-  const s = Math.max(0, Math.round((now - ts) / 1000))
+  if (!status || status.state === 'idle') return null
+  if (status.state === 'saving') {
+    return (
+      <span className="text-muted flex items-center gap-1.5 text-xs">
+        <span className="bg-accent h-1.5 w-1.5 animate-pulse rounded-full" />
+        Saving…
+      </span>
+    )
+  }
+  if (status.state === 'error') {
+    return (
+      <span className="text-danger flex items-center gap-1.5 text-xs" title={status.message}>
+        <span className="bg-danger h-1.5 w-1.5 rounded-full" />
+        Not saved — retrying
+      </span>
+    )
+  }
+  const s = Math.max(0, Math.round((now - (status.savedAt ?? now)) / 1000))
   const label =
     s < 5 ? 'Saved just now' : s < 60 ? `Saved ${s}s ago` : `Saved ${Math.round(s / 60)}m ago`
   return (
@@ -99,12 +121,17 @@ export function QuestionnairePage() {
   const me = useCurrentUser()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const { event, isPending: eventPending } = useResolvedEvent(id)
+  const { event, isPending: eventPending } = useEventView(id)
   const [railOpen, setRailOpen] = useState(false)
 
   const answers = useQuestionnaire((s) => s.byEvent[id ?? '']?.answers ?? EMPTY_ANSWERS)
   const decides = useQuestionnaire((s) => s.byEvent[id ?? '']?.elationDecides ?? EMPTY_DECIDES)
-  const lastSavedAt = useQuestionnaire((s) => s.lastSavedAt[id ?? ''])
+  const syncStatus = useQuestionnaire((s) => s.sync[id ?? ''])
+  const flush = useQuestionnaire((s) => s.flush)
+  const submittedAt = useQuestionnaire((s) => s.byEvent[id ?? '']?.submittedAt ?? null)
+  const sync = useQuestionnaireSync(event ? id : undefined)
+  const submit = useSubmitQuestionnaire(id ?? '')
+  const [missing, setMissing] = useState<string[]>([])
 
   const progress = useMemo(
     () => computeCategoryProgress(answers, decides),
@@ -122,14 +149,32 @@ export function QuestionnairePage() {
     [answers, activeCategory],
   )
 
-  // Toast on save events — throttle so rapid typing doesn't spam
-  const [lastToastAt, setLastToastAt] = useState(0)
-  useEffect(() => {
-    if (!lastSavedAt) return
-    if (lastSavedAt - lastToastAt < 4000) return
-    setLastToastAt(lastSavedAt)
-    toast.success('Progress saved', { duration: 1400 })
-  }, [lastSavedAt, lastToastAt])
+  /** Save what's pending, then leave. */
+  async function leave(to: string) {
+    if (id) await flush(id)
+    navigate(to)
+  }
+
+  async function finish() {
+    if (!id) return
+    try {
+      await submit.mutateAsync()
+      setMissing([])
+      toast.success('Questionnaire submitted', { description: 'Elation is curating your concept.' })
+      navigate(`/events/${id}?tab=moodboard`)
+    } catch (err) {
+      if (isApiError(err, 'QUESTIONNAIRE_INCOMPLETE')) {
+        const ids = ((err.details as { missing?: string[] })?.missing ?? []).filter((q) => questionById.has(q))
+        setMissing(ids)
+        const first = ids[0] && questionById.get(ids[0])
+        const slug = first && categories.find((c) => c.title === first.category)?.slug
+        if (slug) setActive(slug)
+        toast('A few required answers are missing', { description: `${ids.length} left — they’re highlighted below.` })
+      } else {
+        toast.error('Could not submit', { description: (err as Error).message })
+      }
+    }
+  }
 
   const idx = categories.findIndex((c) => c.slug === activeSlug)
   const prev = idx > 0 ? categories[idx - 1] : null
@@ -162,7 +207,7 @@ export function QuestionnairePage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [next, prev]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (eventPending) {
+  if (eventPending || (event && sync.isPending)) {
     return <div className="bg-bg min-h-screen" aria-busy="true" />
   }
 
@@ -193,7 +238,7 @@ export function QuestionnairePage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate(`/events/${event.id}`)}
+            onClick={() => void leave(`/events/${event.id}`)}
             aria-label="Close and save"
             className="border-border/15 bg-surface hover:border-accent/40 hover:bg-accent/5 flex h-9 w-9 items-center justify-center rounded-xl border transition"
           >
@@ -210,7 +255,7 @@ export function QuestionnairePage() {
         </div>
 
         <div className="flex items-center gap-3 md:gap-5">
-          <SavedIndicator ts={lastSavedAt} />
+          <SavedIndicator status={syncStatus} />
           <div className="hidden items-center gap-3 md:flex">
             <div className="text-right">
               <p className="text-muted/70 text-[9px] font-bold uppercase tracking-widest">
@@ -354,9 +399,22 @@ export function QuestionnairePage() {
                     </p>
                   </div>
                 ) : (
-                  catQuestions.map((q) => (
-                    <QuestionField key={q.id} eventId={event.id} question={q} />
-                  ))
+                  catQuestions.map((q) => {
+                    const needsAnswer = missing.includes(q.id) && !isAnswered(answers[q.id]) && !decides[q.id]
+                    return (
+                      <div
+                        key={q.id}
+                        className={cn(needsAnswer && 'ring-danger/50 rounded-3xl ring-2 ring-offset-4 ring-offset-bg')}
+                      >
+                        <QuestionField eventId={event.id} question={q} />
+                        {needsAnswer && (
+                          <p className="text-danger mt-2 px-1 text-xs">
+                            {q.elationDecides ? 'Required — answer this or let Elation decide.' : 'Required — please answer this one.'}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })
                 )}
               </motion.div>
             </AnimatePresence>
@@ -375,8 +433,8 @@ export function QuestionnairePage() {
               </Button>
 
               {isLastCategory ? (
-                <Button onClick={() => navigate(`/events/${event.id}`)} className="min-w-[8rem]">
-                  {allDone ? 'Finish & review' : 'Save & review'}
+                <Button onClick={() => void finish()} disabled={submit.isPending} className="min-w-[8rem]">
+                  {submit.isPending ? 'Submitting…' : submittedAt ? 'Save & view concept' : 'Submit to Elation'}
                   <Check className="h-4 w-4" />
                 </Button>
               ) : (
@@ -417,11 +475,11 @@ export function QuestionnairePage() {
                   </div>
                 </div>
                 <Button
-                  onClick={() => navigate(`/events/${event.id}?tab=moodboard`)}
+                  onClick={() => void finish()}
                   variant="primary"
                   size="sm"
                 >
-                  See moodboard
+                  {submittedAt ? 'See moodboard' : 'Submit to Elation'}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
               </motion.div>

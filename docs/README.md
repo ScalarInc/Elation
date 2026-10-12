@@ -70,6 +70,10 @@ This folder is the plan for building the Elation X backend and wiring the existi
 | 5 | Step 12 | Admin pages |
 | 6 | Step 14, hardening | QA, dark-mode/empty-state pass |
 
+## Reviews
+
+Each step is validated by the five-persona technical panel before it is pushed: [reviews/](reviews/).
+
 ## How to use these docs
 
 - All work happens on the **`feature/backend`** branch, committed and pushed after every step; merged into `main` when done.

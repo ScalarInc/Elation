@@ -14,7 +14,7 @@ The platform is **never public**: client accounts are created by the Elation tea
 | --- | --- |
 | Client-facing frontend (`webapp/`) | Built — every page runs on mock data |
 | Admin area (`/admin/*`) | Routes + layout only, pages are placeholders |
-| Backend | **In progress** on `feature/backend` — Steps 1–4 (foundation, database, auth, events) done; plan in [`docs/`](docs/README.md) |
+| Backend | **In progress** on `feature/backend` — Steps 1–5 (foundation, database, auth, events, questionnaire) done; plan in [`docs/`](docs/README.md) |
 | AR sets (Meta Quest 3) | Separate track; web app shows status + assets |
 
 Today every page reads from `webapp/src/mocks/*` through `webapp/src/lib/api.ts` (a `setTimeout` wrapper), and questionnaire answers live in a Zustand store persisted to `localStorage`. Nothing survives a browser change, and events created in the UI are lost on refresh. The backend plan replaces this layer step by step.
@@ -87,7 +87,7 @@ npm run db:seed -w server            # demo data
 npm run dev                          # API on :4000 + webapp on :5173
 ```
 
-Open <http://localhost:5173/> and sign in with a demo account (password `elation-dev`): client `malaika.khan@example.com`, consultant `ayesha@elationbyfmh.com`, admin `admin@elationx.local`. Sign-in, invitations, password reset, profile, settings and events (My Events, dashboard, create/duplicate/archive) run against the real API; the questionnaire, moodboards, budget and messages still read mock data until their backend step lands. Server details: [`server/README.md`](server/README.md).
+Open <http://localhost:5173/> and sign in with a demo account (password `elation-dev`): client `malaika.khan@example.com`, consultant `ayesha@elationbyfmh.com`, admin `admin@elationx.local`. Sign-in, invitations, password reset, profile, settings, events and the 134-question questionnaire run against the real API; moodboards, budget and messages still read mock data until their backend step lands. Server details: [`server/README.md`](server/README.md).
 
 Without `RESEND_API_KEY`, invitation and password-reset emails are printed to the server log, links included. To work on the frontend without the server, set `VITE_API_MODE=mock` (see `webapp/.env.example`).
 

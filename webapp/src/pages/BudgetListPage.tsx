@@ -20,7 +20,7 @@ import type {
   BudgetSnapshot,
   InventoryItem,
 } from '@/mocks/types'
-import { useResolvedEvents } from '@/questionnaire/derived'
+import { useEventsView } from '@/data/events'
 
 type Tone = 'green' | 'yellow-over' | 'yellow-under' | 'red'
 
@@ -74,7 +74,7 @@ function includedTotal(
 }
 
 export function BudgetListPage() {
-  const { events, isPending: eventsPending } = useResolvedEvents()
+  const { events, isPending: eventsPending } = useEventsView()
   const eventIds = events.map((e) => e.id).join(',')
   const [loading, setLoading] = useState(true)
   const [snapshots, setSnapshots] = useState<BudgetSnapshot[]>([])

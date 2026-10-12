@@ -18,7 +18,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toast'
 import { useCreateEvent } from '@/data/events'
-import { useQuestionnaire } from '@/questionnaire/store'
 
 const schema = z.object({
   type: z.enum(EVENT_TYPES),
@@ -45,7 +44,6 @@ export function NewEventDialog() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const create = useCreateEvent()
-  const seedQuestionnaire = useQuestionnaire((s) => s.seedEventIfEmpty)
   const {
     register,
     handleSubmit,
@@ -67,16 +65,6 @@ export function NewEventDialog() {
         city: values.city,
         venueSetting: values.venueSetting,
         budgetPkr: values.budget === '' ? null : Number(values.budget.replace(/,/g, '')),
-      })
-      // The server already answered the questionnaire basics; mirror them in the
-      // local questionnaire store until Step 5 moves the questionnaire to the API.
-      seedQuestionnaire(event.id, {
-        q1_type: event.type,
-        q2_name: event.concept,
-        q3_date: event.date,
-        q4_guests: event.guests,
-        q5_venue: event.venue.name,
-        q6_indoor: event.venue.indoor,
       })
       toast.success(`${event.concept ?? event.name} created`, {
         description: 'Start with the questionnaire to shape your concept.',

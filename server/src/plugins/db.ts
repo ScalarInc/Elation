@@ -20,8 +20,9 @@ const READ_OPERATIONS = new Set([
 
 /**
  * Prisma client with soft-delete filtering. Reads on User/Event/File add
- * `deletedAt: null` automatically. To see deleted rows (admin restore, audits)
- * pass an explicit `deletedAt` condition, e.g. `where: { deletedAt: { not: null } }`.
+ * `deletedAt: null` automatically unless the query sets `deletedAt` at the TOP
+ * level of `where`: `deletedAt: {}` = include deleted rows, `deletedAt: { not: null }`
+ * = only deleted rows. (A condition nested inside AND/OR does not opt out.)
  * Relation includes are not filtered — services filter nested lists themselves.
  */
 export function createPrisma(databaseUrl: string) {

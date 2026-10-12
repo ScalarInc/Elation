@@ -958,7 +958,7 @@
           "Warm & Intimate"
         ],
         "q12_theme": "A garden of cherry blossoms after dusk — warm candles under a canopy of pastel florals.",
-        "q13_colours": {
+        "q16_colours": {
           "desc": "Blush and sage with warm ivory. Soft peach highlights, rose-gold detail.",
           "hex": [
             "#E3BFB9",
@@ -966,10 +966,10 @@
             "#E1CBAD"
           ]
         },
-        "q14_direction": "Pastel",
-        "q15_metallic": "Rose Gold",
-        "q16_entrance": "Yes",
-        "q17_entrance_style": [
+        "q20_direction": "Pastel",
+        "q21_metallic": "Rose Gold",
+        "q22_entrance": "Yes",
+        "q23_entrance_style": [
           "Floral Arch",
           "Candlelit"
         ],
@@ -1087,7 +1087,7 @@
           "Dramatic",
           "Sophisticated"
         ],
-        "q13_colours": {
+        "q16_colours": {
           "desc": "Deep gold, ivory, and near-black with candlelight warmth.",
           "hex": [
             "#CFAE96",
@@ -1095,10 +1095,10 @@
             "#3B3A3F"
           ]
         },
-        "q14_direction": "Warm",
-        "q15_metallic": "Gold",
-        "q16_entrance": "Yes",
-        "q17_entrance_style": [
+        "q20_direction": "Warm",
+        "q21_metallic": "Gold",
+        "q22_entrance": "Yes",
+        "q23_entrance_style": [
           "Grand Installation",
           "Candlelit"
         ],
@@ -1138,7 +1138,7 @@
           "Warm & Intimate"
         ],
         "q12_theme": "A soft-lit blush evening with cherry blossoms and champagne detail.",
-        "q13_colours": {
+        "q16_colours": {
           "desc": "Blush, ivory, sage",
           "hex": [
             "#E3BFB9",
@@ -1146,10 +1146,10 @@
             "#9AB1AE"
           ]
         },
-        "q14_direction": "Pastel",
-        "q15_metallic": "Champagne",
-        "q16_entrance": "Yes",
-        "q17_entrance_style": [
+        "q20_direction": "Pastel",
+        "q21_metallic": "Champagne",
+        "q22_entrance": "Yes",
+        "q23_entrance_style": [
           "Floral Arch"
         ],
         "q29_stage": "Yes",

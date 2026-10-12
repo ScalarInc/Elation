@@ -177,3 +177,7 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-12 — Step 4 — Webapp mock fixtures re-keyed to the seed's deterministic event UUIDs so not-yet-migrated pages line up with API events.
 - 2026-10-12 — Step 4 — Interim client-side questionnaire overlay kept on top of API events until Step 5's server write-through.
 - 2026-10-12 — Step 4 — "Past" status computed in Asia/Karachi time.
+- 2026-10-13 — Step 5 — P19: question ids follow the docx numbering; five v1 ids renamed with a data migration.
+- 2026-10-13 — Step 5 — P20: questionnaire store is a server-synced write-behind buffer (debounced PATCH, version check, local-wins merge on conflict).
+- 2026-10-13 — Step 5 — P21: hidden (branched-away) answers are kept in storage and excluded everywhere via `visibleAnswers()`.
+- 2026-10-13 — Step 5 — Vitest added to the webapp for pure client logic.

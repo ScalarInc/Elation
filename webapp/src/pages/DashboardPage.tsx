@@ -8,7 +8,7 @@ import { QuickActions } from '@/components/QuickActions'
 import { ActivityFeed } from '@/components/ActivityFeed'
 import { useCurrentUser } from '@/data/auth'
 import { pickPrimaryEvent } from '@/data/events'
-import { useResolvedEvents } from '@/questionnaire/derived'
+import { useEventsView } from '@/data/events'
 import { NewEventDialog } from '@/components/NewEventDialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -30,7 +30,7 @@ function subtitle(event: ClientEvent | undefined) {
 
 export function DashboardPage() {
   const firstName = useCurrentUser().name.split(' ')[0]
-  const { events, isPending } = useResolvedEvents()
+  const { events, isPending } = useEventsView()
   const event = pickPrimaryEvent(events)
 
   return (
