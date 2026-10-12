@@ -1,0 +1,4 @@
+sku,name,category,colour,colour_hex,material,price_pkr,unit,stock_qty,areas,moods,styles,event_types,image_filename,notes
+SOF-IVO-001,Ivory Curve Sofa,Sofa,Ivory,#F4EFE6,Velvet,45000,each,6,stage; lounge,romantic; regal,modern luxury,,sofa-ivory.jpg,
+CHR-GLD-001,Chiavari Gold,Chair,Gold,#C9A86A,,950,each,600,dining,regal; romantic,traditional; modern luxury,,chair-chiavari-gold.jpg,
+FLR-BLS-001,Cherry Blossom Canopy,Floral,Blush,#E3BFB9,Artificial,65000,linear ft,,ceiling; entrance,romantic; whimsical,garden,Mehndi; Mayoun,canopy-blossom.jpg,
