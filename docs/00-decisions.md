@@ -184,3 +184,10 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-13 — Step 6 — P22: the scanned "inventory sheets" are item photos with quantities and no prices; real items imported as curatable but unpriced (`pricePkr` nullable).
 - 2026-10-13 — Step 6 — P23: draft SKUs `S<set>-P<page>` trace each row to its photo.
 - 2026-10-13 — Step 6 — Inventory images under `webapp/public/media/inventory/` until R2 (Step 11).
+- 2026-10-13 — Step 7 — P24: moodboard pins carried into a new generation by area, not by grid position; re-checked against the hard filters.
+- 2026-10-13 — Step 7 — P25: removing the lead concept promotes the newest saved concept.
+- 2026-10-13 — Step 7 — P26: Q132 "2–3 concepts" and "recommended + alternatives" both produce 3 concepts; unanswered produces 3.
+- 2026-10-13 — Step 7 — P27: "no ceiling décor" excludes items whose first area tag is ceiling, and chandeliers.
+- 2026-10-13 — Step 7 — Tile scores are staff-only (they fold in stock levels).
+- 2026-10-13 — Step 7 — A new generation archives the event's earlier unsaved drafts .
+- 2026-10-13 — Step 7 — `POST /moodboards/:id/tiles` (client reference images) moves to Step 11 (needs file storage); "Add to budget"/`apply-to-budget` land in Step 8.

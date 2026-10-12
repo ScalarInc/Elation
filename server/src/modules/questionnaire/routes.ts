@@ -2,6 +2,7 @@ import { briefSchema, patchQuestionnaireBody, questionnaireSchema, revisionSchem
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { currentUser } from '../../plugins/auth'
+import { generateFirstConcepts } from '../moodboards/service'
 import * as questionnaire from './service'
 
 const params = z.object({ id: z.string() })
@@ -26,7 +27,15 @@ export const questionnaireRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/events/:id/questionnaire/submit',
     { schema: { params, response: { 200: questionnaireSchema } } },
-    async (request) => questionnaire.submitQuestionnaire(app.prisma, currentUser(request), request.params.id),
+    async (request) => {
+      const actor = currentUser(request)
+      const submitted = await questionnaire.submitQuestionnaire(app.prisma, actor, request.params.id)
+      // First concepts from the answers (decision P14) — the submit has committed; a curation failure is only logged.
+      await generateFirstConcepts(app.prisma, actor, request.params.id).catch((err: unknown) =>
+        request.log.warn({ err }, 'first moodboard concepts failed'),
+      )
+      return submitted
+    },
   )
 
   app.post(

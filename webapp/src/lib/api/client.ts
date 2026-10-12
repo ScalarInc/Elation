@@ -30,16 +30,17 @@ type Options = {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
   body?: unknown
   signal?: AbortSignal
+  headers?: Record<string, string>
 }
 
-export async function apiFetch<T>(path: string, { method = 'GET', body, signal }: Options = {}): Promise<T> {
+export async function apiFetch<T>(path: string, { method = 'GET', body, signal, headers }: Options = {}): Promise<T> {
   let res: Response
   try {
     res = await fetch(`${API_BASE}${path}`, {
       method,
       signal,
       credentials: 'same-origin',
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch (err) {

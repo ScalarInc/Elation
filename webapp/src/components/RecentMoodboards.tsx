@@ -1,27 +1,12 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Heart } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { moodboards } from '@/mocks/fixtures'
 import { useEvents } from '@/data/events'
-
-import { img_19 as extra } from '@/lib/media'
-const boards = [
-  ...moodboards,
-  {
-    id: 'm_reve',
-    eventId: '01a04ff7-4400-7b82-ba36-45f309e454c0',
-    title: 'Candlelit Rêve',
-    tag: 'Nikkah' as const,
-    cover: extra,
-    tiles: [extra],
-    palette: [],
-    createdAt: '',
-    liked: false,
-  },
-]
+import { useMoodboardLibrary } from '@/data/moodboards'
 
 export function RecentMoodboards() {
   const { data: events = [] } = useEvents()
+  const { data: boards = [] } = useMoodboardLibrary({ status: 'saved', limit: 4 })
   const eventById = new Map(events.map((e) => [e.id, e]))
   const mine = boards.filter((b) => eventById.has(b.eventId))
 
@@ -63,7 +48,7 @@ export function RecentMoodboards() {
                 className="group relative block overflow-hidden rounded-2xl shadow-soft transition hover:-translate-y-0.5"
               >
                 <img
-                  src={b.cover}
+                  src={b.cover ?? b.tiles[0]}
                   alt={b.title}
                   className="h-40 w-full object-cover transition duration-500 group-hover:scale-105"
                 />

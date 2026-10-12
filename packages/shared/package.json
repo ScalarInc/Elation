@@ -9,7 +9,8 @@
     "./questionnaire": "./src/questionnaire/index.ts",
     "./budget": "./src/budget/index.ts",
     "./api": "./src/api/index.ts",
-    "./events": "./src/events/index.ts"
+    "./events": "./src/events/index.ts",
+    "./moodboard": "./src/moodboard/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -16,7 +16,8 @@ import {
   Clock,
   Loader2,
 } from 'lucide-react'
-import { moodboards, budgets, messages } from '@/mocks/fixtures'
+import { budgets, messages } from '@/mocks/fixtures'
+import { useEventMoodboards } from '@/data/moodboards'
 import { MoodboardViewer } from '@/components/MoodboardViewer'
 import { useEventView } from '@/data/events'
 import { useQuestionnaireSync } from '@/data/questionnaire'
@@ -201,7 +202,9 @@ function OverviewTab({ event }: { event: ClientEvent }) {
       4) *
       100,
   )
-  const boards = moodboards.filter((m) => m.eventId === event.id)
+  const { data: eventBoards = [] } = useEventMoodboards(event.id)
+  // Lead concept first, then the newest.
+  const boards = [...eventBoards].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
   const budgetSnap = budgets.find((b) => b.eventId === event.id)
 
   return (
