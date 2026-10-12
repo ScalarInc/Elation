@@ -1,0 +1,4 @@
+# Prisma checksums migration files byte-for-byte: keep them LF on every OS,
+# otherwise Windows checkouts (core.autocrlf=true) look "modified" to Prisma.
+server/prisma/migrations/** text eol=lf
+*.prisma text eol=lf
