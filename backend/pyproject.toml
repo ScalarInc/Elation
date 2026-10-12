@@ -1,0 +1,27 @@
+[project]
+name = "elation-backend"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "alembic==1.20.0",
+    "fastapi==0.143.2",
+    "httpx==0.28.1",
+    "psycopg[binary]==3.3.6",
+    "pydantic-settings==2.16.0",
+    "pyjwt[crypto]==2.15.1",
+    "sqlalchemy==2.1.4",
+    "uvicorn[standard]==0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = [
+    # Raised by FastAPI's own TestClient import on starlette 1.8; not actionable from this project.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]

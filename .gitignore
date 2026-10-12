@@ -33,5 +33,11 @@ Thumbs.db
 # TypeScript build info
 *.tsbuildinfo
 
+# Python (backend)
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
 # Local Claude Code settings (per-developer)
 .claude/settings.local.json
