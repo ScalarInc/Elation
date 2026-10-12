@@ -45,6 +45,21 @@ Open <http://localhost:5173/>.
 
 Other scripts: `npm run build` (type-check + production build), `npm run lint` (oxlint).
 
+## Backend: run locally
+
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Configuration comes from the root `.env` (template: `.env.example`).
+
+```bash
+cd backend
+uv sync                      # create .venv and install pinned dependencies
+uv run alembic upgrade head  # create/update database tables
+uv run python -m app.scripts.create_superuser   # first admin: prints a one-time set-password link
+uv run python -m app         # API on http://localhost:8787 (docs at /docs)
+uv run pytest                # tests (no database needed)
+```
+
+Health check: <http://localhost:8787/api/health>.
+
 ## Brand system
 
 | Token | Hex |

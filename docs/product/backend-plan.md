@@ -296,6 +296,8 @@ Add `@supabase/supabase-js`; Vite `envDir: '..'`; replace `api/index.ts` bodies 
 
 ## 10. Implementation sequence
 
+Progress: **steps 1–2 done (2026-10-16)** — migration `5073a4c38412` applied; Supabase sign-in, set/reset password, `/api/me`, role guards and `create_superuser` in place. Superuser script lives at `app/scripts/create_superuser.py`.
+
 1. Backend scaffold with `uv`, settings from `../.env`, `/health`, SQLAlchemy models, first Alembic migration (tables, RLS on, helper functions, messages policy and publication).
 2. Token verification + `deps.py` guards, `create_superuser.py`, `/me`; frontend Supabase client, sign-in, set-password and reset screens, `ProtectedRoute`, admin guard, signup UI removed.
 3. Invitations and client management (create, invite via Resend, copy link, resend, extend/revoke) + admin Clients page.
