@@ -10,6 +10,7 @@ import {
 import { motion } from 'framer-motion'
 import { api } from '@/lib/api'
 import type { ActivityEntry } from '@/mocks/types'
+import { useEvents } from '@/data/events'
 import { cn } from '@/lib/utils'
 
 const KIND_META: Record<
@@ -35,7 +36,10 @@ function timeAgo(iso: string) {
 }
 
 export function ActivityFeed() {
-  const [entries, setEntries] = useState<ActivityEntry[] | null>(null)
+  const { data: events } = useEvents()
+  const [allEntries, setEntries] = useState<ActivityEntry[] | null>(null)
+  const mine = new Set((events ?? []).map((e) => e.id))
+  const entries = allEntries && events ? allEntries.filter((a) => !a.eventId || mine.has(a.eventId)) : null
 
   useEffect(() => {
     let alive = true

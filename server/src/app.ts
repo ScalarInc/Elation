@@ -11,6 +11,7 @@ import { LogMailer, ResendMailer, type Mailer } from './lib/mailer'
 import { adminRoutes } from './modules/admin/routes'
 import { authRoutes } from './modules/auth/routes'
 import { expireLapsedClients } from './modules/auth/sweep'
+import { eventRoutes } from './modules/events/routes'
 import { healthRoutes } from './modules/health/routes'
 import { meRoutes } from './modules/me/routes'
 import authPlugin from './plugins/auth'
@@ -78,6 +79,7 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
       await api.register(healthRoutes)
       await api.register(authRoutes)
       await api.register(meRoutes)
+      await api.register(eventRoutes)
       await api.register(adminRoutes)
     },
     { prefix: API_PREFIX },

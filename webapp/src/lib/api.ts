@@ -3,7 +3,6 @@ import {
   arSets,
   budgets,
   currentUser,
-  events,
   inspirations,
   inventory,
   messages,
@@ -14,7 +13,6 @@ import type {
   ActivityEntry,
   ARSet,
   BudgetSnapshot,
-  ClientEvent,
   ClientUser,
   Inspiration,
   InventoryItem,
@@ -31,12 +29,6 @@ function delay<T>(value: T, ms = 300): Promise<T> {
 
 export const api = {
   me: (): Promise<ClientUser> => delay(currentUser, 150),
-
-  events: {
-    list: (): Promise<ClientEvent[]> => delay(events),
-    get: (id: UUID): Promise<ClientEvent | undefined> =>
-      delay(events.find((e) => e.id === id)),
-  },
 
   moodboards: {
     list: (): Promise<Moodboard[]> => delay(moodboards),

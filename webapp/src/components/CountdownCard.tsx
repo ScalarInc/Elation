@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowRight, CalendarClock } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useResolvedEvent } from '@/questionnaire/derived'
-import { events } from '@/mocks/fixtures'
+import type { ClientEvent } from '@/mocks/types'
 import { formatDate } from '@/lib/format'
 
 function useCountdown(iso: string) {
@@ -19,8 +18,7 @@ function useCountdown(iso: string) {
   return { days, hours, minutes, past: diff < 0 }
 }
 
-export function CountdownCard() {
-  const event = useResolvedEvent(events[0].id) ?? events[0]
+export function CountdownCard({ event }: { event: ClientEvent }) {
   const { days, hours, minutes, past } = useCountdown(event.date)
 
   const units = [

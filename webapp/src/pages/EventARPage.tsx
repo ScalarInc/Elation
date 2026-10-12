@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Sparkles } from 'lucide-react'
@@ -36,9 +37,22 @@ function ARNotFound() {
   )
 }
 
+function PageSkeleton() {
+  return (
+    <div className="space-y-6 px-10 pb-12 pt-8">
+      <Skeleton className="h-10 w-72" />
+      <Skeleton className="h-56 w-full rounded-3xl" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Skeleton className="h-48 w-full rounded-3xl lg:col-span-2" />
+        <Skeleton className="h-48 w-full rounded-3xl" />
+      </div>
+    </div>
+  )
+}
+
 export function EventARPage() {
   const { id } = useParams<{ id: string }>()
-  const event = useResolvedEvent(id)
+  const { event, isPending } = useResolvedEvent(id)
   const [set, setSet] = useState<ARSet | null | undefined>(undefined)
   const [siblings, setSiblings] = useState<ARSet[]>([])
 
@@ -55,6 +69,7 @@ export function EventARPage() {
     }
   }, [id])
 
+  if (isPending) return <PageSkeleton />
   if (!event) return <ARNotFound />
 
   return (

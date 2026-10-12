@@ -1,28 +1,21 @@
 import { useMemo } from 'react'
-import { events } from '@/mocks/fixtures'
-import type { ClientEvent, EventType } from '@/mocks/types'
+import { BUDGET_BAND_MIDPOINTS } from '@elation/shared/budget'
+import { EVENT_TYPES, type EventType } from '@elation/shared/domain'
+import type { ClientEvent } from '@/mocks/types'
+import { useEvent, useEvents } from '@/data/events'
 import {
   EMPTY_ANSWERS,
   type Answers,
   useQuestionnaire,
 } from './store'
 
-const EVENT_TYPES: EventType[] = [
-  'Mehndi', 'Mayoun', 'Baraat', 'Walima', 'Nikkah', 'Engagement', 'Birthday',
-  'Corporate Event', 'Milad', 'Qawwali', 'Dinner', 'Bridal Shower',
-  'Baby Shower', 'Anniversary', 'Other',
-]
-
-const BUDGET_MIDPOINTS: Record<string, number> = {
-  'Under PKR 250,000': 200_000,
-  'PKR 250,000–500,000': 375_000,
-  'PKR 500,000–1M': 750_000,
-  'PKR 1M–2M': 1_500_000,
-  'PKR 2M–5M': 3_500_000,
-  'PKR 5M+': 7_500_000,
-}
-
-/** Apply questionnaire overrides onto the fixture event. Pure. */
+/**
+ * INTERIM (until Step 5 moves the questionnaire to the server): the event
+ * comes from the API, and unsaved-to-server questionnaire answers kept in the
+ * local store are overlaid on the event basics so edits show immediately.
+ * In Step 5 the server writes answers through to the event and this overlay
+ * is deleted (docs/step-04-events.md, decision P3).
+ */
 export function resolveEvent(base: ClientEvent, answers: Answers): ClientEvent {
   const type = answers.q1_type
   const date = answers.q3_date
@@ -42,8 +35,8 @@ export function resolveEvent(base: ClientEvent, answers: Answers): ClientEvent {
       ? (type as EventType)
       : base.type,
     date:
-      typeof date === 'string' && date.length > 0
-        ? new Date(date).toISOString()
+      typeof date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(date)
+        ? date.slice(0, 10)
         : base.date,
     guests: typeof guests === 'number' && guests > 0 ? guests : base.guests,
     venue: {
@@ -55,33 +48,36 @@ export function resolveEvent(base: ClientEvent, answers: Answers): ClientEvent {
         ? indoor
         : base.venue.indoor,
     },
+    // A budget band only fills in a missing budget — an explicit figure always wins.
     budgetPKR:
-      typeof budgetBand === 'string' && BUDGET_MIDPOINTS[budgetBand] != null
-        ? BUDGET_MIDPOINTS[budgetBand]
+      base.budgetPKR == null && typeof budgetBand === 'string' && BUDGET_BAND_MIDPOINTS[budgetBand] != null
+        ? BUDGET_BAND_MIDPOINTS[budgetBand]
         : base.budgetPKR,
   }
 }
 
-/** Subscribe to one event's derived state. */
-export function useResolvedEvent(eventId: string | undefined): ClientEvent | undefined {
+/** One event (from the API) with local questionnaire overlay. */
+export function useResolvedEvent(eventId: string | undefined) {
+  const query = useEvent(eventId)
   const answers = useQuestionnaire(
     (s) => (eventId ? s.byEvent[eventId]?.answers : undefined) ?? EMPTY_ANSWERS,
   )
-  return useMemo(() => {
-    if (!eventId) return undefined
-    const base = events.find((e) => e.id === eventId)
-    return base ? resolveEvent(base, answers) : undefined
-  }, [eventId, answers])
+  const event = useMemo(
+    () => (query.data ? resolveEvent(query.data, answers) : undefined),
+    [query.data, answers],
+  )
+  return { event, isPending: query.isPending && Boolean(eventId), isError: query.isError, refetch: query.refetch }
 }
 
-/** Subscribe to all events' derived state — for list pages. */
-export function useResolvedEvents(): ClientEvent[] {
+/** All of the client's events (from the API) with local questionnaire overlay. */
+export function useResolvedEvents() {
+  const query = useEvents()
   const byEvent = useQuestionnaire((s) => s.byEvent)
-  return useMemo(
-    () =>
-      events.map((e) => resolveEvent(e, byEvent[e.id]?.answers ?? EMPTY_ANSWERS)),
-    [byEvent],
+  const events = useMemo(
+    () => (query.data ?? []).map((e) => resolveEvent(e, byEvent[e.id]?.answers ?? EMPTY_ANSWERS)),
+    [query.data, byEvent],
   )
+  return { events, isPending: query.isPending, isError: query.isError, refetch: query.refetch }
 }
 
 // ---------------- Moodboard-facing derivations ----------------

@@ -29,7 +29,7 @@ function splitStyles(style: string): string[] {
 export function InspirationDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
-  const events = useResolvedEvents()
+  const { events } = useResolvedEvents()
 
   const [inspiration, setInspiration] = useState<Inspiration | null | undefined>(
     undefined,

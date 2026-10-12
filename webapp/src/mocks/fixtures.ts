@@ -2,7 +2,7 @@ import { img_03, img_04, img_07, img_08, img_09, img_10, img_11, img_12, img_13,
 import type {
   ActivityEntry,
   ARSet,
-  ClientEvent,
+  FixtureEvent,
   ClientUser,
   Inspiration,
   InventoryItem,
@@ -39,9 +39,14 @@ export const currentUser: ClientUser = {
   },
 }
 
-export const events: ClientEvent[] = [
+/**
+ * Event ids match the server seed (server/prisma/seed — deterministic UUIDv7
+ * from the original e_mehndi/e_baraat/… keys), so mock-backed pages keep
+ * lining up with real events while each step moves them to the API.
+ */
+export const events: FixtureEvent[] = [
   {
-    id: 'e_mehndi',
+    id: '01a04ff7-4400-7bc8-b4b3-32cb59579564',
     clientId: currentUser.id,
     name: 'Whispers of Noor',
     type: 'Mehndi',
@@ -55,7 +60,7 @@ export const events: ClientEvent[] = [
     status: 'active',
   },
   {
-    id: 'e_baraat',
+    id: '01a04ff7-4400-7b82-ba36-45f309e454c0',
     clientId: currentUser.id,
     name: 'Gilded Evening',
     type: 'Baraat',
@@ -69,7 +74,7 @@ export const events: ClientEvent[] = [
     status: 'active',
   },
   {
-    id: 'e_walima',
+    id: '01a04ff7-4400-7abe-ba00-0ea6eb9db545',
     clientId: currentUser.id,
     name: 'Garden of Dreams',
     type: 'Walima',
@@ -83,7 +88,7 @@ export const events: ClientEvent[] = [
     status: 'draft',
   },
   {
-    id: 'e_engagement',
+    id: '01a04ff7-4400-73aa-9491-6e9426576aea',
     clientId: currentUser.id,
     name: 'Blush & Bloom',
     type: 'Engagement',
@@ -101,7 +106,7 @@ export const events: ClientEvent[] = [
 export const moodboards: Moodboard[] = [
   {
     id: 'm_noor',
-    eventId: 'e_mehndi',
+    eventId: '01a04ff7-4400-7bc8-b4b3-32cb59579564',
     title: 'Whispers of Noor',
     tag: 'Mehndi',
     cover: img_18,
@@ -112,7 +117,7 @@ export const moodboards: Moodboard[] = [
   },
   {
     id: 'm_gilded',
-    eventId: 'e_baraat',
+    eventId: '01a04ff7-4400-7b82-ba36-45f309e454c0',
     title: 'Gilded Evening',
     tag: 'Baraat',
     cover: img_04,
@@ -123,7 +128,7 @@ export const moodboards: Moodboard[] = [
   },
   {
     id: 'm_garden',
-    eventId: 'e_walima',
+    eventId: '01a04ff7-4400-7abe-ba00-0ea6eb9db545',
     title: 'Garden of Dreams',
     tag: 'Walima',
     cover: img_16,
@@ -157,7 +162,7 @@ export const inventory: InventoryItem[] = [
 
 export const budgets: BudgetSnapshot[] = [
   {
-    eventId: 'e_mehndi',
+    eventId: '01a04ff7-4400-7bc8-b4b3-32cb59579564',
     budgetPKR: 2_500_000,
     lines: [
       { id: 'bl1', category: 'Stage', itemId: 'i_backdrop_arch', qty: 1, included: true },
@@ -171,7 +176,7 @@ export const budgets: BudgetSnapshot[] = [
     ],
   },
   {
-    eventId: 'e_baraat',
+    eventId: '01a04ff7-4400-7b82-ba36-45f309e454c0',
     budgetPKR: 4_800_000,
     lines: [
       { id: 'bl_br1', category: 'Stage', itemId: 'i_backdrop_moon', qty: 1, included: true },
@@ -184,7 +189,7 @@ export const budgets: BudgetSnapshot[] = [
     ],
   },
   {
-    eventId: 'e_walima',
+    eventId: '01a04ff7-4400-7abe-ba00-0ea6eb9db545',
     budgetPKR: 5_200_000,
     lines: [
       { id: 'bl_w1', category: 'Stage', itemId: 'i_backdrop_arch', qty: 1, included: true },
@@ -356,7 +361,7 @@ export const threads: MessageThread[] = [
 export const arSets: ARSet[] = [
   {
     id: 'ar_baraat',
-    eventId: 'e_baraat',
+    eventId: '01a04ff7-4400-7b82-ba36-45f309e454c0',
     eventType: 'Baraat',
     title: 'Whispers of Noor · Baraat',
     theme: 'Whispers of Noor',
@@ -371,7 +376,7 @@ export const arSets: ARSet[] = [
   },
   {
     id: 'ar_walima',
-    eventId: 'e_walima',
+    eventId: '01a04ff7-4400-7abe-ba00-0ea6eb9db545',
     eventType: 'Walima',
     title: 'Garden of Dreams · Walima',
     theme: 'Garden of Dreams',
@@ -387,7 +392,7 @@ export const arSets: ARSet[] = [
   },
   {
     id: 'ar_mehndi',
-    eventId: 'e_mehndi',
+    eventId: '01a04ff7-4400-7bc8-b4b3-32cb59579564',
     eventType: 'Mehndi',
     title: 'Whispers of Noor · Mehndi',
     theme: 'Whispers of Noor',
@@ -406,7 +411,7 @@ export const arSets: ARSet[] = [
 export const activity: ActivityEntry[] = [
   {
     id: 'a_1',
-    eventId: 'e_mehndi',
+    eventId: '01a04ff7-4400-7bc8-b4b3-32cb59579564',
     kind: 'moodboard',
     title: 'Elation refreshed Whispers of Noor',
     detail: 'Concept B now leans heavier on florals as requested.',
@@ -414,7 +419,7 @@ export const activity: ActivityEntry[] = [
   },
   {
     id: 'a_2',
-    eventId: 'e_mehndi',
+    eventId: '01a04ff7-4400-7bc8-b4b3-32cb59579564',
     kind: 'budget',
     title: 'Budget within target',
     detail: '98% of PKR 25L — sitting green.',
@@ -422,7 +427,7 @@ export const activity: ActivityEntry[] = [
   },
   {
     id: 'a_3',
-    eventId: 'e_baraat',
+    eventId: '01a04ff7-4400-7b82-ba36-45f309e454c0',
     kind: 'note',
     title: 'Ayesha added a note',
     detail: 'Considering a moon backdrop swap for Baraat.',
@@ -430,7 +435,7 @@ export const activity: ActivityEntry[] = [
   },
   {
     id: 'a_4',
-    eventId: 'e_walima',
+    eventId: '01a04ff7-4400-7abe-ba00-0ea6eb9db545',
     kind: 'ar',
     title: 'AR Walima render 68% complete',
     detail: 'Estimated ready 4 Nov — you\'ll be notified.',

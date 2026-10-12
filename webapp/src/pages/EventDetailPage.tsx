@@ -1,4 +1,5 @@
 import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   ArrowLeft,
   ArrowRight,
@@ -30,7 +31,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { formatDate, formatPKRCompact, daysUntil } from '@/lib/format'
+import { formatDate, daysUntil, formatBudget } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { ClientEvent, ModuleStatus } from '@/mocks/types'
 
@@ -138,7 +139,7 @@ function Hero({ event }: { event: ClientEvent }) {
             </span>
             <span className="flex items-center gap-1.5">
               <Wallet className="h-3.5 w-3.5" />
-              {formatPKRCompact(event.budgetPKR)}
+              {formatBudget(event.budgetPKR)}
             </span>
           </div>
         </div>
@@ -289,7 +290,7 @@ function OverviewTab({ event }: { event: ClientEvent }) {
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted">Budget</dt>
-                <dd className="text-text font-semibold">{formatPKRCompact(event.budgetPKR)}</dd>
+                <dd className="text-text font-semibold">{formatBudget(event.budgetPKR)}</dd>
               </div>
               {budgetSnap && (
                 <div className="flex justify-between">
@@ -462,12 +463,26 @@ function ModuleHandoff({
   )
 }
 
+function PageSkeleton() {
+  return (
+    <div className="space-y-6 px-10 pb-12 pt-8">
+      <Skeleton className="h-10 w-72" />
+      <Skeleton className="h-56 w-full rounded-3xl" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Skeleton className="h-48 w-full rounded-3xl lg:col-span-2" />
+        <Skeleton className="h-48 w-full rounded-3xl" />
+      </div>
+    </div>
+  )
+}
+
 export function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
-  const event = useResolvedEvent(id)
+  const { event, isPending } = useResolvedEvent(id)
 
+  if (isPending) return <PageSkeleton />
   if (!event) return <EventNotFound />
 
   const rawTab = params.get('tab') as TabKey | null

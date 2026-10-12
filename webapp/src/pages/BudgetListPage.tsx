@@ -74,12 +74,14 @@ function includedTotal(
 }
 
 export function BudgetListPage() {
-  const events = useResolvedEvents()
+  const { events, isPending: eventsPending } = useResolvedEvents()
+  const eventIds = events.map((e) => e.id).join(',')
   const [loading, setLoading] = useState(true)
   const [snapshots, setSnapshots] = useState<BudgetSnapshot[]>([])
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([])
 
   useEffect(() => {
+    if (eventsPending) return
     let cancelled = false
     setLoading(true)
     Promise.all([
@@ -97,9 +99,9 @@ export function BudgetListPage() {
     return () => {
       cancelled = true
     }
-    // Load once — event overrides don't affect the fixture snapshots.
+    // Reload when the set of events changes (e.g. a new event was created).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [eventsPending, eventIds])
 
   const invById = useMemo(
     () => new Map(inventoryList.map((i) => [i.id, i])),

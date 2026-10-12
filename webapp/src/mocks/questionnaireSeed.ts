@@ -211,7 +211,7 @@ const blushAndBloom: Seed = {
 /** Only seed the events that have curated data. Others (like Garden of Dreams)
  *  stay empty so the "not started" state remains visible in the UI. */
 export const questionnaireSeeds: Record<string, Seed> = {
-  e_mehndi: whispersOfNoor,
-  e_baraat: gildedEvening,
-  e_engagement: blushAndBloom,
+  '01a04ff7-4400-7bc8-b4b3-32cb59579564': whispersOfNoor, // Whispers of Noor (Mehndi)
+  '01a04ff7-4400-7b82-ba36-45f309e454c0': gildedEvening, // Gilded Evening (Baraat)
+  '01a04ff7-4400-73aa-9491-6e9426576aea': blushAndBloom, // Blush & Bloom (Engagement)
 }

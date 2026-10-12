@@ -113,8 +113,26 @@ Do these in order; each is a small PR. Until Step 13's HTTP mode is on, the mock
 
 ## Definition of done
 
-- [ ] `grep -r "from '@/mocks/fixtures'" webapp/src --include=*.tsx` returns nothing outside `src/mocks`.
-- [ ] Creating an event survives a refresh and appears on Dashboard, My Events, Budget overview, and inspiration "adopt" pickers.
-- [ ] Changing guest count in the questionnaire updates the event card without a manual refresh.
-- [ ] Event progress bars and status pills come from the API, not fixtures.
-- [ ] Duplicate and Archive work from the event card.
+- [x] No component imports `events` from `@/mocks/fixtures` — enforced by an oxlint `no-restricted-imports` rule (only `data/events.ts` may, for `VITE_API_MODE=mock`). Other fixture data (moodboards, budgets, inventory, messages) is still imported until Steps 6–10.
+- [x] Creating an event survives a refresh and appears on Dashboard, My Events, Budget overview, and inspiration "adopt" pickers.
+- [x] Changing guest count in the questionnaire updates the event card without a manual refresh — via the interim local overlay (below); server-side write-through from the questionnaire lands in Step 5.
+- [x] Event progress bars and status pills come from the API, not fixtures.
+- [x] Duplicate and Archive work from the event card (plus Delete for drafts, and a Budget shortcut — journey item J1 of Step 8).
+
+## As built (2026-10-12)
+
+| Area | Where |
+| --- | --- |
+| Contracts | `packages/shared/src/api/events.ts` |
+| Progress / status / next-step derivation (pure, tested) | `packages/shared/src/events/progress.ts` |
+| Service + routes | `server/src/modules/events/*` |
+| Event → questionnaire write-through (q1–q6 + revision row) | `syncBasicsToQuestionnaire` in the events service |
+| Webapp hooks (HTTP + mock mode) | `webapp/src/data/events.ts` |
+
+Notes:
+
+- **Required at creation:** date, venue name, city, indoor/outdoor and guests. The DTO's `date` is therefore always a `YYYY-MM-DD` string; `budgetPKR` is `null` until set ("Budget not set" in the UI).
+- **"Past"** is computed in Pakistan time (`Asia/Karachi`) so an event doesn't flip to past at 5 am local.
+- **Mock fixtures share IDs with the server seed:** `webapp/src/mocks` events use the same deterministic UUIDs as `server/prisma/seed`, so mock-backed pages (moodboards, budget, AR, activity) keep lining up with real events until their steps land. Mock moodboards/activity are filtered to the signed-in client's events, so a new client sees empty states instead of the demo client's data.
+- **Interim overlay:** `useResolvedEvent(s)` still overlays local (not-yet-server) questionnaire answers onto API events. A questionnaire budget band only fills a *missing* budget, matching the server rule. The overlay is removed in Step 5.
+- `PUT /events/:id/cover` waits for file uploads (Step 11).

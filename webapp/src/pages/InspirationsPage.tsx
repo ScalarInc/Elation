@@ -68,7 +68,7 @@ function splitStyles(style: string): string[] {
 
 export function InspirationsPage() {
   const navigate = useNavigate()
-  const events = useResolvedEvents()
+  const { events } = useResolvedEvents()
 
   const [items, setItems] = useState<Inspiration[] | null>(null)
   const [inventory, setInventory] = useState<InventoryItem[]>([])

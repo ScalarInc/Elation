@@ -46,6 +46,9 @@ export function createPrisma(databaseUrl: string) {
 
 export type Db = ReturnType<typeof createPrisma>
 
+/** The client handed to `db.$transaction(async (tx) => …)` callbacks. */
+export type DbTx = Omit<Db, '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends' | '$use'>
+
 declare module 'fastify' {
   interface FastifyInstance {
     prisma: Db

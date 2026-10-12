@@ -590,7 +590,7 @@ function LineRow({
 
 export function BudgetPage() {
   const { id } = useParams<{ id: string }>()
-  const event = useResolvedEvent(id)
+  const { event, isPending: eventPending } = useResolvedEvent(id)
 
   const [loading, setLoading] = useState(true)
   const [snapshot, setSnapshot] = useState<BudgetSnapshot | undefined>(undefined)
@@ -604,7 +604,7 @@ export function BudgetPage() {
   } | null>(null)
 
   useEffect(() => {
-    if (!id) return
+    if (!id || eventPending) return
     let cancelled = false
     setLoading(true)
     Promise.all([api.budget.forEvent(id), api.inventory.list()])
@@ -633,7 +633,7 @@ export function BudgetPage() {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
+  }, [id, eventPending])
 
   const invById = useMemo(
     () => new Map(inventoryList.map((i) => [i.id, i])),
@@ -718,7 +718,7 @@ export function BudgetPage() {
 
   if (!id) return <EventNotFound />
 
-  if (loading) {
+  if (loading || eventPending) {
     return (
       <div className="px-10 pb-12 pt-8">
         <Skeleton className="h-10 w-64" />

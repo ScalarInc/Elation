@@ -99,7 +99,7 @@ export function QuestionnairePage() {
   const me = useCurrentUser()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const event = useResolvedEvent(id)
+  const { event, isPending: eventPending } = useResolvedEvent(id)
   const [railOpen, setRailOpen] = useState(false)
 
   const answers = useQuestionnaire((s) => s.byEvent[id ?? '']?.answers ?? EMPTY_ANSWERS)
@@ -161,6 +161,10 @@ export function QuestionnairePage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [next, prev]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (eventPending) {
+    return <div className="bg-bg min-h-screen" aria-busy="true" />
+  }
 
   if (!event) {
     return (

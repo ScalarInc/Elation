@@ -15,6 +15,11 @@ export function formatPKRCompact(n: number) {
   return PKR.format(n)
 }
 
+/** Event budget for display; events can exist before the client sets a target. */
+export function formatBudget(n: number | null | undefined) {
+  return n == null ? 'Budget not set' : formatPKRCompact(n)
+}
+
 const dateFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 export function formatDate(iso: string) {
   return dateFmt.format(new Date(iso))

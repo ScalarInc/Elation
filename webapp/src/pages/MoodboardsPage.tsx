@@ -7,19 +7,22 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/format'
-import { events, moodboards as seedMoodboards } from '@/mocks/fixtures'
+import { moodboards as seedMoodboards } from '@/mocks/fixtures'
+import { useEvents } from '@/data/events'
 import type { Moodboard } from '@/mocks/types'
 
 export function MoodboardsPage() {
   const [boards, setBoards] = useState<Moodboard[]>(seedMoodboards)
   const [eventFilter, setEventFilter] = useState<string>('all')
 
-  const filtered = useMemo(
-    () => (eventFilter === 'all' ? boards : boards.filter((b) => b.eventId === eventFilter)),
-    [boards, eventFilter],
-  )
+  const { data: events = [] } = useEvents()
+  const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
 
-  const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [])
+  // Moodboards are still mock data (Step 7); only show the ones for this client's events.
+  const filtered = useMemo(() => {
+    const mine = boards.filter((b) => eventById.has(b.eventId))
+    return eventFilter === 'all' ? mine : mine.filter((b) => b.eventId === eventFilter)
+  }, [boards, eventFilter, eventById])
 
   function duplicate(b: Moodboard) {
     const copy: Moodboard = {

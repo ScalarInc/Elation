@@ -35,7 +35,11 @@ export type EventProgress = {
   ar: ModuleStatus
 }
 
-export type ClientEvent = {
+/** Events come from the API (docs/step-04-events.md). */
+export type { EventDto as ClientEvent } from '@elation/shared/api'
+
+/** Shape of the demo events in fixtures.ts (mock mode only). */
+export type FixtureEvent = {
   id: UUID
   clientId: UUID
   name: string

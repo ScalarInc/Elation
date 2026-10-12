@@ -1,14 +1,15 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Heart } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { moodboards, events } from '@/mocks/fixtures'
+import { moodboards } from '@/mocks/fixtures'
+import { useEvents } from '@/data/events'
 
 import { img_19 as extra } from '@/lib/media'
 const boards = [
   ...moodboards,
   {
     id: 'm_reve',
-    eventId: 'e_baraat',
+    eventId: '01a04ff7-4400-7b82-ba36-45f309e454c0',
     title: 'Candlelit Rêve',
     tag: 'Nikkah' as const,
     cover: extra,
@@ -19,9 +20,13 @@ const boards = [
   },
 ]
 
-const eventById = new Map(events.map((e) => [e.id, e]))
-
 export function RecentMoodboards() {
+  const { data: events = [] } = useEvents()
+  const eventById = new Map(events.map((e) => [e.id, e]))
+  const mine = boards.filter((b) => eventById.has(b.eventId))
+
+  if (mine.length === 0) return null
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 6 }}
@@ -44,7 +49,7 @@ export function RecentMoodboards() {
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
-        {boards.map((b, i) => {
+        {mine.map((b, i) => {
           const tag = eventById.get(b.eventId)?.type ?? b.tag
           return (
             <motion.div

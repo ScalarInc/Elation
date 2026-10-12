@@ -173,3 +173,7 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-12 — Step 3 — Account deletion from Settings is a **request** recorded in the audit log; an admin confirms (open question 2 stays open).
 - 2026-10-12 — Step 3 — Data export is a synchronous `GET /me/export` JSON download.
 - 2026-10-12 — Step 3 — TanStack Query and the HTTP API client (Step 13 setup) pulled forward — auth needed them. Other pages still read mocks until their step lands.
+- 2026-10-12 — Step 4 — Event date, venue, city, setting and guests are required on create; the API never returns a null date.
+- 2026-10-12 — Step 4 — Webapp mock fixtures re-keyed to the seed's deterministic event UUIDs so not-yet-migrated pages line up with API events.
+- 2026-10-12 — Step 4 — Interim client-side questionnaire overlay kept on top of API events until Step 5's server write-through.
+- 2026-10-12 — Step 4 — "Past" status computed in Asia/Karachi time.
