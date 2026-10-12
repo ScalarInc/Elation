@@ -1,24 +1,10 @@
-import {
-  activity,
-  arSets,
-  currentUser,
-  inspirations,
-  inventory,
-  messages,
-  moodboards,
-  threads,
-} from '@/mocks/fixtures'
-import type {
-  ActivityEntry,
-  ARSet,
-  ClientUser,
-  Inspiration,
-  InventoryItem,
-  Message,
-  MessageThread,
-  Moodboard,
-  UUID,
-} from '@/mocks/types'
+import { activity, currentUser, messages, threads } from '@/mocks/fixtures'
+import type { ActivityEntry, Message, MessageThread, UUID } from '@/mocks/types'
+
+/**
+ * What's still served from mock fixtures: messages and the activity feed
+ * (Step 10). Everything else reads the API through `src/data/*`.
+ */
 
 // Simulates a real network call so we get skeletons + loading states in dev.
 function delay<T>(value: T, ms = 300): Promise<T> {
@@ -26,28 +12,6 @@ function delay<T>(value: T, ms = 300): Promise<T> {
 }
 
 export const api = {
-  me: (): Promise<ClientUser> => delay(currentUser, 150),
-
-  moodboards: {
-    list: (): Promise<Moodboard[]> => delay(moodboards),
-    byEvent: (eventId: UUID): Promise<Moodboard[]> =>
-      delay(moodboards.filter((m) => m.eventId === eventId)),
-    get: (id: UUID): Promise<Moodboard | undefined> =>
-      delay(moodboards.find((m) => m.id === id)),
-  },
-
-  inspirations: {
-    list: (): Promise<Inspiration[]> => delay(inspirations),
-    get: (slug: string): Promise<Inspiration | undefined> =>
-      delay(inspirations.find((i) => i.slug === slug)),
-  },
-
-  inventory: {
-    list: (): Promise<InventoryItem[]> => delay(inventory),
-    get: (id: UUID): Promise<InventoryItem | undefined> =>
-      delay(inventory.find((i) => i.id === id)),
-  },
-
   messages: {
     thread: (): Promise<Message[]> => delay(messages),
     threads: (): Promise<MessageThread[]> => delay(threads),
@@ -64,12 +28,6 @@ export const api = {
         },
         200,
       ),
-  },
-
-  ar: {
-    list: (): Promise<ARSet[]> => delay(arSets),
-    forEvent: (eventId: UUID): Promise<ARSet | undefined> =>
-      delay(arSets.find((s) => s.eventId === eventId)),
   },
 
   activity: {

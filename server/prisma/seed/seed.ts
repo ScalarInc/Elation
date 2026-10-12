@@ -107,12 +107,82 @@ const id = {
   inspiration: (fixtureId: string) => seedId(`inspiration:${fixtureId}`),
   inspirationTile: (fixtureId: string, i: number) => seedId(`inspiration-tile:${fixtureId}:${i}`),
   arSet: (fixtureId: string) => seedId(`ar:${fixtureId}`),
+  inspirationItem: (fixtureId: string, sku: string) => seedId(`inspiration-item:${fixtureId}:${sku}`),
+  arAsset: (setId: string, sku: string) => seedId(`ar-asset:${setId}:${sku}`),
   thread: (fixtureId: string) => seedId(`thread:${fixtureId}`),
   message: (fixtureId: string, at: string) => seedId(`message:${fixtureId}`, at),
   activity: (fixtureId: string, at: string) => seedId(`activity:${fixtureId}`, at),
 }
 
 /** Fixture area tags → shared vocabulary (packages/shared/src/domain/vocab.ts). */
+/**
+ * What each showcase concept carries into a moodboard and budget when adopted
+ * (docs/step-09-inspirations-ar.md). Placeholder pieces until Elation's real
+ * catalogue is priced; quantities scale per 100 guests or are fixed.
+ */
+type InspirationPiece = [sku: string, category: string, rule: { per100?: number; fixed?: number }]
+const INSPIRATION_ITEMS: Record<string, InspirationPiece[]> = {
+  insp_noor: [
+    ['i_backdrop_arch', 'Stage', { fixed: 1 }],
+    ['i_sofa_blush', 'Stage', { fixed: 2 }],
+    ['i_floral_blossom', 'Florals', { fixed: 40 }],
+    ['i_floral_wild', 'Dining', { per100: 10 }],
+    ['i_chand_crystal', 'Ceiling', { fixed: 2 }],
+    ['i_light_candle', 'Lighting', { per100: 10 }],
+    ['i_chair_gold', 'Seating', { per100: 100 }],
+  ],
+  insp_gilded: [
+    ['i_backdrop_arch', 'Stage', { fixed: 1 }],
+    ['i_sofa_ivory', 'Stage', { fixed: 2 }],
+    ['i_chand_crystal', 'Ceiling', { fixed: 3 }],
+    ['i_chair_gold', 'Seating', { per100: 100 }],
+    ['i_table_round', 'Dining', { per100: 10 }],
+    ['i_light_candle', 'Lighting', { per100: 10 }],
+    ['i_signage_neon', 'Entrance', { fixed: 1 }],
+  ],
+  insp_garden: [
+    ['i_floral_blossom', 'Florals', { fixed: 40 }],
+    ['i_floral_wild', 'Dining', { per100: 10 }],
+    ['i_chair_clear', 'Seating', { per100: 100 }],
+    ['i_table_round', 'Dining', { per100: 10 }],
+    ['i_light_lantern', 'Entrance', { fixed: 8 }],
+    ['i_fabric_drape', 'Ceiling', { per100: 200 }],
+  ],
+  insp_crescent: [
+    ['i_backdrop_moon', 'Stage', { fixed: 1 }],
+    ['i_sofa_ivory', 'Stage', { fixed: 2 }],
+    ['i_chair_cushion', 'Seating', { per100: 60 }],
+    ['i_table_low', 'Dining', { per100: 10 }],
+    ['i_light_candle', 'Lighting', { per100: 10 }],
+  ],
+  insp_ivory: [
+    ['i_backdrop_arch', 'Stage', { fixed: 1 }],
+    ['i_sofa_ivory', 'Stage', { fixed: 2 }],
+    ['i_chair_clear', 'Seating', { per100: 100 }],
+    ['i_table_round', 'Dining', { per100: 10 }],
+    ['i_floral_wild', 'Dining', { per100: 10 }],
+    ['i_chand_brass', 'Ceiling', { fixed: 2 }],
+  ],
+  insp_rosewood: [
+    ['i_backdrop_moon', 'Stage', { fixed: 1 }],
+    ['i_prop_swan', 'Stage', { fixed: 1 }],
+    ['i_light_lantern', 'Entrance', { fixed: 12 }],
+    ['i_chair_cushion', 'Seating', { per100: 50 }],
+    ['i_table_low', 'Dining', { per100: 8 }],
+    ['i_fabric_drape', 'Ceiling', { per100: 200 }],
+  ],
+}
+
+/** Pieces each AR set was modelled from (thumbnails come from the inventory photo). */
+const AR_ASSET_SKUS = ['i_backdrop_arch', 'i_floral_blossom', 'i_chand_crystal', 'i_sofa_ivory', 'i_chair_gold', 'i_prop_swan', 'i_signage_neon', 'i_light_candle']
+
+/** Elation's showcase sets — what a client without their own set sees. */
+const SHOWCASE_AR_SETS = [
+  { key: 'showcase_baraat', eventType: 'Baraat', title: 'Gilded Evening · Showcase', theme: 'Gilded Evening', cover: '/media/img_04.jpg', aerial: ['/media/img_04.jpg', '/media/img_14.jpg'] },
+  { key: 'showcase_walima', eventType: 'Walima', title: 'Ivory & Oud · Showcase', theme: 'Ivory & Oud', cover: '/media/img_16.jpg', aerial: ['/media/img_16.jpg', '/media/img_10.jpg'] },
+  { key: 'showcase_mehndi', eventType: 'Mehndi', title: 'Whispers of Noor · Showcase', theme: 'Whispers of Noor', cover: '/media/img_18.jpg', aerial: ['/media/img_18.jpg', '/media/img_11.jpg'] },
+] as const
+
 const AREA_ALIASES: Record<string, string> = {
   nikkah: 'stage',
   ceremony: 'stage',
@@ -328,6 +398,11 @@ export async function seed(db: Db) {
       const tile = { inspirationId, position, imageUrl }
       await db.inspirationTile.upsert({ where: { id: tileId }, create: { id: tileId, ...tile }, update: tile })
     }
+    for (const [sku, category, rule] of INSPIRATION_ITEMS[insp.id] ?? []) {
+      const itemId = id.inspirationItem(insp.id, sku)
+      const row = { inspirationId, inventoryItemId: id.item(sku), category, qtyPer100Guests: rule.per100 ?? null, qtyFixed: rule.fixed ?? null }
+      await db.inspirationItem.upsert({ where: { id: itemId }, create: { id: itemId, ...row }, update: row })
+    }
   }
 
   // ─── AR sets ───
@@ -349,6 +424,38 @@ export async function seed(db: Db) {
       highlights: s.highlights,
     }
     await db.aRSet.upsert({ where: { id: setId }, create: { id: setId, ...data }, update: data })
+  }
+  for (const s of SHOWCASE_AR_SETS) {
+    const setId = id.arSet(s.key)
+    const data = {
+      eventId: null,
+      eventType: eventTypeToDb(s.eventType),
+      title: s.title,
+      theme: s.theme,
+      status: 'READY' as const,
+      progressPercent: 100,
+      coverUrl: s.cover,
+      floorPlanUrl: '/media/img_13.jpg',
+      aerialUrls: [...s.aerial],
+      summary: `Elation's ${s.theme} set — walk it on Meta Quest 3 to see how an AR preview of your own event will feel.`,
+      highlights: ['Fully lit walk-through', 'True-to-scale décor', 'Passthrough over your real venue'],
+    }
+    await db.aRSet.upsert({ where: { id: setId }, create: { id: setId, ...data }, update: data })
+  }
+  const allSets = [...fixtures.arSets.map((s) => s.id), ...SHOWCASE_AR_SETS.map((s) => s.key)]
+  for (const setKey of allSets) {
+    for (const [i, sku] of AR_ASSET_SKUS.entries()) {
+      const item = fixtures.inventory.find((x) => x.id === sku)!
+      const assetId = id.arAsset(setKey, sku)
+      const row = {
+        setId: id.arSet(setKey),
+        name: item.name,
+        inventoryItemId: id.item(sku),
+        thumbnailUrl: item.image,
+        source: i % 2 === 0 ? 'Tripo AI' : 'Meshy AI',
+      }
+      await db.aRAsset.upsert({ where: { id: assetId }, create: { id: assetId, ...row }, update: row })
+    }
   }
 
   // ─── Chat history ───

@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { Headphones } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
+import { useArSessionRequest } from '@/data/ar'
 
 const STEPS = [
   { n: 1, title: 'Elation curates the scene', body: 'Your consultant assembles decor, florals, and lighting into a walkable set.' },
@@ -9,12 +10,15 @@ const STEPS = [
   { n: 3, title: 'You walk through it and approve', body: 'Passthrough overlay — you see your real venue with the decor layered in.' },
 ]
 
-export function ARHero({ image, title, kicker = 'AR PREVIEW', subhead }: {
+export function ARHero({ image, title, kicker = 'AR PREVIEW', subhead, eventId }: {
   image: string
   title?: string
   kicker?: string
   subhead?: string
+  /** The event a demo session is booked for; without one the button is hidden. */
+  eventId?: string
 }) {
+  const session = useArSessionRequest()
   return (
     <motion.section
       initial={{ opacity: 0, y: 12 }}
@@ -57,15 +61,25 @@ export function ARHero({ image, title, kicker = 'AR PREVIEW', subhead }: {
             <p className="text-muted/70 max-w-md text-[11px] leading-relaxed">
               Note: AR passthrough — you'll see the real venue with the decor overlaid, not full VR.
             </p>
-            <Button
-              size="lg"
-              onClick={() =>
-                toast.success('Your consultant will reach out to schedule a session.')
-              }
-            >
-              <Headphones className="h-4 w-4" />
-              Request a demo session
-            </Button>
+            {eventId && (
+              <Button
+                size="lg"
+                disabled={session.isPending}
+                onClick={() =>
+                  session.mutate(
+                    { eventId },
+                    {
+                      onSuccess: ({ consultantName }) =>
+                        toast.success(`${consultantName ?? 'Your consultant'} will reach out to schedule a session.`),
+                      onError: (err) => toast.error('Could not send your request', { description: err.message }),
+                    },
+                  )
+                }
+              >
+                <Headphones className="h-4 w-4" />
+                Request a demo session
+              </Button>
+            )}
           </div>
         </div>
 

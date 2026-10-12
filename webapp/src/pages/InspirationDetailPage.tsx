@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -7,17 +6,10 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { EmptyState } from '@/components/ui/empty-state'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { toast } from '@/components/ui/toast'
-import { api } from '@/lib/api'
-import { useEventsView } from '@/data/events'
-import type { Inspiration, InventoryItem } from '@/mocks/types'
+import { AdoptInspiration } from '@/components/AdoptInspiration'
+import { useInspiration } from '@/data/inspirations'
+import { isPriced } from '@/data/inventory'
+import { formatPKRCompact } from '@/lib/format'
 
 function splitStyles(style: string): string[] {
   return style
@@ -28,56 +20,9 @@ function splitStyles(style: string): string[] {
 
 export function InspirationDetailPage() {
   const { slug } = useParams<{ slug: string }>()
-  const navigate = useNavigate()
-  const { events } = useEventsView()
-
-  const [inspiration, setInspiration] = useState<Inspiration | null | undefined>(
-    undefined,
-  )
-  const [inventory, setInventory] = useState<InventoryItem[]>([])
-  const [targetEventId, setTargetEventId] = useState<string>('')
-
-  useEffect(() => {
-    if (!slug) return
-    let cancelled = false
-    Promise.all([api.inspirations.get(slug), api.inventory.list()]).then(
-      ([insp, inv]) => {
-        if (cancelled) return
-        setInspiration(insp ?? null)
-        setInventory(inv)
-      },
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [slug])
-
-  useEffect(() => {
-    if (!targetEventId && events[0]) setTargetEventId(events[0].id)
-  }, [events, targetEventId])
-
-  const recommendedInventory = useMemo(() => {
-    if (!inspiration) return []
-    const styleTokens = splitStyles(inspiration.style).map((s) => s.toLowerCase())
-    const eventTokens = inspiration.eventTypes.map((t) => t.toLowerCase())
-    const matches = inventory.filter((it) => {
-      const tags = it.tags.map((t) => t.toLowerCase())
-      return (
-        tags.some((tg) => styleTokens.some((st) => st.includes(tg))) ||
-        tags.some((tg) => eventTokens.includes(tg))
-      )
-    })
-    const pool = matches.length >= 4 ? matches : [...matches, ...inventory]
-    const seen = new Set<string>()
-    const dedup: InventoryItem[] = []
-    for (const it of pool) {
-      if (seen.has(it.id)) continue
-      seen.add(it.id)
-      dedup.push(it)
-      if (dedup.length >= 6) break
-    }
-    return dedup
-  }, [inspiration, inventory])
+  const query = useInspiration(slug)
+  const inspiration = query.isPending ? undefined : (query.data ?? null)
+  const pieces = inspiration?.items ?? []
 
   if (inspiration === undefined) {
     return (
@@ -102,14 +47,6 @@ export function InspirationDetailPage() {
         />
       </div>
     )
-  }
-
-  const targetEvent = events.find((e) => e.id === targetEventId)
-
-  function adopt() {
-    if (!targetEventId || !inspiration) return
-    toast.success('Concept adopted — opening your moodboard.')
-    navigate(`/events/${targetEventId}?tab=moodboard`)
   }
 
   return (
@@ -226,31 +163,28 @@ export function InspirationDetailPage() {
             </div>
           </div>
 
-          {recommendedInventory.length > 0 && (
+          {pieces.length > 0 && (
             <div>
               <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
                 Inventory we'd pull in
               </p>
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {recommendedInventory.map((it) => (
+                {pieces.map(({ item: it, qtyFixed, qtyPer100Guests }) => (
                   <div
                     key={it.id}
                     className="border-border/10 bg-surface overflow-hidden rounded-2xl border shadow-card"
                   >
                     <div className="h-32 overflow-hidden">
-                      <img
-                        src={it.image}
-                        alt={it.name}
-                        className="h-full w-full object-cover"
-                      />
+                      {it.image && <img src={it.image} alt={it.name} className="h-full w-full object-cover" />}
                     </div>
                     <div className="p-3">
                       <p className="text-text text-sm font-semibold leading-tight">
                         {it.name}
                       </p>
                       <p className="text-muted/70 mt-0.5 text-[10px] uppercase tracking-widest">
-                        {it.category}
+                        {it.category} · {qtyFixed != null ? `${qtyFixed} ${it.unit}` : `${qtyPer100Guests} per 100 guests`}
                       </p>
+                      <p className="text-muted mt-0.5 text-[11px]">{isPriced(it) ? `${formatPKRCompact(it.pricePKR)} / ${it.unit}` : 'Price on request'}</p>
                     </div>
                   </div>
                 ))}
@@ -271,45 +205,17 @@ export function InspirationDetailPage() {
                   Bring {inspiration.name} into your event.
                 </p>
                 <p className="text-muted mt-2 text-sm leading-relaxed">
-                  Elation will seed your moodboard with these tiles, palette,
-                  and inventory recommendations — you keep full control.
+                  Elation makes it your lead moodboard and carries its pieces into
+                  your budget — you keep full control.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
-                  Target event
-                </label>
-                <Select value={targetEventId} onValueChange={setTargetEventId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an event" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {events.length === 0 ? (
-                      <SelectItem value="_none" disabled>
-                        No events yet
-                      </SelectItem>
-                    ) : (
-                      events.map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {(e.concept ?? e.name) + ' · ' + e.type}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                size="lg"
-                disabled={!targetEventId}
-                onClick={adopt}
-                className="mt-1"
-              >
-                <Sparkles className="h-4 w-4" />
-                Adopt {inspiration.name}
-                {targetEvent ? ` into ${targetEvent.type}` : ''}
-              </Button>
+              {inspiration.indicativeTotalPkr > 0 && (
+                <p className="text-muted text-sm">
+                  From <span className="text-text font-semibold">{formatPKRCompact(inspiration.indicativeTotalPkr)}</span> for 200 guests
+                </p>
+              )}
+              <AdoptInspiration inspiration={inspiration} />
 
               <p className="text-muted/70 text-center text-[10px]">
                 You can edit or swap concepts on the moodboard at any time.

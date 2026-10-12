@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowRight,
@@ -18,23 +18,11 @@ import {
   DialogContent,
   DialogClose,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { toast } from '@/components/ui/toast'
-import { api } from '@/lib/api'
+import type { EventType } from '@elation/shared/domain'
+import type { InspirationDto as Inspiration } from '@elation/shared/api'
+import { AdoptInspiration } from '@/components/AdoptInspiration'
 import { cn } from '@/lib/utils'
-import { useEventsView } from '@/data/events'
-import type {
-  ClientEvent,
-  EventType,
-  Inspiration,
-  InventoryItem,
-} from '@/mocks/types'
+import { useInspiration, useInspirations } from '@/data/inspirations'
 
 const EVENT_TYPE_CHIPS: (EventType | 'All')[] = [
   'All',
@@ -67,12 +55,8 @@ function splitStyles(style: string): string[] {
 }
 
 export function InspirationsPage() {
-  const navigate = useNavigate()
-  const { events } = useEventsView()
-
-  const [items, setItems] = useState<Inspiration[] | null>(null)
-  const [inventory, setInventory] = useState<InventoryItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data, isPending: loading } = useInspirations()
+  const items = data ?? null
 
   const [selectedType, setSelectedType] = useState<EventType | 'All'>('All')
   const [selectedStyles, setSelectedStyles] = useState<string[]>([])
@@ -94,22 +78,6 @@ export function InspirationsPage() {
       window.localStorage.setItem('insp:view', view)
     }
   }, [view])
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    Promise.all([api.inspirations.list(), api.inventory.list()]).then(
-      ([insp, inv]) => {
-        if (cancelled) return
-        setItems(insp)
-        setInventory(inv)
-        setLoading(false)
-      },
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const featured = useMemo(
     () => items?.find((i) => i.featured) ?? items?.[0],
@@ -393,13 +361,6 @@ export function InspirationsPage() {
       <InspirationDetailDialog
         inspiration={openInspiration}
         onOpenChange={(open) => !open && setOpenInspiration(null)}
-        events={events}
-        inventory={inventory}
-        onAdopt={(_inspiration, eventId) => {
-          toast.success('Concept adopted — opening your moodboard.')
-          setOpenInspiration(null)
-          navigate(`/events/${eventId}?tab=moodboard`)
-        }}
       />
     </div>
   )
@@ -572,50 +533,13 @@ function InspirationCard({
 function InspirationDetailDialog({
   inspiration,
   onOpenChange,
-  events,
-  inventory,
-  onAdopt,
 }: {
   inspiration: Inspiration | null
   onOpenChange: (open: boolean) => void
-  events: ClientEvent[]
-  inventory: InventoryItem[]
-  onAdopt: (inspiration: Inspiration, eventId: string) => void
 }) {
-  const [targetEventId, setTargetEventId] = useState<string>('')
-
-  useEffect(() => {
-    if (inspiration && !targetEventId && events[0]) {
-      setTargetEventId(events[0].id)
-    }
-  }, [inspiration, events, targetEventId])
-
-  const recommendedInventory = useMemo(() => {
-    if (!inspiration) return []
-    const styleTokens = splitStyles(inspiration.style).map((s) =>
-      s.toLowerCase(),
-    )
-    const eventTokens = inspiration.eventTypes.map((t) => t.toLowerCase())
-    const matches = inventory.filter((it) => {
-      const tags = it.tags.map((t) => t.toLowerCase())
-      return (
-        tags.some((tg) => styleTokens.some((st) => st.includes(tg))) ||
-        tags.some((tg) => eventTokens.includes(tg))
-      )
-    })
-    const first = matches.length >= 4 ? matches : [...matches, ...inventory]
-    const seen = new Set<string>()
-    const dedup: InventoryItem[] = []
-    for (const it of first) {
-      if (seen.has(it.id)) continue
-      seen.add(it.id)
-      dedup.push(it)
-      if (dedup.length >= 4) break
-    }
-    return dedup
-  }, [inspiration, inventory])
-
-  const targetEvent = events.find((e) => e.id === targetEventId)
+  // The pieces Elation would pull in come with the concept's detail.
+  const { data: detail } = useInspiration(inspiration?.slug)
+  const recommendedInventory = (detail?.items ?? []).slice(0, 4).map((i) => i.item)
 
   return (
     <Dialog open={!!inspiration} onOpenChange={onOpenChange}>
@@ -723,11 +647,7 @@ function InspirationDetailDialog({
                           title={it.name}
                         >
                           <div className="h-16 overflow-hidden">
-                            <img
-                              src={it.image}
-                              alt={it.name}
-                              className="h-full w-full object-cover"
-                            />
+                            {it.image && <img src={it.image} alt={it.name} className="h-full w-full object-cover" />}
                           </div>
                           <p className="text-text truncate px-2 py-1 text-[10px] font-semibold">
                             {it.name}
@@ -749,39 +669,7 @@ function InspirationDetailDialog({
                   </p>
 
                   <div className="mt-3 flex flex-col gap-3">
-                    <Select
-                      value={targetEventId}
-                      onValueChange={setTargetEventId}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an event" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {events.length === 0 ? (
-                          <SelectItem value="_none" disabled>
-                            No events yet
-                          </SelectItem>
-                        ) : (
-                          events.map((e) => (
-                            <SelectItem key={e.id} value={e.id}>
-                              {(e.concept ?? e.name) + ' · ' + e.type}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-
-                    <Button
-                      disabled={!targetEventId}
-                      onClick={() =>
-                        targetEventId && onAdopt(inspiration, targetEventId)
-                      }
-                      size="lg"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      Adopt {inspiration.name}
-                      {targetEvent ? ` into ${targetEvent.type}` : ''}
-                    </Button>
+                    <AdoptInspiration inspiration={inspiration} />
 
                     <Link
                       to={`/inspirations/${inspiration.slug}`}

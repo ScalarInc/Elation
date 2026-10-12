@@ -38,7 +38,7 @@ The AR experience itself (Meta Quest 3 passthrough) is a separate build. The web
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| `GET` | `/ar-sets` | Sets visible to the user: the three showcase sets + any set linked to their events |
+| `GET` | `/ar-sets` | Sets visible to the user: their own sets, then a showcase set for each event type they don't have one for (P33) |
 | `GET` | `/events/:id/ar` | The event's set (or `null` + the showcase set matching the event type) |
 | `GET` | `/ar-sets/:id/assets` | Asset list; each with a presigned download URL for the GLB/OBJ (private bucket, 10 min) — replaces the "Frontend mock — no download" toast in `ARAssetList.tsx` |
 | `POST` | `/events/:id/ar/session-request` | "Book a headset session" → system message + consultant task (replaces the toast in `ARHero.tsx`) |
@@ -48,6 +48,13 @@ The AR experience itself (Meta Quest 3 passthrough) is a separate build. The web
 
 ## Definition of done
 
-- [ ] Adopting an inspiration creates a primary moodboard and a priced budget for the chosen event; both visible immediately.
-- [ ] Gallery filters work server-side; unpublished concepts are invisible to clients.
-- [ ] AR page reads status/progress/ETA from the API; asset downloads work with expiring links.
+- [x] Adopting an inspiration creates a primary moodboard and a priced budget for the chosen event; both visible immediately.
+- [x] Gallery filters work server-side; unpublished concepts are invisible to clients. *(the gallery itself filters in the browser — P35)*
+- [x] AR page reads status/progress/ETA from the API; asset downloads work with expiring links. *(links arrive with file storage, Step 11)*
+
+## As built (2026-10-13)
+
+- **Inspirations** (`server/src/modules/inspirations/`): `GET /inspirations` (published only; `eventType`, `tier`, `style`, `palette`, `q`), `GET /inspirations/:slug` (pieces with quantity rules + "from" price for 200 guests), `POST /inspirations/:slug/adopt` (P32; one transaction: lead moodboard with `generator: "inspiration"`, budget create / merge / replace with a version bump, activity + thread message; then pre-fill of empty, non-delegated Q10/Q16). 10 adoptions/hour per user. Seeded: 37 pieces across the 6 concepts (placeholder inventory until Elation prices the real catalogue).
+- **AR** (`server/src/modules/ar/`): `GET /ar-sets` (P33), `GET /events/:id/ar` (set, or the showcase set for that event type), `GET /ar-sets/:id/assets` (`downloadUrl` null until Step 11), `POST /events/:id/ar/session-request` (activity + thread message + consultant email; 5/hour), `POST /ar-sets/:id/notify-me` (new `ARNotifyRequest` table; `notifySetReady` emails once — called by the Step 12 admin status change). `send-to-headset` is not built (phase 2, P34). Seeded 3 showcase sets and 8 assets per set.
+- **Webapp**: gallery, concept dialog and concept page read the API; `AdoptInspiration` (event picker preferring a matching event type, add/replace choice when the event has a budget) navigates to the moodboard tab; AR pages, cards, floor plans and asset table read the API; "Notify me", "Book a headset session" and "Request a demo session" call it. `lib/api.ts` now only serves messages and the activity feed (Step 10).
+- Review: [step-09-review.md](reviews/step-09-review.md).

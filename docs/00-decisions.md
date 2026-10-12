@@ -197,3 +197,9 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-13 — Step 8 — P31: unpriced pieces never enter a budget; seeds report them as "priced on request".
 - 2026-10-13 — Step 8 — Mock mode has no budget store; the estimator needs the server.
 - 2026-10-13 — Step 8 — Changing the event budget bumps the plan version (stale estimator tabs get 409).
+- 2026-10-13 — Step 9 — P32: adopting a concept = lead moodboard + priced pieces into the budget (add/replace) + pre-fill of empty, non-delegated Q10/Q16.
+- 2026-10-13 — Step 9 — P33: AR list = own sets, then a showcase set per uncovered event type.
+- 2026-10-13 — Step 9 — P34: "Send to headset" waits for the Quest app; ready sets offer "Book a headset session".
+- 2026-10-13 — Step 9 — P35: the inspiration gallery filters in the browser over the full published list; the API supports the same filters.
+- 2026-10-13 — Step 9 — New table `ARNotifyRequest` (migration `ar_notify_requests`); 3 showcase AR sets seeded.
+- 2026-10-13 — Step 9 — AR model downloads return `downloadUrl: null` until file storage (Step 11).

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Cast, Check, Bell, Eye, Calendar, Boxes, Sparkles } from 'lucide-react'
-import type { ARSet } from '@/mocks/types'
+import { Check, Bell, BellRing, Calendar, Boxes, Headphones, Sparkles } from 'lucide-react'
+import type { ArSetDto as ARSet } from '@elation/shared/api'
+import { useArNotifyMe, useArSessionRequest } from '@/data/ar'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -52,34 +53,62 @@ export function ARStatusPill({ status, className }: { status: ARSet['status']; c
   )
 }
 
-function primaryActionFor(set: ARSet) {
+/**
+ * Ready sets on the client's own event: book a headset session. Sets still in
+ * progress: "notify me" (emailed when ready). "Send to headset" waits for the
+ * Quest app (phase 2), so it isn't offered.
+ */
+function PrimaryAction({ set }: { set: ARSet }) {
+  const notify = useArNotifyMe()
+  const session = useArSessionRequest()
   if (set.status === 'ready') {
+    if (!set.eventId) {
+      return (
+        <p className="text-muted text-center text-xs">Elation's showcase set — your consultant can arrange a demo.</p>
+      )
+    }
     return (
       <Button
         className="w-full"
-        onClick={() => toast.success('Scene queued to your headset.')}
+        disabled={session.isPending}
+        onClick={() =>
+          session.mutate(
+            { eventId: set.eventId! },
+            {
+              onSuccess: ({ consultantName }) =>
+                toast.success(`${consultantName ?? 'Your consultant'} will be in touch to book your headset session.`),
+              onError: (err) => toast.error('Could not send your request', { description: err.message }),
+            },
+          )
+        }
       >
-        <Cast className="h-4 w-4" />
-        Send to headset
+        <Headphones className="h-4 w-4" />
+        Book a headset session
       </Button>
     )
   }
-  if (set.status === 'rendering') {
+  if (set.notifyRequested) {
     return (
-      <Button
-        variant="ghost"
-        className="w-full"
-        onClick={() => toast("We'll let you know.")}
-      >
-        <Bell className="h-4 w-4" />
-        Notify me when ready
+      <Button variant="ghost" className="w-full" disabled>
+        <BellRing className="h-4 w-4" />
+        We'll email you when it's ready
       </Button>
     )
   }
   return (
-    <Button variant="ghost" className="w-full" disabled>
-      <Eye className="h-4 w-4" />
-      View concept
+    <Button
+      variant="ghost"
+      className="w-full"
+      disabled={notify.isPending}
+      onClick={() =>
+        notify.mutate(set.id, {
+          onSuccess: () => toast.success("We'll email you the moment it's ready."),
+          onError: (err) => toast.error('Could not save that', { description: err.message }),
+        })
+      }
+    >
+      <Bell className="h-4 w-4" />
+      Notify me when ready
     </Button>
   )
 }
@@ -97,9 +126,11 @@ export function FloorPlanDialog({ set, children }: { set: ARSet; children: React
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="border-border/10 overflow-hidden rounded-2xl border">
-            <img src={set.floorPlan} alt="Floor plan" className="h-72 w-full object-cover" />
-          </div>
+          {set.floorPlan && (
+            <div className="border-border/10 overflow-hidden rounded-2xl border">
+              <img src={set.floorPlan} alt="Floor plan" className="h-72 w-full object-cover" />
+            </div>
+          )}
           <div>
             <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
               Aerial views
@@ -201,7 +232,7 @@ export function ARSetCard({
           </ul>
 
           <div className="mt-auto flex flex-col gap-2 pt-2">
-            {primaryActionFor(set)}
+            <PrimaryAction set={set} />
             <FloorPlanDialog set={set}>
               <Button variant="outline" className="w-full">
                 View floor plan

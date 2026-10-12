@@ -298,7 +298,7 @@ export async function updateMoodboard(db: Db, actor: Actor, id: string, body: { 
 }
 
 /** Serialises primary changes per event (the partial unique index allows only one). */
-async function lockEvent(tx: DbTx, eventId: string) {
+export async function lockEvent(tx: DbTx, eventId: string) {
   await tx.$queryRaw`SELECT id FROM "Event" WHERE id = ${eventId}::uuid FOR UPDATE`
 }
 

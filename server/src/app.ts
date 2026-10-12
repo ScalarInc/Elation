@@ -17,6 +17,8 @@ import { adminInventoryRoutes, inventoryRoutes } from './modules/inventory/route
 import { meRoutes } from './modules/me/routes'
 import { moodboardRoutes } from './modules/moodboards/routes'
 import { budgetRoutes } from './modules/budget/routes'
+import { inspirationRoutes } from './modules/inspirations/routes'
+import { arRoutes } from './modules/ar/routes'
 import { questionnaireRoutes } from './modules/questionnaire/routes'
 import authPlugin from './plugins/auth'
 import dbPlugin from './plugins/db'
@@ -89,6 +91,8 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
       await api.register(adminInventoryRoutes)
       await api.register(moodboardRoutes)
       await api.register(budgetRoutes)
+      await api.register(inspirationRoutes)
+      await api.register(arRoutes)
       await api.register(adminRoutes)
     },
     { prefix: API_PREFIX },

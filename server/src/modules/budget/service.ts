@@ -24,6 +24,7 @@ import { budgetForConsultantEmail } from '../../lib/emails'
 import { AppError } from '../../lib/errors'
 import type { Mailer } from '../../lib/mailer'
 import { assertEventAccess, eventScope } from '../../lib/policy'
+import { postSystemMessage } from '../../lib/threads'
 import type { Db, DbTx } from '../../plugins/db'
 import { eventInclude, toEventDto } from '../events/service'
 import { toInventoryDto } from '../inventory/service'
@@ -400,15 +401,11 @@ export async function repriceBudget(db: Db, actor: Actor, eventId: string) {
 /** Tell the consultant: activity entry, a system message in the event's thread, and an email. */
 async function notifyConsultant(deps: Deps, event: Event, plan: BudgetPlanDto, kind: 'review' | 'quote', note?: string) {
   const client = await deps.db.user.findUniqueOrThrow({ where: { id: event.clientId }, include: { consultant: true } })
-  const thread = await deps.db.thread.findFirst({ where: { clientId: event.clientId, OR: [{ eventId: event.id }, { eventId: null }] }, orderBy: { eventId: { sort: 'asc', nulls: 'last' } } })
   const headline = kind === 'quote' ? 'requested a quote' : 'sent the budget for review'
-  const body = `${client.name} ${headline} for ${event.concept ?? event.name}: PKR ${plan.totals.includedPkr.toLocaleString('en-PK')} of PKR ${plan.targetPkr.toLocaleString('en-PK')}.${note ? `\n\n“${note}”` : ''}`
-  if (thread) {
-    await deps.db.$transaction([
-      deps.db.message.create({ data: { threadId: thread.id, kind: 'SYSTEM', body, meta: { type: `budget.${kind}`, eventId: event.id, planId: plan.id } } }),
-      deps.db.thread.update({ where: { id: thread.id }, data: { lastMessageAt: new Date() } }),
-    ])
-  }
+  const body = `${client.name} ${headline} for ${event.concept ?? event.name}: PKR ${plan.totals.includedPkr.toLocaleString('en-PK')} of PKR ${plan.targetPkr.toLocaleString('en-PK')}.${note ? `
+
+“${note}”` : ''}`
+  await postSystemMessage(deps.db, { clientId: event.clientId, eventId: event.id, body, meta: { type: `budget.${kind}`, eventId: event.id, planId: plan.id } })
   if (client.consultant) {
     // The hand-off is committed; a mail outage must not turn it into an error (the thread + activity still carry it).
     await deps.mailer

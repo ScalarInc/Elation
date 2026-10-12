@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Sparkles } from 'lucide-react'
-import { api } from '@/lib/api'
-import type { ARSet, EventType } from '@/mocks/types'
+import type { EventType } from '@elation/shared/domain'
+import { useArSets, useEventAr } from '@/data/ar'
 import { useEventView } from '@/data/events'
 import { ARSetCard, ARStatusPill } from '@/components/ARSetCard'
 import { ARAssetList } from '@/components/ARAssetList'
@@ -53,24 +52,29 @@ function PageSkeleton() {
 export function EventARPage() {
   const { id } = useParams<{ id: string }>()
   const { event, isPending } = useEventView(id)
-  const [set, setSet] = useState<ARSet | null | undefined>(undefined)
-  const [siblings, setSiblings] = useState<ARSet[]>([])
-
-  useEffect(() => {
-    if (!id) return
-    let mounted = true
-    Promise.all([api.ar.forEvent(id), api.ar.list()]).then(([one, all]) => {
-      if (!mounted) return
-      setSet(one ?? null)
-      setSiblings(all.filter((s) => s.eventId !== id))
-    })
-    return () => {
-      mounted = false
-    }
-  }, [id])
+  const eventAr = useEventAr(id)
+  const { data: allSets = [] } = useArSets()
+  const set = eventAr.isPending ? undefined : (eventAr.data?.set ?? null)
+  const showcase = eventAr.data?.showcase ?? null
+  const siblings = allSets.filter((s) => s.eventId !== id)
 
   if (isPending) return <PageSkeleton />
   if (!event) return <ARNotFound />
+  if (eventAr.isError) {
+    return (
+      <div className="px-10 pb-12 pt-8">
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+            <p className="font-display text-text text-xl">We couldn't load this AR set</p>
+            <p className="text-muted text-sm">{eventAr.error.message}</p>
+            <Button variant="outline" onClick={() => void eventAr.refetch()}>
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8 px-10 pb-16 pt-8">
@@ -93,6 +97,7 @@ export function EventARPage() {
         kicker={`AR PREVIEW · ${event.type.toUpperCase()}`}
         title={`Walk your ${event.type} before it exists.`}
         subhead={`Elation is building an AR passthrough set for ${event.concept ?? event.name}. Preview it on Meta Quest 3 before we start building on-site.`}
+        eventId={event.id}
       />
 
       <section>
@@ -136,7 +141,14 @@ export function EventARPage() {
               </Button>
             </CardContent>
           </Card>
-        ) : (
+        ) : null}
+        {set === null && showcase && (
+          <div className="mt-6">
+            <p className="text-muted/70 mb-3 text-[10px] font-bold uppercase tracking-[0.3em]">MEANWHILE — ELATION'S SHOWCASE {event.type.toUpperCase()} SET</p>
+            <ARSetCard set={showcase} />
+          </div>
+        )}
+        {set ? (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
             <ARSetCard set={set} featured />
             <Card>
@@ -172,7 +184,7 @@ export function EventARPage() {
               </CardContent>
             </Card>
           </div>
-        )}
+        ) : null}
       </section>
 
       {WEDDING_SET_TYPES.includes(event.type) && siblings.length > 0 && (
@@ -204,7 +216,7 @@ export function EventARPage() {
         </section>
       )}
 
-      <ARAssetList />
+      <ARAssetList setId={set?.id ?? showcase?.id} />
     </div>
   )
 }

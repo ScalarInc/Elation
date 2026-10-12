@@ -111,6 +111,54 @@ Elation X`,
   }
 }
 
+export function arSessionRequestEmail(input: {
+  to: string
+  consultantName: string
+  clientName: string
+  eventName: string
+  preferredDate?: string
+  note?: string
+  url: string
+}): Mail {
+  const when = input.preferredDate ? ` — preferred date ${input.preferredDate}` : ''
+  return {
+    to: input.to,
+    subject: `${input.clientName} would like an AR session — ${input.eventName}`,
+    text: `Hi ${input.consultantName},
+
+${input.clientName} asked for an AR headset session for ${input.eventName}${when}.${input.note ? `\n\n“${input.note}”` : ''}
+
+${input.url}
+
+Elation X`,
+    html: layout(
+      'AR session request',
+      `<p>Hi ${escapeHtml(input.consultantName)}, ${escapeHtml(input.clientName)} asked for an AR headset session for <strong>${escapeHtml(input.eventName)}</strong>${escapeHtml(when)}.</p>
+       ${input.note ? `<blockquote style="border-left:3px solid #E3BFB9;margin:0;padding:4px 12px;color:#55545a">${escapeHtml(input.note)}</blockquote>` : ''}`,
+      { label: 'Open the event', url: input.url },
+    ),
+  }
+}
+
+export function arReadyEmail(input: { to: string; name: string; setTitle: string; url: string }): Mail {
+  return {
+    to: input.to,
+    subject: `${input.setTitle} is ready to preview`,
+    text: `Hi ${input.name},
+
+${input.setTitle} is ready — you can now walk through it on Meta Quest 3.
+
+${input.url}
+
+Elation by FMH`,
+    html: layout(
+      'Your AR set is ready',
+      `<p>Hi ${escapeHtml(input.name)}, <strong>${escapeHtml(input.setTitle)}</strong> is ready — you can now walk through it on Meta Quest 3.</p>`,
+      { label: 'See the set', url: input.url },
+    ),
+  }
+}
+
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 }

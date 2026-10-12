@@ -185,6 +185,7 @@ model User {
   events        Event[]
   invitesSent   Invite[]            @relation("InviteCreatedBy")
   threadsJoined ThreadParticipant[]
+  arNotify      ARNotifyRequest[]
   messages      Message[]
   files         File[]
   notesAbout    ConsultantNote[]    @relation("NoteClient")
@@ -517,7 +518,22 @@ model ARSet {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  assets ARAsset[]
+  assets   ARAsset[]
+  notifyMe ARNotifyRequest[]
+}
+
+/// "Notify me" on a coming-soon set — emailed when it turns READY (docs/step-09-inspirations-ar.md).
+model ARNotifyRequest {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  setId      String    @db.Uuid
+  set        ARSet     @relation(fields: [setId], references: [id], onDelete: Cascade)
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  notifiedAt DateTime?
+
+  @@unique([setId, userId])
+  @@index([userId])
 }
 
 model ARAsset {
