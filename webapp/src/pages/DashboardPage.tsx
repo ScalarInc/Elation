@@ -6,7 +6,7 @@ import { NextStepCard } from '@/components/NextStepCard'
 import { RecentMoodboards } from '@/components/RecentMoodboards'
 import { QuickActions } from '@/components/QuickActions'
 import { ActivityFeed } from '@/components/ActivityFeed'
-import { currentUser } from '@/mocks/fixtures'
+import { useCurrentUser } from '@/data/auth'
 
 function greeting() {
   const h = new Date().getHours()
@@ -16,7 +16,7 @@ function greeting() {
 }
 
 export function DashboardPage() {
-  const firstName = currentUser.name.split(' ')[0]
+  const firstName = useCurrentUser().name.split(' ')[0]
 
   return (
     <div className="pb-16">

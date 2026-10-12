@@ -116,8 +116,33 @@ Every module that touches an event calls `assertEventAccess` first. A test suite
 
 ## Definition of done
 
-- [ ] Admin-created invite → client activates → logs in → sees dashboard (seeded data).
-- [ ] Setting `accessExpiresAt` in the past makes the next request return 403 `ACCESS_EXPIRED` and deletes sessions.
-- [ ] Revoking a user ends an open browser session on its next request.
-- [ ] Policy test matrix passes for every event-scoped route that exists at this point.
-- [ ] The `elation-auth` localStorage stub is deleted from the frontend.
+- [x] Admin-created invite → client activates → logs in → sees dashboard (seeded data). Verified by API tests and in the browser.
+- [x] Setting `accessExpiresAt` in the past makes the next request return 403 `ACCESS_EXPIRED` and deletes sessions (browser lands on `/access-ended`).
+- [x] Revoking a user ends an open browser session on its next request.
+- [x] Policy test matrix passes for the helpers every event-, client- and thread-scoped route will use (`server/src/lib/policy.test.ts`).
+- [x] The `elation-auth` localStorage stub is deleted from the frontend.
+
+## As built (2026-10-12)
+
+| Area | Where |
+| --- | --- |
+| Contracts (zod schemas + types shared with the webapp) | `packages/shared/src/api/auth.ts` |
+| Session cookie, sliding expiry, CSRF origin check, `requireAuth` / `requireRole` | `server/src/plugins/auth.ts`, `server/src/modules/auth/sessions.ts` |
+| Access rules (expired / revoked) | `server/src/modules/auth/access.ts` |
+| Login, invites, password reset/change | `server/src/modules/auth/service.ts` + `routes.ts` |
+| `/me` profile, notifications, consent, sessions, export, deletion request | `server/src/modules/me/*` |
+| Client invitations (`POST /admin/clients/invite`) | `server/src/modules/admin/*` — pulled forward from Step 12 so the invite flow is testable end to end |
+| Authorization helpers | `server/src/lib/policy.ts` |
+| Rate limiting | `server/src/lib/rate-limit.ts` |
+| Email (Resend, or printed to the server log when `RESEND_API_KEY` is empty) | `server/src/lib/mailer.ts`, `emails.ts` |
+| Hourly expiry sweep | `server/src/modules/auth/sweep.ts` |
+| Webapp data layer (TanStack Query, fetch client, `VITE_API_MODE`) | `webapp/src/lib/api/*`, `webapp/src/data/auth.ts` |
+| Screens | `AuthPage` (sign in + activate), `ForgotPasswordPage`, `ResetPasswordPage`, `AccessEndedPage`, `ProtectedRoute`, `ConsentGate`, `ProfilePage`, `SettingsPage`, both layouts |
+
+Differences from the plan above:
+
+- `Me.role` is the system role (`client | consultant | admin`); the Bride/Groom/Family/Organizer field is `Me.clientRole`.
+- Data export is `GET /me/export` (an immediate JSON download), not `POST` + emailed job — the data is small and this needs no job queue.
+- Changing a sign-in email isn't self-service (would need re-verification); the profile shows it read-only.
+- The client area is gated to `client` accounts; staff are sent to `/admin`.
+- Not done yet, waiting on the job queue: expiry **warning** emails (7 days / 1 day before) and the 7-day data-retention purge (owner answer A5). The websocket access re-check lands with Step 10.

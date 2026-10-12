@@ -1,7 +1,8 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Users, ClipboardList, BarChart3, Boxes, Sparkles, Settings } from 'lucide-react'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { LayoutDashboard, Users, ClipboardList, BarChart3, Boxes, Sparkles, Settings, LogOut } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { cn } from '@/lib/utils'
+import { useCurrentUser, useLogout } from '@/data/auth'
 
 const nav = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
@@ -14,6 +15,9 @@ const nav = [
 ]
 
 export function AdminLayout() {
+  const me = useCurrentUser()
+  const logout = useLogout()
+  const navigate = useNavigate()
   return (
     <div className="bg-bg flex min-h-screen text-text">
       <aside className="border-border/10 bg-surface flex w-60 shrink-0 flex-col border-r px-4 py-6">
@@ -42,7 +46,21 @@ export function AdminLayout() {
             ))}
           </ul>
         </nav>
-        <ThemeToggle className="self-start" />
+        <div className="border-border/10 mt-4 flex items-center gap-2 border-t px-3 pt-4">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{me.name}</p>
+            <p className="text-muted/60 text-[10px] uppercase tracking-widest">{me.role}</p>
+          </div>
+          <ThemeToggle />
+          <button
+            type="button"
+            aria-label="Log out"
+            onClick={() => logout.mutate(undefined, { onSettled: () => navigate('/auth?mode=signin', { replace: true }) })}
+            className="text-muted hover:text-text rounded-lg p-1.5 transition"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </aside>
       <main className="flex-1 overflow-x-hidden">
         <Outlet />

@@ -28,7 +28,14 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { ConsentGate } from '@/components/ConsentGate'
 import { cn } from '@/lib/utils'
-import { currentUser } from '@/mocks/fixtures'
+import { useCurrentUser, useLogout } from '@/data/auth'
+
+/** Sign out on the server, drop cached data, return to sign-in. */
+function useSignOut() {
+  const navigate = useNavigate()
+  const logout = useLogout()
+  return () => logout.mutate(undefined, { onSettled: () => navigate('/auth?mode=signin', { replace: true }) })
+}
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -42,7 +49,8 @@ const nav = [
 ]
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
-  const navigate = useNavigate()
+  const me = useCurrentUser()
+  const signOut = useSignOut()
   return (
     <aside className="bg-sage-veil relative flex h-full w-64 shrink-0 flex-col text-ink dark:text-cream">
       <div className="px-6 pt-8 pb-6">
@@ -77,15 +85,15 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="mx-4 mb-3 mt-6 flex items-center gap-3 rounded-xl bg-white/30 px-3 py-2 dark:bg-white/10">
         <Avatar className="h-9 w-9">
-          <AvatarFallback>{currentUser.avatarInitials}</AvatarFallback>
+          <AvatarFallback>{me.avatarInitials}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{currentUser.name}</p>
+          <p className="truncate text-sm font-semibold">{me.name}</p>
           <p className="text-[10px] uppercase tracking-widest opacity-60">Client</p>
         </div>
         <button
           type="button"
-          onClick={() => navigate('/auth?mode=signin')}
+          onClick={signOut}
           aria-label="Log out"
           className="rounded-lg p-1.5 opacity-70 transition hover:bg-white/25 hover:opacity-100"
         >
@@ -98,6 +106,8 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
 function TopBar() {
   const navigate = useNavigate()
+  const me = useCurrentUser()
+  const signOut = useSignOut()
   const [drawerOpen, setDrawerOpen] = useState(false)
   return (
     <header className="flex items-center justify-between gap-3 border-b border-border/10 bg-bg/85 px-4 py-3 backdrop-blur md:px-10 md:py-4">
@@ -149,12 +159,12 @@ function TopBar() {
               className="border-border/10 bg-surface flex h-10 w-10 items-center justify-center rounded-xl border transition hover:border-accent/40"
             >
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="text-[10px]">{currentUser.avatarInitials}</AvatarFallback>
+                <AvatarFallback className="text-[10px]">{me.avatarInitials}</AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>{currentUser.name}</DropdownMenuLabel>
+            <DropdownMenuLabel>{me.name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => navigate('/profile')}>
               <UserCircle2 className="h-4 w-4" />
@@ -165,7 +175,7 @@ function TopBar() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => navigate('/auth?mode=signin')}>
+            <DropdownMenuItem onSelect={signOut}>
               <LogOut className="h-4 w-4" />
               Log out
             </DropdownMenuItem>

@@ -165,3 +165,11 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-12 — Step 2 — Seed rows use deterministic UUIDv7 ids — idempotent upserts without natural keys on every table.
 - 2026-10-12 — Step 2 — ER diagram in Mermaid (`docs/assets/erd.md`) instead of a generated SVG — no headless-browser toolchain needed; GitHub renders it.
 - 2026-10-12 — Step 2 — Inventory references from tiles, budget lines and inspiration items are real foreign keys.
+- 2026-10-12 — Step 3 — In-house fixed-window rate limiter instead of `@fastify/rate-limit` — the plugin runs only one limiter per request, so per-IP + per-email limits on login couldn't stack. In-memory: fine for one Railway instance; move the counters to Postgres when the API scales out.
+- 2026-10-12 — Step 3 — Auth checks run in `onRequest` hooks, before body validation — signed-out callers get 401/403, never validation details.
+- 2026-10-12 — Step 3 — "Remember me" off = browser-session cookie + 12 h server-side session (`Session.persistent`, migration `session_persistent`).
+- 2026-10-12 — Step 3 — The GIN index on questionnaire answers is declared in `schema.prisma` (`ops: JsonbPathOps`) so Prisma doesn't try to drop it.
+- 2026-10-12 — Step 3 — Social sign-in buttons (Google/Apple) removed from `/auth` — accounts are invite-only (P1/P2).
+- 2026-10-12 — Step 3 — Account deletion from Settings is a **request** recorded in the audit log; an admin confirms (open question 2 stays open).
+- 2026-10-12 — Step 3 — Data export is a synchronous `GET /me/export` JSON download.
+- 2026-10-12 — Step 3 — TanStack Query and the HTTP API client (Step 13 setup) pulled forward — auth needed them. Other pages still read mocks until their step lands.

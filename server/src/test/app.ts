@@ -1,5 +1,6 @@
 import { buildApp } from '../app'
 import { loadConfig } from '../config'
+import { MemoryMailer } from '../lib/mailer'
 
 /**
  * Builds an app instance against the test database.
@@ -14,7 +15,8 @@ export async function buildTestApp(overrides: Record<string, string> = {}) {
     DATABASE_URL: databaseUrl,
     ...overrides,
   })
-  const app = await buildApp(config)
+  const mailer = new MemoryMailer()
+  const app = await buildApp(config, { mailer })
   await app.ready()
-  return app
+  return Object.assign(app, { sentMail: mailer })
 }

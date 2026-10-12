@@ -38,11 +38,21 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useTheme, type Theme } from '@/lib/theme'
-import { currentUser } from '@/mocks/fixtures'
+import { PASSWORD_MIN_LENGTH, type NotificationPrefs, type SessionInfo } from '@elation/shared/api'
+import {
+  authApi,
+  useChangePassword,
+  useCurrentUser,
+  useLogoutOthers,
+  useRequestDeletion,
+  useSessions,
+  useUpdateNotifications,
+} from '@/data/auth'
+import { API_MODE, isApiError } from '@/lib/api/client'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-type NotificationKey = keyof NonNullable<typeof currentUser.notifications>
+type NotificationKey = keyof NotificationPrefs
 
 const SECTIONS = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -93,7 +103,7 @@ const notificationRows: {
 const passwordSchema = z
   .object({
     current: z.string().min(1, 'Current password required'),
-    next: z.string().min(8, 'At least 8 characters'),
+    next: z.string().min(PASSWORD_MIN_LENGTH, `At least ${PASSWORD_MIN_LENGTH} characters`),
     confirm: z.string().min(1, 'Please confirm your password'),
   })
   .refine((v) => v.next === v.confirm, {
@@ -258,19 +268,18 @@ function AppearanceSection() {
 }
 
 function NotificationsSection() {
-  const [prefs, setPrefs] = useState(
-    currentUser.notifications ?? {
-      moodboardUpdates: true,
-      budgetAlerts: true,
-      consultantMessages: true,
-      weeklyDigest: false,
-      marketing: false,
-    },
-  )
+  const me = useCurrentUser()
+  const update = useUpdateNotifications()
+  const prefs = me.notifications
 
   function togglePref(key: NotificationKey, value: boolean) {
-    setPrefs((prev) => ({ ...prev, [key]: value }))
-    toast.success(`${value ? 'Enabled' : 'Muted'} ${labelFor(key)}`)
+    update.mutate(
+      { [key]: value },
+      {
+        onSuccess: () => toast.success(`${value ? 'Enabled' : 'Muted'} ${labelFor(key)}`),
+        onError: (err) => toast.error('Could not update notifications', { description: err.message }),
+      },
+    )
   }
 
   function labelFor(key: NotificationKey) {
@@ -304,6 +313,7 @@ function NotificationsSection() {
                 </div>
                 <Switch
                   checked={prefs[row.key]}
+                  disabled={update.isPending}
                   onCheckedChange={(v) => togglePref(row.key, v)}
                   aria-label={row.label}
                 />
@@ -316,22 +326,91 @@ function NotificationsSection() {
   )
 }
 
+/** "Chrome · Windows" from a user-agent string — enough to recognise a device. */
+function describeDevice(userAgent: string | null) {
+  if (!userAgent) return 'Unknown device'
+  const browser = /Edg\//.test(userAgent)
+    ? 'Edge'
+    : /Chrome\//.test(userAgent)
+      ? 'Chrome'
+      : /Firefox\//.test(userAgent)
+        ? 'Firefox'
+        : /Safari\//.test(userAgent)
+          ? 'Safari'
+          : 'Browser'
+  const os = /Windows/.test(userAgent)
+    ? 'Windows'
+    : /iPhone|iPad/.test(userAgent)
+      ? 'iOS'
+      : /Android/.test(userAgent)
+        ? 'Android'
+        : /Mac OS X/.test(userAgent)
+          ? 'macOS'
+          : /Linux/.test(userAgent)
+            ? 'Linux'
+            : ''
+  return [browser, os].filter(Boolean).join(' · ')
+}
+
+function SessionRow({ session }: { session: SessionInfo }) {
+  return (
+    <li className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+      <div className="min-w-0">
+        <p className="text-text text-sm font-semibold">
+          {describeDevice(session.userAgent)}
+          {session.current && (
+            <span className="text-accent ml-2 text-[10px] font-bold uppercase tracking-widest">This device</span>
+          )}
+        </p>
+        <p className="text-muted/70 mt-0.5 text-xs">
+          Signed in {formatDate(session.createdAt)} · last active {formatDate(session.lastSeenAt)}
+        </p>
+      </div>
+    </li>
+  )
+}
+
 function SecuritySection() {
+  const changePassword = useChangePassword()
+  const logoutOthers = useLogoutOthers()
+  const sessions = useSessions()
+  const otherCount = (sessions.data ?? []).filter((s) => !s.current).length
+
   const {
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<PasswordForm>({
     resolver: zodResolver(passwordSchema),
     defaultValues: { current: '', next: '', confirm: '' },
   })
 
-  async function onSubmit() {
-    await new Promise((r) => setTimeout(r, 400))
-    reset()
-    toast.success('Password updated', {
-      description: 'You\'re still signed in on this device.',
+  async function onSubmit(values: PasswordForm) {
+    try {
+      await changePassword.mutateAsync({ currentPassword: values.current, newPassword: values.next })
+      reset()
+      void sessions.refetch()
+      toast.success('Password updated', {
+        description: 'You’re still signed in here; other devices were signed out.',
+      })
+    } catch (err) {
+      const message = (err as Error).message
+      if (isApiError(err, 'CURRENT_PASSWORD_INCORRECT')) setError('current', { message })
+      else setError('next', { message })
+    }
+  }
+
+  function signOutOthers() {
+    logoutOthers.mutate(undefined, {
+      onSuccess: () => {
+        void sessions.refetch()
+        toast('Other sessions cleared', {
+          description: 'You’ll be prompted to sign in again on those devices.',
+        })
+      },
+      onError: (err) => toast.error('Could not sign out other sessions', { description: err.message }),
     })
   }
 
@@ -347,22 +426,18 @@ function SecuritySection() {
         <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="col-span-2 space-y-1.5">
             <Label htmlFor="current">Current password</Label>
-            <Input id="current" type="password" {...register('current')} />
-            {errors.current && (
-              <p className="text-danger text-xs">{errors.current.message}</p>
-            )}
+            <Input id="current" type="password" autoComplete="current-password" {...register('current')} />
+            {errors.current && <p className="text-danger text-xs">{errors.current.message}</p>}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="next">New password</Label>
-            <Input id="next" type="password" {...register('next')} />
+            <Input id="next" type="password" autoComplete="new-password" {...register('next')} />
             {errors.next && <p className="text-danger text-xs">{errors.next.message}</p>}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="confirm">Confirm new password</Label>
-            <Input id="confirm" type="password" {...register('confirm')} />
-            {errors.confirm && (
-              <p className="text-danger text-xs">{errors.confirm.message}</p>
-            )}
+            <Input id="confirm" type="password" autoComplete="new-password" {...register('confirm')} />
+            {errors.confirm && <p className="text-danger text-xs">{errors.confirm.message}</p>}
           </div>
           <div className="col-span-2 flex justify-end">
             <Button type="submit" disabled={isSubmitting}>
@@ -373,25 +448,27 @@ function SecuritySection() {
 
         <Separator className="my-6" />
 
-        <div className="border-border/15 flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-4">
-          <div>
-            <p className="text-text text-sm font-semibold">
-              You're signed in on this device
-            </p>
-            <p className="text-muted/70 mt-0.5 text-xs">
-              Chrome · Windows · Islamabad · signed in {formatDate(new Date().toISOString())}
-            </p>
+        <div className="border-border/15 rounded-2xl border p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">Where you’re signed in</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={signOutOthers}
+              disabled={otherCount === 0 || logoutOthers.isPending}
+            >
+              Sign out other sessions{otherCount > 0 ? ` (${otherCount})` : ''}
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            onClick={() =>
-              toast('Other sessions cleared', {
-                description: 'You\'ll be prompted to sign in again on those devices.',
-              })
-            }
-          >
-            Sign out other sessions
-          </Button>
+          {sessions.isPending ? (
+            <p className="text-muted text-xs">Loading…</p>
+          ) : (
+            <ul className="divide-border/10 divide-y">
+              {(sessions.data ?? []).map((s) => (
+                <SessionRow key={s.id} session={s} />
+              ))}
+            </ul>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -399,6 +476,17 @@ function SecuritySection() {
 }
 
 function DataSection() {
+  const me = useCurrentUser()
+
+  function exportData() {
+    if (API_MODE === 'mock') {
+      toast('Export needs the Elation server (VITE_API_MODE=http).')
+      return
+    }
+    // Same-origin download; the session cookie authenticates it.
+    window.location.assign(authApi.exportUrl)
+  }
+
   return (
     <Card id="data">
       <CardContent className="p-6">
@@ -416,35 +504,29 @@ function DataSection() {
             <div className="min-w-0 flex-1">
               <p className="text-text text-sm font-semibold">Export your event data</p>
               <p className="text-muted/70 mt-1 text-xs">
-                Includes every event, questionnaire answer, moodboard reference, and budget line
-                you've saved with Elation. Delivered as a ZIP with JSON + PDF summaries.
+                Includes your profile, every event, questionnaire answer, moodboard, budget line and
+                message you’ve saved with Elation — one JSON file.
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => toast('Frontend mock — export is not wired.')}
-              >
+              <Button variant="outline" size="sm" className="mt-3" onClick={exportData}>
                 <Download className="h-3.5 w-3.5" />
-                Request export
+                Download my data
               </Button>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-3">
-          <Badge variant="sage">
-            <Calendar className="h-3 w-3" />
-            Access active
-          </Badge>
-          <p className="text-muted/80 text-xs">
-            Your temporary access expires on{' '}
-            <span className="text-text font-semibold">
-              {formatDate(currentUser.accessExpiresAt)}
-            </span>
-            .
-          </p>
-        </div>
+        {me.accessExpiresAt && (
+          <div className="mt-4 flex items-center gap-3">
+            <Badge variant="sage">
+              <Calendar className="h-3 w-3" />
+              Access active
+            </Badge>
+            <p className="text-muted/80 text-xs">
+              Your temporary access expires on{' '}
+              <span className="text-text font-semibold">{formatDate(me.accessExpiresAt)}</span>.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -452,6 +534,19 @@ function DataSection() {
 
 function AccountSection() {
   const [open, setOpen] = useState(false)
+  const requestDeletion = useRequestDeletion()
+
+  function confirm() {
+    requestDeletion.mutate(undefined, {
+      onSuccess: () => {
+        setOpen(false)
+        toast.success('Deletion requested', {
+          description: 'Your consultant will confirm with you before anything is removed.',
+        })
+      },
+      onError: (err) => toast.error('Could not send your request', { description: err.message }),
+    })
+  }
 
   return (
     <Card id="account" className="border-danger/40">
@@ -466,7 +561,7 @@ function AccountSection() {
           <div>
             <p className="text-text text-sm font-semibold">Delete my account</p>
             <p className="text-muted/70 mt-0.5 text-xs">
-              Permanently removes your profile, events, and moodboards from Elation.
+              Ask Elation to permanently remove your profile, events and moodboards.
             </p>
           </div>
 
@@ -479,26 +574,19 @@ function AccountSection() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Delete your account?</DialogTitle>
+                <DialogTitle>Request account deletion?</DialogTitle>
                 <DialogDescription>
-                  This will remove every event, moodboard, and answer you've saved. There is no
-                  undo. Your consultant will be notified.
+                  Elation will confirm with you, then remove every event, moodboard and answer
+                  you’ve saved. Once removed there is no undo. You can keep using your studio
+                  until then.
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-2 flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    setOpen(false)
-                    toast('Frontend mock — account was not deleted.', {
-                      description: 'Real deletion will be wired in a later sprint.',
-                    })
-                  }}
-                >
-                  Delete forever
+                <Button variant="destructive" onClick={confirm} disabled={requestDeletion.isPending}>
+                  {requestDeletion.isPending ? 'Sending…' : 'Request deletion'}
                 </Button>
               </div>
             </DialogContent>

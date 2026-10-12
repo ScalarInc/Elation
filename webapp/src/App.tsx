@@ -5,6 +5,9 @@ import { ClientLayout } from '@/layouts/ClientLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { ProtectedRoute } from '@/layouts/ProtectedRoute'
 import { AuthPage } from '@/pages/AuthPage'
+import { AccessEndedPage } from '@/pages/AccessEndedPage'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { MyEventsPage } from '@/pages/MyEventsPage'
 import { EventDetailPage } from '@/pages/EventDetailPage'
@@ -29,10 +32,13 @@ function App() {
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/login" element={<Navigate to="/auth?mode=signin" replace />} />
-          <Route path="/signup" element={<Navigate to="/auth" replace />} />
+          <Route path="/signup" element={<Navigate to="/auth?mode=activate" replace />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/access-ended" element={<AccessEndedPage />} />
 
-          {/* Client area */}
-          <Route element={<ProtectedRoute />}>
+          {/* Client area — client accounts only (staff land in /admin) */}
+          <Route element={<ProtectedRoute roles={['client']} />}>
             {/* Full-screen flows (no sidebar) */}
             <Route path="/events/:id/questionnaire" element={<QuestionnairePage />} />
 
@@ -54,48 +60,50 @@ function App() {
             </Route>
           </Route>
 
-          {/* Admin area */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route
-              index
-              element={
-                <PlaceholderPage
-                  title="Admin Overview"
-                  description="KPIs, client activity feed, budget/theme charts, upcoming consultations."
-                  sprintNumber={13}
-                />
-              }
-            />
-            <Route
-              path="clients"
-              element={
-                <PlaceholderPage
-                  title="Client Management"
-                  description="Create, extend, and revoke temporary client accounts."
-                  sprintNumber={13}
-                />
-              }
-            />
-            <Route
-              path="inquiries"
-              element={<PlaceholderPage title="Inquiries" description="Public consultation-form submissions to convert." sprintNumber={14} />}
-            />
-            <Route
-              path="analytics"
-              element={<PlaceholderPage title="Analytics" description="Popular themes, budget ranges, consultation trends." sprintNumber={14} />}
-            />
-            <Route
-              path="inventory"
-              element={<PlaceholderPage title="Inventory Catalogue" description="CMS for the inventory used by recommendations." sprintNumber={14} />}
-            />
-            <Route
-              path="inspirations"
-              element={<PlaceholderPage title="Inspiration Concepts" description="CMS for the inspiration gallery." sprintNumber={14} />}
-            />
-            <Route
-              path="settings"
-              element={<PlaceholderPage title="Admin Settings" description="Team, roles, branding, email templates." sprintNumber={14} />}
-            />
+          {/* Admin area — staff only */}
+          <Route element={<ProtectedRoute roles={['consultant', 'admin']} />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route
+                index
+                element={
+                  <PlaceholderPage
+                    title="Admin Overview"
+                    description="KPIs, client activity feed, budget/theme charts, upcoming consultations."
+                    sprintNumber={13}
+                  />
+                }
+              />
+              <Route
+                path="clients"
+                element={
+                  <PlaceholderPage
+                    title="Client Management"
+                    description="Create, extend, and revoke temporary client accounts."
+                    sprintNumber={13}
+                  />
+                }
+              />
+              <Route
+                path="inquiries"
+                element={<PlaceholderPage title="Inquiries" description="Public consultation-form submissions to convert." sprintNumber={14} />}
+              />
+              <Route
+                path="analytics"
+                element={<PlaceholderPage title="Analytics" description="Popular themes, budget ranges, consultation trends." sprintNumber={14} />}
+              />
+              <Route
+                path="inventory"
+                element={<PlaceholderPage title="Inventory Catalogue" description="CMS for the inventory used by recommendations." sprintNumber={14} />}
+              />
+              <Route
+                path="inspirations"
+                element={<PlaceholderPage title="Inspiration Concepts" description="CMS for the inspiration gallery." sprintNumber={14} />}
+              />
+              <Route
+                path="settings"
+                element={<PlaceholderPage title="Admin Settings" description="Team, roles, branding, email templates." sprintNumber={14} />}
+              />
+            </Route>
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />

@@ -15,7 +15,11 @@ npm run db:seed -w server    # demo data (idempotent)
 npm run dev                  # server on :4000 + webapp on :5173 (Vite proxies /api)
 ```
 
-Demo logins (password `elation-dev`): client `malaika.khan@example.com`, consultant `ayesha@elationbyfmh.com`, admin `admin@elationx.local`. Login itself arrives in Step 3.
+Demo logins (password `elation-dev`): client `malaika.khan@example.com`, consultant `ayesha@elationbyfmh.com`, admin `admin@elationx.local`.
+
+**Inviting a client locally:** sign in as the consultant or admin, then `POST /api/v1/admin/clients/invite` with `{ "name", "email" }`. Without `RESEND_API_KEY` the invitation email (with its activation link) is printed to the server log; open the link to activate. Password-reset emails work the same way.
+
+Auth model in one paragraph: an httpOnly `elx_sid` cookie maps to a hashed row in `Session`; every request re-checks the user's access (client expiry / revocation) and ends all their sessions the moment access is gone. Routes opt in with `app.requireAuth` / `app.requireRole(...)` as `onRequest` hooks, and resource checks go through `src/lib/policy.ts` (404 for anything the caller can't see). Details: [`docs/step-03-auth.md`](../docs/step-03-auth.md).
 
 Check: <http://localhost:5173/api/v1/readyz> → `{"ok":true,"checks":{"database":"up"}}`.
 

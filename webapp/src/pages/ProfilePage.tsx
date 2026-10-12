@@ -20,34 +20,36 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
-import { currentUser } from '@/mocks/fixtures'
+import { CLIENT_ROLES } from '@elation/shared/api'
+import { useCurrentUser, useUpdateProfile } from '@/data/auth'
 import { formatDate } from '@/lib/format'
 
-const ROLES = ['Bride', 'Groom', 'Family', 'Organizer'] as const
+const ROLES = CLIENT_ROLES
 
 const schema = z.object({
-  name: z.string().min(2, 'Name is required'),
-  email: z.string().email('Enter a valid email'),
-  phone: z.string().min(6, 'Enter a valid phone number'),
-  city: z.string().min(2, 'City is required'),
-  role: z.enum(ROLES),
-  partnerName: z.string().optional(),
-  emergencyContactName: z.string().optional(),
-  emergencyContactPhone: z.string().optional(),
+  name: z.string().trim().min(2, 'Name is required'),
+  phone: z.string().trim().min(6, 'Enter a valid phone number').or(z.literal('')),
+  city: z.string().trim(),
+  role: z.enum(ROLES).or(z.literal('')),
+  partnerName: z.string().trim(),
+  emergencyContactName: z.string().trim(),
+  emergencyContactPhone: z.string().trim(),
 })
 
 type ProfileForm = z.infer<typeof schema>
 
 export function ProfilePage() {
+  const me = useCurrentUser()
+  const update = useUpdateProfile()
+
   const defaults: ProfileForm = {
-    name: currentUser.name,
-    email: currentUser.email,
-    phone: currentUser.phone ?? '',
-    city: currentUser.city ?? '',
-    role: (currentUser.role ?? 'Bride') as (typeof ROLES)[number],
-    partnerName: currentUser.partnerName ?? '',
-    emergencyContactName: currentUser.emergencyContactName ?? '',
-    emergencyContactPhone: currentUser.emergencyContactPhone ?? '',
+    name: me.name,
+    phone: me.phone ?? '',
+    city: me.city ?? '',
+    role: me.clientRole ?? '',
+    partnerName: me.partnerName ?? '',
+    emergencyContactName: me.emergencyContactName ?? '',
+    emergencyContactPhone: me.emergencyContactPhone ?? '',
   }
 
   const {
@@ -69,23 +71,24 @@ export function ProfilePage() {
   }, [register])
 
   async function onSubmit(values: ProfileForm) {
-    await new Promise((r) => setTimeout(r, 400))
-    // Mutate in-memory copy so the header/consultant card etc. reflect changes locally.
-    Object.assign(currentUser, {
-      name: values.name,
-      email: values.email,
-      phone: values.phone,
-      city: values.city,
-      role: values.role,
-      partnerName: values.partnerName,
-      emergencyContactName: values.emergencyContactName,
-      emergencyContactPhone: values.emergencyContactPhone,
-    })
-    toast.success('Profile updated', {
-      description: 'Your details are safe with us.',
-    })
-    reset(values)
+    try {
+      await update.mutateAsync({
+        name: values.name,
+        phone: values.phone,
+        city: values.city,
+        clientRole: values.role === '' ? null : values.role,
+        partnerName: values.partnerName,
+        emergencyContactName: values.emergencyContactName,
+        emergencyContactPhone: values.emergencyContactPhone,
+      })
+      toast.success('Profile updated', { description: 'Your details are safe with us.' })
+      reset(values)
+    } catch (err) {
+      toast.error('Could not save your profile', { description: (err as Error).message })
+    }
   }
+
+  const consultantFirstName = me.consultant?.name.split(' ')[0]
 
   return (
     <motion.div
@@ -98,32 +101,32 @@ export function ProfilePage() {
       <header className="bg-radial-fade shadow-card border-border/10 mb-8 flex flex-wrap items-center gap-6 rounded-3xl border p-6">
         <Avatar className="h-24 w-24">
           <AvatarFallback className="text-2xl">
-            {currentUser.avatarInitials}
+            {me.avatarInitials}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-text text-3xl">{currentUser.name}</h1>
+          <h1 className="font-display text-text text-3xl">{me.name}</h1>
           <div className="text-muted mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
             <span className="flex items-center gap-1.5">
               <Mail className="h-3.5 w-3.5" />
-              {currentUser.email}
+              {me.email}
             </span>
-            {currentUser.phone && (
+            {me.phone && (
               <span className="flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5" />
-                {currentUser.phone}
+                {me.phone}
               </span>
             )}
-            {currentUser.city && (
+            {me.city && (
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5" />
-                {currentUser.city}
+                {me.city}
               </span>
             )}
           </div>
           <div className="mt-3 flex items-center gap-2">
-            {currentUser.role && <Badge variant="accent">{currentUser.role}</Badge>}
-            <Badge variant="sage">Access until {formatDate(currentUser.accessExpiresAt)}</Badge>
+            {me.clientRole && <Badge variant="accent">{me.clientRole}</Badge>}
+            {me.accessExpiresAt && <Badge variant="sage">Access until {formatDate(me.accessExpiresAt)}</Badge>}
           </div>
         </div>
       </header>
@@ -156,8 +159,8 @@ export function ProfilePage() {
 
               <div className="col-span-2 space-y-1.5 sm:col-span-1">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" {...register('email')} />
-                {errors.email && <p className="text-danger text-xs">{errors.email.message}</p>}
+                <Input id="email" type="email" value={me.email} readOnly disabled />
+                <p className="text-muted/70 text-[11px]">Your sign-in email. Ask your consultant to change it.</p>
               </div>
 
               <div className="space-y-1.5">
@@ -175,7 +178,7 @@ export function ProfilePage() {
               <div className="space-y-1.5">
                 <Label>Role</Label>
                 <Select
-                  value={roleValue}
+                  value={roleValue || undefined}
                   onValueChange={(v) =>
                     setValue('role', v as (typeof ROLES)[number], { shouldDirty: true })
                   }
@@ -235,50 +238,51 @@ export function ProfilePage() {
         {/* Consultant card */}
         <Card>
           <CardContent className="p-6">
-            <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
-              Your consultant
-            </p>
-            <div className="mt-4 flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarFallback className="text-lg">
-                  {currentUser.consultant.avatarInitials ?? 'AM'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="font-display text-text text-lg leading-tight">
-                  {currentUser.consultant.name}
+            {me.consultant ? (
+              <>
+                <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
+                  Your consultant
                 </p>
-                <p className="text-muted mt-0.5 flex items-center gap-1.5 text-xs">
-                  <Mail className="h-3 w-3" />
-                  {currentUser.consultant.email}
+                <div className="mt-4 flex items-center gap-4">
+                  <Avatar className="h-16 w-16">
+                    <AvatarFallback className="text-lg">{me.consultant.avatarInitials}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="font-display text-text text-lg leading-tight">{me.consultant.name}</p>
+                    <p className="text-muted mt-0.5 flex items-center gap-1.5 text-xs">
+                      <Mail className="h-3 w-3" />
+                      {me.consultant.email}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-muted mt-4 text-xs leading-relaxed">
+                  {consultantFirstName} is your primary point of contact at Elation — send a note any
+                  time and you'll hear back with the same warmth we're planning your day with.
                 </p>
-              </div>
-            </div>
 
-            <p className="text-muted mt-4 text-xs leading-relaxed">
-              Ayesha is your primary point of contact at Elation — send her a note any time and
-              she'll get back with the same warmth we're planning your day with.
-            </p>
+                <Button asChild className="mt-5 w-full">
+                  <Link to="/messages">
+                    <MessageCircle className="h-4 w-4" />
+                    Message {consultantFirstName}
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <p className="text-muted text-sm">Your Elation consultant will be assigned shortly.</p>
+            )}
 
-            <Button asChild className="mt-5 w-full">
-              <Link to="/messages">
-                <MessageCircle className="h-4 w-4" />
-                Message {currentUser.consultant.name.split(' ')[0]}
-              </Link>
-            </Button>
-
-            <Separator className="my-5" />
-
-            <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
-              Access
-            </p>
-            <p className="text-text mt-2 text-sm">
-              Your temporary access is valid until{' '}
-              <span className="font-semibold">
-                {formatDate(currentUser.accessExpiresAt)}
-              </span>
-              . We'll email you before it expires.
-            </p>
+            {me.accessExpiresAt && (
+              <>
+                <Separator className="my-5" />
+                <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">Access</p>
+                <p className="text-text mt-2 text-sm">
+                  Your temporary access is valid until{' '}
+                  <span className="font-semibold">{formatDate(me.accessExpiresAt)}</span>. We'll email you
+                  before it expires.
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

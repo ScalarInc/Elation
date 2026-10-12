@@ -6,8 +6,7 @@
 // - User, Event and File are soft-deleted (`deletedAt`); the Prisma client
 //   extension in src/plugins/db.ts hides deleted rows by default.
 // - Raw-SQL extras live in the migration: citext extension, the
-//   "one primary moodboard per event" partial index, and the GIN index on
-//   questionnaire answers.
+//   "one primary moodboard per event" partial index.
 
 generator client {
   provider = "prisma-client"
@@ -203,6 +202,7 @@ model Session {
   createdAt  DateTime @default(now())
   lastSeenAt DateTime @default(now())
   expiresAt  DateTime
+  persistent Boolean  @default(true) // false = "remember me" off: browser-session cookie, short server TTL
   userAgent  String?
   ip         String?
 
@@ -302,6 +302,9 @@ model QuestionnaireResponse {
   updatedById     String?   @db.Uuid
 
   revisions QuestionnaireRevision[]
+
+  // Analytics over answers (popular themes, budget bands …).
+  @@index([answers(ops: JsonbPathOps)], type: Gin, map: "QuestionnaireResponse_answers_gin")
 }
 
 // Append-only. One row per save (a save may carry several question changes).

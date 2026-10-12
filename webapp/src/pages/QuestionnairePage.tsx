@@ -26,7 +26,7 @@ import { CATEGORY_TIPS } from '@/questionnaire/CategoryTips'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { toast } from '@/components/ui/toast'
-import { currentUser } from '@/mocks/fixtures'
+import { useCurrentUser } from '@/data/auth'
 
 // ----------------- helpers -----------------
 
@@ -96,6 +96,7 @@ function ProgressRing({ percent }: { percent: number }) {
 
 export function QuestionnairePage() {
   const { id } = useParams<{ id: string }>()
+  const me = useCurrentUser()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const event = useResolvedEvent(id)
@@ -174,7 +175,7 @@ export function QuestionnairePage() {
     )
   }
 
-  const firstName = currentUser.name.split(' ')[0]
+  const firstName = me.name.split(' ')[0]
   const isFirstCategory = idx === 0
   const isLastCategory = idx === categories.length - 1
   const allDone = overallPercent === 100

@@ -1,6 +1,5 @@
 import cookie from '@fastify/cookie'
 import helmet from '@fastify/helmet'
-import rateLimit from '@fastify/rate-limit'
 import Fastify, { type FastifyServerOptions } from 'fastify'
 import {
   serializerCompiler,
@@ -8,12 +7,32 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod'
 import type { Config } from './config'
+import { LogMailer, ResendMailer, type Mailer } from './lib/mailer'
+import { adminRoutes } from './modules/admin/routes'
+import { authRoutes } from './modules/auth/routes'
+import { expireLapsedClients } from './modules/auth/sweep'
 import { healthRoutes } from './modules/health/routes'
+import { meRoutes } from './modules/me/routes'
+import authPlugin from './plugins/auth'
 import dbPlugin from './plugins/db'
 import errorsPlugin, { errorBody } from './plugins/errors'
 import webappPlugin from './plugins/webapp'
 
 export const API_PREFIX = '/api/v1'
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    config: Config
+    mailer: Mailer
+  }
+}
+
+export type AppDeps = {
+  /** Override the mailer (tests pass a MemoryMailer). */
+  mailer?: Mailer
+}
+
+const SWEEP_INTERVAL_MS = 60 * 60 * 1000
 
 async function loggerOptions(config: Config): Promise<FastifyServerOptions['logger']> {
   if (config.NODE_ENV === 'test') return false
@@ -31,7 +50,7 @@ async function loggerOptions(config: Config): Promise<FastifyServerOptions['logg
   }
 }
 
-export async function buildApp(config: Config) {
+export async function buildApp(config: Config, deps: AppDeps = {}) {
   const app = Fastify({
     logger: await loggerOptions(config),
     trustProxy: true, // Railway terminates TLS in front of us
@@ -40,20 +59,44 @@ export async function buildApp(config: Config) {
   app.setValidatorCompiler(validatorCompiler)
   app.setSerializerCompiler(serializerCompiler)
 
+  app.decorate('config', config)
+  app.decorate(
+    'mailer',
+    deps.mailer ??
+      (config.RESEND_API_KEY ? new ResendMailer(config.RESEND_API_KEY, config.MAIL_FROM) : new LogMailer(app.log)),
+  )
+
   await app.register(errorsPlugin)
   // CSP is configured in Step 14 once the webapp's asset origins are final.
   await app.register(helmet, { contentSecurityPolicy: false })
   await app.register(cookie)
-  // Per-route limits (login, invite, messages) opt in from Step 3 onwards.
-  await app.register(rateLimit, { global: false })
   await app.register(dbPlugin, { databaseUrl: config.DATABASE_URL })
+  await app.register(authPlugin, { config })
 
   await app.register(
     async (api) => {
       await api.register(healthRoutes)
+      await api.register(authRoutes)
+      await api.register(meRoutes)
+      await api.register(adminRoutes)
     },
     { prefix: API_PREFIX },
   )
+
+  // Access-expiry sweep (docs/step-03-auth.md). Tests call expireLapsedClients directly.
+  if (config.NODE_ENV !== 'test') {
+    const sweep = () =>
+      expireLapsedClients(app.prisma)
+        .then((n) => n > 0 && app.log.info({ expired: n }, 'access sweep: clients expired'))
+        .catch((err) => app.log.error({ err }, 'access sweep failed'))
+    let timer: NodeJS.Timeout | undefined
+    app.addHook('onReady', async () => {
+      void sweep()
+      timer = setInterval(sweep, SWEEP_INTERVAL_MS)
+      timer.unref()
+    })
+    app.addHook('onClose', async () => clearInterval(timer))
+  }
 
   const servesWebapp = Boolean(config.SERVE_WEBAPP_DIST)
   if (config.SERVE_WEBAPP_DIST) {

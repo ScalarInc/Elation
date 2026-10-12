@@ -18,6 +18,17 @@ const schema = z.object({
   DEFAULT_CLIENT_ACCESS_DAYS: z.coerce.number().int().positive().default(90),
   EXPIRED_DATA_RETENTION_DAYS: z.coerce.number().int().positive().default(7),
 
+  // Public URL of the web app, used in email links (invites, password resets).
+  APP_URL: z.string().url().default('http://localhost:5173'),
+
+  // Email. Without RESEND_API_KEY, emails are written to the log instead of sent.
+  RESEND_API_KEY: optionalString,
+  MAIL_FROM: z.string().default('Elation X <onboarding@resend.dev>'),
+
+  // Login throttling (per email and per IP, over 15 minutes).
+  LOGIN_MAX_PER_EMAIL: z.coerce.number().int().positive().default(10),
+  LOGIN_MAX_PER_IP: z.coerce.number().int().positive().default(30),
+
   // Absolute or server-relative path to the built webapp (webapp/dist).
   // Set in production so one Railway service serves both web and API.
   SERVE_WEBAPP_DIST: optionalString,

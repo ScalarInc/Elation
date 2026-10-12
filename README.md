@@ -14,7 +14,7 @@ The platform is **never public**: client accounts are created by the Elation tea
 | --- | --- |
 | Client-facing frontend (`webapp/`) | Built — every page runs on mock data |
 | Admin area (`/admin/*`) | Routes + layout only, pages are placeholders |
-| Backend | **In progress** on `feature/backend` — Steps 1–2 (foundation, database) done; plan in [`docs/`](docs/README.md) |
+| Backend | **In progress** on `feature/backend` — Steps 1–3 (foundation, database, auth) done; plan in [`docs/`](docs/README.md) |
 | AR sets (Meta Quest 3) | Separate track; web app shows status + assets |
 
 Today every page reads from `webapp/src/mocks/*` through `webapp/src/lib/api.ts` (a `setTimeout` wrapper), and questionnaire answers live in a Zustand store persisted to `localStorage`. Nothing survives a browser change, and events created in the UI are lost on refresh. The backend plan replaces this layer step by step.
@@ -87,11 +87,12 @@ npm run db:seed -w server            # demo data
 npm run dev                          # API on :4000 + webapp on :5173
 ```
 
-Open <http://localhost:5173/>. The webapp still runs on mock data; the API is reachable through the Vite proxy at <http://localhost:5173/api/v1/readyz>. Server details: [`server/README.md`](server/README.md).
+Open <http://localhost:5173/> and sign in with a demo account (password `elation-dev`): client `malaika.khan@example.com`, consultant `ayesha@elationbyfmh.com`, admin `admin@elationx.local`. Sign-in, invitations, password reset, profile and settings run against the real API; the remaining pages (events, questionnaire, moodboards, budget, messages) still read mock data until their backend step lands. Server details: [`server/README.md`](server/README.md).
+
+Without `RESEND_API_KEY`, invitation and password-reset emails are printed to the server log, links included. To work on the frontend without the server, set `VITE_API_MODE=mock` (see `webapp/.env.example`).
 
 Root scripts: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` — each runs across all workspaces.
 
-To test the auth redirect in the mock phase, run `localStorage.setItem('elation-auth', 'off')` in the browser console.
 
 ---
 
