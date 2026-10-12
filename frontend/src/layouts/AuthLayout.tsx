@@ -1,14 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import { AuthSwitch } from '@/components/auth/AuthSwitch'
 import { cn } from '@/lib/utils'
 import slide1 from '@/assets/images/img_13.jpg'
 import slide2 from '@/assets/images/img_18.jpg'
 import slide3 from '@/assets/images/img_19.jpg'
-
-type Mode = 'signin' | 'signup'
 
 const slides = [
   {
@@ -28,25 +25,15 @@ const slides = [
   },
 ]
 
-export function AuthPage() {
+/** Shell for every /auth/* screen: photo carousel on the left, the screen's form on the right. */
+export function AuthLayout() {
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
-  const mode: Mode = params.get('mode') === 'signin' ? 'signin' : 'signup'
-
   const [slideIdx, setSlideIdx] = useState(0)
 
   useEffect(() => {
     const t = setInterval(() => setSlideIdx((i) => (i + 1) % slides.length), 5500)
     return () => clearInterval(t)
   }, [])
-
-  function setMode(next: Mode) {
-    setParams(next === 'signup' ? {} : { mode: 'signin' }, { replace: true })
-  }
-
-  function signIn(_credentials: Record<string, string>) {
-    // TODO(backend): authenticate via the API and redirect on success.
-  }
 
   const active = slides[slideIdx]
 
@@ -140,11 +127,9 @@ export function AuthPage() {
             </button>
           </div>
 
-          <AuthSwitch
-            mode={mode}
-            onModeChange={setMode}
-            onSubmit={signIn}
-          />
+          <div className="w-full max-w-md">
+            <Outlet />
+          </div>
         </div>
       </div>
     </div>

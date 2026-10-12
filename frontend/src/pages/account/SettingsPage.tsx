@@ -40,6 +40,7 @@ import {
 import { useTheme, type Theme } from '@/lib/theme'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import type { ClientUser } from '@/types'
 
@@ -312,22 +313,32 @@ function NotificationsSection({ user }: { user: ClientUser | null }) {
   )
 }
 
-function SecuritySection() {
+function SecuritySection({ user }: { user: ClientUser | null }) {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<PasswordForm>({
     resolver: zodResolver(passwordSchema),
     defaultValues: { current: '', next: '', confirm: '' },
   })
 
-  function onSubmit(_values: PasswordForm) {
-    // TODO(backend): change the password via the API, then reset the form.
+  async function onSubmit(values: PasswordForm) {
+    if (!user) return
+    // Confirm the current password before changing it.
+    const check = await supabase.auth.signInWithPassword({ email: user.email, password: values.current })
+    if (check.error) return toast.error('Current password is incorrect.')
+    const { error } = await supabase.auth.updateUser({ password: values.next })
+    if (error) return toast.error('Could not update password', { description: error.message })
+    reset()
+    toast.success('Password updated')
   }
 
-  function signOutOtherSessions() {
-    // TODO(backend): revoke the client's other sessions.
+  async function signOutOtherSessions() {
+    const { error } = await supabase.auth.signOut({ scope: 'others' })
+    if (error) toast.error('Could not sign out other sessions', { description: error.message })
+    else toast.success('Signed out of all other devices')
   }
 
   return (
@@ -421,7 +432,7 @@ function DataSection({ user }: { user: ClientUser | null }) {
           </div>
         </div>
 
-        {user && (
+        {user?.accessExpiresAt && (
           <div className="mt-4 flex items-center gap-3">
             <Badge variant="sage">
               <Calendar className="h-3 w-3" />
@@ -551,7 +562,7 @@ export function SettingsPage() {
         <div className="space-y-6">
           <AppearanceSection />
           <NotificationsSection user={user} />
-          <SecuritySection />
+          <SecuritySection user={user} />
           <DataSection user={user} />
           <AccountSection />
         </div>

@@ -20,17 +20,19 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatDate } from '@/lib/format'
+import { api } from '@/api'
+import { toast } from '@/components/ui/toast'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { useAuthStore } from '@/stores/authStore'
 import type { ClientUser } from '@/types'
 
 const ROLES = ['Bride', 'Groom', 'Family', 'Organizer'] as const
 
 const schema = z.object({
   name: z.string().min(2, 'Name is required'),
-  email: z.string().email('Enter a valid email'),
   phone: z.string().min(6, 'Enter a valid phone number'),
   city: z.string().min(2, 'City is required'),
-  role: z.enum(ROLES).optional(),
+  clientRole: z.enum(ROLES).nullable(),
   partnerName: z.string().optional(),
   emergencyContactName: z.string().optional(),
   emergencyContactPhone: z.string().optional(),
@@ -41,10 +43,9 @@ type ProfileForm = z.infer<typeof schema>
 function toForm(user: ClientUser | null): ProfileForm {
   return {
     name: user?.name ?? '',
-    email: user?.email ?? '',
     phone: user?.phone ?? '',
     city: user?.city ?? '',
-    role: user?.role,
+    clientRole: user?.clientRole ?? null,
     partnerName: user?.partnerName ?? '',
     emergencyContactName: user?.emergencyContactName ?? '',
     emergencyContactPhone: user?.emergencyContactPhone ?? '',
@@ -53,6 +54,7 @@ function toForm(user: ClientUser | null): ProfileForm {
 
 export function ProfilePage() {
   const user = useCurrentUser()
+  const setUser = useAuthStore((s) => s.setUser)
   const defaults = toForm(user)
 
   const {
@@ -67,10 +69,10 @@ export function ProfilePage() {
     defaultValues: defaults,
   })
 
-  const roleValue = watch('role')
+  const roleValue = watch('clientRole') ?? undefined
 
   useEffect(() => {
-    register('role')
+    register('clientRole')
   }, [register])
 
   // Load the signed-in user's details into the form once available.
@@ -78,8 +80,15 @@ export function ProfilePage() {
     reset(toForm(user))
   }, [user, reset])
 
-  function onSubmit(_values: ProfileForm) {
-    // TODO(backend): save the profile via the API, then reset the form to the saved values.
+  async function onSubmit(values: ProfileForm) {
+    try {
+      const saved = await api.me.update(values)
+      setUser(saved)
+      reset(toForm(saved))
+      toast.success('Profile updated')
+    } catch (err) {
+      toast.error('Could not save your profile', { description: (err as Error).message })
+    }
   }
 
   return (
@@ -119,8 +128,8 @@ export function ProfilePage() {
             )}
           </div>
           <div className="mt-3 flex items-center gap-2">
-            {user?.role && <Badge variant="accent">{user.role}</Badge>}
-            {user && (
+            {user?.clientRole && <Badge variant="accent">{user.clientRole}</Badge>}
+            {user?.accessExpiresAt && (
               <Badge variant="sage">Access until {formatDate(user.accessExpiresAt)}</Badge>
             )}
           </div>
@@ -155,8 +164,7 @@ export function ProfilePage() {
 
               <div className="col-span-2 space-y-1.5 sm:col-span-1">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" {...register('email')} />
-                {errors.email && <p className="text-danger text-xs">{errors.email.message}</p>}
+                <Input id="email" type="email" value={user?.email ?? ''} readOnly disabled />
               </div>
 
               <div className="space-y-1.5">
@@ -176,7 +184,7 @@ export function ProfilePage() {
                 <Select
                   value={roleValue}
                   onValueChange={(v) =>
-                    setValue('role', v as (typeof ROLES)[number], { shouldDirty: true })
+                    setValue('clientRole', v as (typeof ROLES)[number], { shouldDirty: true })
                   }
                 >
                   <SelectTrigger>
@@ -237,7 +245,7 @@ export function ProfilePage() {
             <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
               Your consultant
             </p>
-            {user ? (
+            {user?.consultant ? (
               <div className="mt-4 flex items-center gap-4">
                 <Avatar className="h-16 w-16">
                   <AvatarFallback className="text-lg">
@@ -266,7 +274,7 @@ export function ProfilePage() {
             <Button asChild className="mt-5 w-full">
               <Link to="/messages">
                 <MessageCircle className="h-4 w-4" />
-                {user ? `Message ${user.consultant.name.split(' ')[0]}` : 'Open messages'}
+                {user?.consultant ? `Message ${user.consultant.name.split(' ')[0]}` : 'Open messages'}
               </Link>
             </Button>
 
@@ -275,7 +283,7 @@ export function ProfilePage() {
             <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
               Access
             </p>
-            {user && (
+            {user?.accessExpiresAt && (
               <p className="text-text mt-2 text-sm">
                 Your temporary access is valid until{' '}
                 <span className="font-semibold">{formatDate(user.accessExpiresAt)}</span>.

@@ -1,6 +1,8 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Users, ClipboardList, BarChart3, Boxes, Sparkles, Settings } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, BarChart3, Boxes, Sparkles, Settings, LogOut } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { useSignOut } from '@/hooks/useSignOut'
 import { cn } from '@/lib/utils'
 
 const nav = [
@@ -14,6 +16,8 @@ const nav = [
 ]
 
 export function AdminLayout() {
+  const user = useCurrentUser()
+  const signOut = useSignOut()
   return (
     <div className="bg-bg flex min-h-screen text-text">
       <aside className="border-border/10 bg-surface flex w-60 shrink-0 flex-col border-r px-4 py-6">
@@ -42,6 +46,22 @@ export function AdminLayout() {
             ))}
           </ul>
         </nav>
+        <div className="mb-3 flex items-center justify-between gap-2 rounded-xl px-3 py-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-text">{user?.name}</p>
+            <p className="text-[10px] uppercase tracking-widest text-muted/60">
+              {user?.isSuperuser ? 'Superuser' : 'Admin'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={signOut}
+            aria-label="Log out"
+            className="rounded-lg p-1.5 text-muted/80 transition hover:bg-surface-2 hover:text-text"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
         <ThemeToggle className="self-start" />
       </aside>
       <main className="flex-1 overflow-x-hidden">

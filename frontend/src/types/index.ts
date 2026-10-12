@@ -19,27 +19,44 @@ export type EventType =
 
 export type ModuleStatus = 'complete' | 'in_progress' | 'pending'
 
+export type ClientRole = 'Bride' | 'Groom' | 'Family' | 'Organizer'
+
+/** The signed-in user, as returned by GET /api/me. Admins and clients share this shape. */
 export type ClientUser = {
   id: UUID
+  role: 'admin' | 'client'
+  isSuperuser: boolean
   name: string
   email: string
-  phone?: string
   avatarInitials: string
-  accessExpiresAt: string // ISO
-  consultant: { id: UUID; name: string; email: string; avatarInitials?: string }
-  // Profile extras
-  city?: string
-  role?: 'Bride' | 'Groom' | 'Family' | 'Organizer'
-  partnerName?: string
-  emergencyContactName?: string
-  emergencyContactPhone?: string
-  notifications?: {
+  phone: string | null
+  city: string | null
+  clientRole: ClientRole | null
+  partnerName: string | null
+  emergencyContactName: string | null
+  emergencyContactPhone: string | null
+  /** ISO timestamp; null for admins (no expiry). */
+  accessExpiresAt: string | null
+  /** Assigned Elation consultant (an admin); null until one is assigned. */
+  consultant: { id: UUID; name: string; email: string; avatarInitials: string } | null
+  notifications: Partial<{
     moodboardUpdates: boolean
     budgetAlerts: boolean
     consultantMessages: boolean
     weeklyDigest: boolean
     marketing: boolean
-  }
+  }>
+}
+
+/** Body of PATCH /api/me. */
+export type ProfileUpdate = {
+  name: string
+  phone?: string | null
+  city?: string | null
+  clientRole?: ClientRole | null
+  partnerName?: string | null
+  emergencyContactName?: string | null
+  emergencyContactPhone?: string | null
 }
 
 export type EventProgress = {

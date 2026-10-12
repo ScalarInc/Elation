@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useSignOut } from '@/hooks/useSignOut'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Lock, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -37,7 +37,7 @@ function hasConsented(): boolean {
  * dialog that captures required agreements and an optional marketing opt-in.
  */
 export function ConsentGate() {
-  const navigate = useNavigate()
+  const signOut = useSignOut()
   const [open, setOpen] = useState(false)
   const [terms, setTerms] = useState(false)
   const [dataUse, setDataUse] = useState(false)
@@ -73,7 +73,7 @@ export function ConsentGate() {
   function decline() {
     setOpen(false)
     toast('You can accept later to continue. See you soon.', { duration: 3000 })
-    navigate('/auth?mode=signin', { replace: true })
+    void signOut()
   }
 
   return (

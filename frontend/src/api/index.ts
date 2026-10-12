@@ -9,18 +9,26 @@ import type {
   Message,
   MessageThread,
   Moodboard,
+  ProfileUpdate,
   UUID,
 } from '@/types'
+import { apiRequest } from './client'
 
 /**
- * Data access layer for the client app.
- *
- * The backend is not connected yet: reads resolve to empty results and writes
- * reject. Replace each method body with a real request once its endpoint exists;
- * the signatures are what the pages already consume.
+ * Data access layer for the app. Connected sections call the backend through
+ * `apiRequest`; the rest still return empty results until their backend step lands.
  */
 export const api = {
-  me: async (): Promise<ClientUser | null> => null,
+  me: {
+    get: (): Promise<ClientUser> => apiRequest('/api/me'),
+    update: (changes: ProfileUpdate): Promise<ClientUser> =>
+      apiRequest('/api/me', { method: 'PATCH', body: changes }),
+  },
+
+  auth: {
+    forgotPassword: (email: string): Promise<void> =>
+      apiRequest('/api/auth/forgot-password', { method: 'POST', body: { email }, auth: false }),
+  },
 
   events: {
     list: async (): Promise<ClientEvent[]> => [],

@@ -1,20 +1,7 @@
-import { useEffect, useState } from 'react'
-import { api } from '@/api'
+import { useAuthStore } from '@/stores/authStore'
 import type { ClientUser } from '@/types'
 
-/** The signed-in client, or null while loading / when no session exists. */
+/** The signed-in user, or null while loading / signed out. */
 export function useCurrentUser(): ClientUser | null {
-  const [user, setUser] = useState<ClientUser | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    api.me().then((me) => {
-      if (!cancelled) setUser(me)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  return user
+  return useAuthStore((s) => s.user)
 }

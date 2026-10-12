@@ -28,6 +28,7 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { ConsentGate } from '@/components/auth/ConsentGate'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { useSignOut } from '@/hooks/useSignOut'
 import { cn } from '@/lib/utils'
 import type { ClientUser } from '@/types'
 
@@ -43,7 +44,7 @@ const nav = [
 ]
 
 function SidebarNav({ user, onNavigate }: { user: ClientUser | null; onNavigate?: () => void }) {
-  const navigate = useNavigate()
+  const signOut = useSignOut()
   return (
     <aside className="bg-sage-veil relative flex h-full w-64 shrink-0 flex-col text-ink dark:text-cream">
       <div className="px-6 pt-8 pb-6">
@@ -82,11 +83,11 @@ function SidebarNav({ user, onNavigate }: { user: ClientUser | null; onNavigate?
         </Avatar>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{user?.name ?? ''}</p>
-          <p className="text-[10px] uppercase tracking-widest opacity-60">Client</p>
+          <p className="text-[10px] uppercase tracking-widest opacity-60">{user?.clientRole ?? 'Client'}</p>
         </div>
         <button
           type="button"
-          onClick={() => navigate('/auth?mode=signin')}
+          onClick={signOut}
           aria-label="Log out"
           className="rounded-lg p-1.5 opacity-70 transition hover:bg-white/25 hover:opacity-100"
         >
@@ -99,6 +100,7 @@ function SidebarNav({ user, onNavigate }: { user: ClientUser | null; onNavigate?
 
 function TopBar({ user }: { user: ClientUser | null }) {
   const navigate = useNavigate()
+  const signOut = useSignOut()
   const [drawerOpen, setDrawerOpen] = useState(false)
   return (
     <header className="flex items-center justify-between gap-3 border-b border-border/10 bg-bg/85 px-4 py-3 backdrop-blur md:px-10 md:py-4">
@@ -165,7 +167,7 @@ function TopBar({ user }: { user: ClientUser | null }) {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => navigate('/auth?mode=signin')}>
+            <DropdownMenuItem onSelect={signOut}>
               <LogOut className="h-4 w-4" />
               Log out
             </DropdownMenuItem>
