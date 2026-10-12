@@ -142,7 +142,7 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 1. Can a client have more than one consultant? (Assumption: one assigned consultant, admins see all.)
 2. Should a client be able to delete their account themselves, or only request deletion? (Assumption: request → admin confirms.)
 3. Is the public "Book consultation" form in scope for launch? (Assumption: yes, it feeds `/admin/inquiries`.)
-4. Confirm prices/tags of the transcribed inventory (A3).
+4. Confirm prices, names and quantities of the 162 items transcribed from the inventory photos (`server/prisma/seed/inventory-draft.csv`; workflow in step-06).
 
 ## Working agreement
 
@@ -181,3 +181,6 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-13 — Step 5 — P20: questionnaire store is a server-synced write-behind buffer (debounced PATCH, version check, local-wins merge on conflict).
 - 2026-10-13 — Step 5 — P21: hidden (branched-away) answers are kept in storage and excluded everywhere via `visibleAnswers()`.
 - 2026-10-13 — Step 5 — Vitest added to the webapp for pure client logic.
+- 2026-10-13 — Step 6 — P22: the scanned "inventory sheets" are item photos with quantities and no prices; real items imported as curatable but unpriced (`pricePkr` nullable).
+- 2026-10-13 — Step 6 — P23: draft SKUs `S<set>-P<page>` trace each row to its photo.
+- 2026-10-13 — Step 6 — Inventory images under `webapp/public/media/inventory/` until R2 (Step 11).

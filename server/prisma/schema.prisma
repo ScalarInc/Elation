@@ -329,7 +329,7 @@ model InventoryItem {
   colour      String
   colourHex   String?
   material    String?
-  pricePkr    Int
+  pricePkr    Int? // null = not priced yet ("price on request"); can't be added to a budget
   unit        InventoryUnit
   stockQty    Int? // null = not tracked / made to order
   imageFileId String?           @db.Uuid

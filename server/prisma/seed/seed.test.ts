@@ -37,7 +37,7 @@ describe('seed', () => {
       users: 4,
       events: 4,
       questionnaires: 3,
-      inventory: 18,
+      inventory: 180, // 18 priced placeholders + 162 draft items from the scans
       moodboards: 3,
       tiles: 12,
       plans: 3,

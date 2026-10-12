@@ -34,6 +34,7 @@ import {
   venueSettingToDb,
 } from '../../src/lib/enums'
 import { SEED_EPOCH, seedId } from '../../src/lib/ids'
+import { importInventoryCsv } from '../../src/modules/inventory/service'
 import { createPrisma, type Db } from '../../src/plugins/db'
 
 // ───────────── fixture shapes (as exported from webapp/src/mocks) ─────────────
@@ -111,6 +112,36 @@ const id = {
   activity: (fixtureId: string, at: string) => seedId(`activity:${fixtureId}`, at),
 }
 
+/** Fixture area tags → shared vocabulary (packages/shared/src/domain/vocab.ts). */
+const AREA_ALIASES: Record<string, string> = {
+  nikkah: 'stage',
+  ceremony: 'stage',
+  pathway: 'walkway',
+  drape: 'ceiling',
+}
+
+/** Curation tags for the 18 placeholder items, so the moodboard engine can score them. */
+const PLACEHOLDER_CURATION: Record<string, { hex: string; moods: string[]; styles: string[]; stock: number }> = {
+  i_sofa_ivory: { hex: '#F2EADB', moods: ['romantic', 'serene'], styles: ['modern-luxury'], stock: 6 },
+  i_sofa_blush: { hex: '#E3BFB9', moods: ['romantic', 'whimsical'], styles: ['modern-luxury'], stock: 4 },
+  i_chair_gold: { hex: '#C9A23F', moods: ['regal', 'romantic'], styles: ['traditional', 'modern-luxury'], stock: 600 },
+  i_chair_clear: { hex: '#E6EEF2', moods: ['serene'], styles: ['modern-luxury', 'editorial'], stock: 500 },
+  i_chair_cushion: { hex: '#E3BFB9', moods: ['bohemian', 'romantic'], styles: ['traditional'], stock: 200 },
+  i_table_round: { hex: '#E1CBAD', moods: ['serene'], styles: ['traditional', 'modern-luxury'], stock: 60 },
+  i_table_low: { hex: '#6B4A33', moods: ['bohemian'], styles: ['traditional'], stock: 30 },
+  i_chand_crystal: { hex: '#E8EEF2', moods: ['regal', 'dramatic'], styles: ['modern-luxury'], stock: 6 },
+  i_chand_brass: { hex: '#C9A23F', moods: ['regal'], styles: ['traditional', 'architectural'], stock: 8 },
+  i_floral_blossom: { hex: '#E3BFB9', moods: ['romantic', 'whimsical'], styles: ['garden'], stock: 120 },
+  i_floral_wild: { hex: '#9AB1AE', moods: ['bohemian', 'serene'], styles: ['garden'], stock: 60 },
+  i_backdrop_arch: { hex: '#F2EADB', moods: ['regal', 'serene'], styles: ['architectural', 'editorial'], stock: 2 },
+  i_backdrop_moon: { hex: '#C9A23F', moods: ['regal', 'dramatic'], styles: ['traditional'], stock: 1 },
+  i_prop_swan: { hex: '#F7F6F2', moods: ['romantic', 'serene'], styles: ['editorial'], stock: 2 },
+  i_light_candle: { hex: '#F2EADB', moods: ['romantic', 'serene'], styles: ['garden', 'modern-luxury'], stock: 40 },
+  i_light_lantern: { hex: '#B5893B', moods: ['bohemian', 'romantic'], styles: ['traditional'], stock: 30 },
+  i_fabric_drape: { hex: '#FAF3EF', moods: ['romantic', 'serene'], styles: ['modern-luxury'], stock: 400 },
+  i_signage_neon: { hex: '#E3BFB9', moods: ['whimsical'], styles: ['editorial'], stock: 3 },
+}
+
 const ADMIN = { id: 'u_admin', name: 'Elation Admin', email: 'admin@elationx.local' }
 const STUDIO = { id: 'c_studio', name: 'Elation Design Studio', email: 'studio@elationbyfmh.com' }
 
@@ -148,24 +179,37 @@ export async function seed(db: Db) {
   }
   await db.user.upsert({ where: { id: clientId }, create: { id: clientId, ...clientData }, update: clientData })
 
-  // ─── Inventory (placeholders until Elation's real catalogue arrives — owner answer A3) ───
+  // ─── Inventory ───
+  // 1) Priced placeholders the demo budgets use (owner answer A3), tagged for curation.
   const priceBySku = new Map<string, number>()
   for (const item of fixtures.inventory) {
     priceBySku.set(item.id, item.pricePKR)
+    const curation = PLACEHOLDER_CURATION[item.id]
     const data = {
       sku: item.id,
       name: item.name,
       category: inventoryCategoryToDb(item.category),
       colour: item.colour,
+      colourHex: curation.hex,
       material: item.material,
       pricePkr: item.pricePKR,
       unit: inventoryUnitToDb(item.unit),
       imageUrl: item.image,
-      tags: item.tags,
+      // Area tags normalised to the shared vocabulary.
+      tags: item.tags.map((t) => AREA_ALIASES[t] ?? t).filter((t, i, all) => all.indexOf(t) === i),
+      moodTags: curation.moods,
+      styleTags: curation.styles,
+      stockQty: curation.stock,
       notes: 'placeholder',
     }
     await db.inventoryItem.upsert({ where: { id: id.item(item.id) }, create: { id: id.item(item.id), ...data }, update: data })
   }
+
+  // 2) Elation's real catalogue, transcribed from the scanned photo sheets in
+  //    Inventory/ (draft: prices to be confirmed by Elation — docs/step-06-inventory.md).
+  const draft = readFileSync(fileURLToPath(new URL('./inventory-draft.csv', import.meta.url)), 'utf8')
+  const report = await importInventoryCsv(db, null, draft, { commit: true })
+  if (report.errors.length) throw new Error(`inventory-draft.csv has errors: ${JSON.stringify(report.errors)}`)
 
   // ─── Events + questionnaires ───
   for (const e of fixtures.events) {
