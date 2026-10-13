@@ -25,6 +25,7 @@ import { SettingsPage } from '@/pages/account/SettingsPage'
 import { ProfilePage } from '@/pages/account/ProfilePage'
 import { NotFoundPage } from '@/pages/common/NotFoundPage'
 import { PlaceholderPage } from '@/pages/common/PlaceholderPage'
+import { AdminClientsPage } from '@/pages/admin/AdminClientsPage'
 
 function App() {
   return (
@@ -78,16 +79,7 @@ function App() {
                   />
                 }
               />
-              <Route
-                path="clients"
-                element={
-                  <PlaceholderPage
-                    title="Client Management"
-                    description="Create, extend, and revoke temporary client accounts."
-                    sprintNumber={13}
-                  />
-                }
-              />
+              <Route path="clients" element={<AdminClientsPage />} />
               <Route
                 path="inquiries"
                 element={<PlaceholderPage title="Inquiries" description="Public consultation-form submissions to convert." sprintNumber={14} />}
