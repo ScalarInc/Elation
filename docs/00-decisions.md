@@ -216,3 +216,14 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-13 — Step 11 — P45: deferred — multipart uploads (single signed PUT up to 300 MB for now), a job queue for processing (done inline on completion), malware scanning, moodboard reference tiles, avatar / cover upload UI; admin uploads in Step 12.
 - 2026-10-13 — Step 11 — P46: originals always private; public bucket holds only processed catalogue copies under unrelated keys. Clients never list catalogue media; consultants see their clients' files and the catalogue.
 - 2026-10-13 — Step 11 — Migration `file_variants` (File.thumbKey / previewKey, pending-sweep index); upload budget 2 GB/person/day, 500 files/event.
+- 2026-10-13 — Step 12 — P47: admin settings live in a `Setting` key/value table: default access days, consultant extension cap, invite intro line.
+- 2026-10-13 — Step 12 — P48: consultants extend their own clients by up to 30 days at a time (setting); larger extensions, revoke, restore and reassignment are admin-only.
+- 2026-10-13 — Step 12 — P49: reassigning a client moves their threads to the new consultant; the previous consultant leaves them and loses access (history stays).
+- 2026-10-13 — Step 12 — P50: consultant notes are internal — clients never see them, and they make no client activity entry.
+- 2026-10-13 — Step 12 — P51: analytics are computed live from the tables with a 5-minute cache and a Refresh; the funnel counts clients who joined in the period; themes/budgets count events created in it.
+- 2026-10-13 — Step 12 — P52: analytics bars are plain CSS (no chart library in the bundle yet).
+- 2026-10-13 — Step 12 — P53: consultants draft and edit inspirations; publishing, unpublishing and deleting are admin-only. Showcase AR sets are admin-only too.
+- 2026-10-13 — Step 12 — P54: settings are readable by all staff (forms need the limits) and editable by admins; the budget traffic light stays as decided in P8, not a setting.
+- 2026-10-13 — Step 12 — P55: inquiries are unassigned leads, visible to every consultant.
+- 2026-10-13 — Step 12 — P56: deferred — Turnstile on the public form (honeypot + rate limit for now), editable email templates beyond the invite intro, staff notifications for new inquiries, a chart library.
+- 2026-10-13 — Step 12 — Migration `settings` (Setting table, AuditLog/Inquiry indexes).

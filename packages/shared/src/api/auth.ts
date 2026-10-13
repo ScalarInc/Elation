@@ -137,6 +137,8 @@ export const inviteClientResponse = z.object({
   userId: z.string(),
   activationUrl: z.string(),
   inviteExpiresAt: z.string(),
+  /** False when the email couldn't be sent — share the link yourself. */
+  emailed: z.boolean(),
 })
 
 /** Error codes the auth flows can return; the UI switches on these. */

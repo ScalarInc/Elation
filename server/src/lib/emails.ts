@@ -27,15 +27,25 @@ export function inviteEmail(input: {
   activationUrl: string
   code: string
   expiresAt: Date
+  /** Editable line from admin settings. */
+  intro?: string
+  /** Team invite (consultant / admin) instead of a client studio. */
+  staff?: boolean
 }): Mail {
   const by = input.consultantName ? `${input.consultantName} from Elation` : 'The Elation studio'
   const until = input.expiresAt.toUTCString().slice(0, 16)
+  const what = input.staff
+    ? 'has added you to the Elation X team console — clients, conversations, quotes and the catalogue, all in one place.'
+    : 'has opened your private Elation X studio — your questionnaire, curated moodboards and budget, all in one place.'
+  const intro = input.intro?.trim() ? `${input.intro.trim()}
+
+` : ''
   return {
     to: input.to,
-    subject: 'Your Elation X studio is ready',
+    subject: input.staff ? 'You’re invited to the Elation X team' : 'Your Elation X studio is ready',
     text: `Assalamu Alaikum ${input.name},
 
-${by} has opened your private Elation X studio — your questionnaire, curated moodboards and budget, all in one place.
+${intro}${by} ${what}
 
 Activate your account (link valid until ${until}):
 ${input.activationUrl}
@@ -45,9 +55,9 @@ Invitation code: ${input.code}
 Elation by FMH`,
     html: layout(
       `Welcome, ${escapeHtml(input.name)}`,
-      `<p>${escapeHtml(by)} has opened your private Elation X studio — your questionnaire, curated moodboards and budget, all in one place.</p>
+      `${intro ? `<p>${escapeHtml(input.intro!.trim())}</p>` : ''}<p>${escapeHtml(by)} ${what}</p>
        <p style="color:#7a7a80;font-size:13px">This invitation is valid until ${until}.</p>`,
-      { label: 'Activate my studio', url: input.activationUrl },
+      { label: input.staff ? 'Join the team' : 'Activate my studio', url: input.activationUrl },
     ),
   }
 }
@@ -194,6 +204,50 @@ Elation by FMH`,
          )
          .join('')}`,
       { label: 'Open messages', url: input.url },
+    ),
+  }
+}
+
+/** Dates as Elation's clients read them: Pakistan time. */
+export const formatPkDate = (d: Date) =>
+  new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Karachi' }).format(d)
+
+export function accessExtendedEmail(input: { to: string; name: string; until: Date; url: string }): Mail {
+  const until = formatPkDate(input.until)
+  return {
+    to: input.to,
+    subject: `Your Elation X access now runs to ${until}`,
+    text: `Hi ${input.name},
+
+Your Elation X studio is open until ${until}.
+
+${input.url}
+
+Elation by FMH`,
+    html: layout('Your access was extended', `<p>Hi ${escapeHtml(input.name)}, your Elation X studio is open until <strong>${escapeHtml(until)}</strong>.</p>`, {
+      label: 'Open my studio',
+      url: input.url,
+    }),
+  }
+}
+
+export function quoteReadyEmail(input: { to: string; name: string; eventName: string; totalPkr: number; message?: string; url: string }): Mail {
+  const total = `PKR ${input.totalPkr.toLocaleString('en-PK')}`
+  return {
+    to: input.to,
+    subject: `Your quote for ${input.eventName} is ready`,
+    text: `Hi ${input.name},
+
+Elation has prepared your quote for ${input.eventName} (${total}).${input.message ? `\n\n“${input.message}”` : ''}
+
+${input.url}
+
+Elation by FMH`,
+    html: layout(
+      'Your quote is ready',
+      `<p>Hi ${escapeHtml(input.name)}, Elation has prepared your quote for <strong>${escapeHtml(input.eventName)}</strong> (${total}).</p>
+       ${input.message ? `<blockquote style="border-left:3px solid #E3BFB9;margin:0;padding:4px 12px;color:#55545a">${escapeHtml(input.message)}</blockquote>` : ''}`,
+      { label: 'See my budget', url: input.url },
     ),
   }
 }

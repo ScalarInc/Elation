@@ -685,6 +685,7 @@ model Inquiry {
   updatedAt       DateTime      @updatedAt
 
   @@index([status, createdAt])
+  @@index([email])
 }
 
 model AuditLog {
@@ -700,4 +701,13 @@ model AuditLog {
 
   @@index([targetType, targetId])
   @@index([actorId, createdAt])
+  @@index([createdAt])
+}
+
+/// Admin settings (docs/step-12-admin.md): one row per key, JSON value.
+model Setting {
+  key         String   @id
+  value       Json
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt
 }

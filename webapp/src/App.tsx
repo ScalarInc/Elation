@@ -23,7 +23,19 @@ import { MessagesPage } from '@/pages/MessagesPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
-import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { BookConsultationPage } from '@/pages/BookConsultationPage'
+import { AdminOnly } from '@/layouts/AdminLayout'
+import { OverviewPage } from '@/pages/admin/OverviewPage'
+import { ClientsPage } from '@/pages/admin/ClientsPage'
+import { ClientDetailPage } from '@/pages/admin/ClientDetailPage'
+import { QuotesPage } from '@/pages/admin/QuotesPage'
+import { InquiriesPage } from '@/pages/admin/InquiriesPage'
+import { AnalyticsPage } from '@/pages/admin/AnalyticsPage'
+import { InventoryAdminPage } from '@/pages/admin/InventoryAdminPage'
+import { InspirationsAdminPage } from '@/pages/admin/InspirationsAdminPage'
+import { ArSetsAdminPage } from '@/pages/admin/ArSetsAdminPage'
+import { TeamPage } from '@/pages/admin/TeamPage'
+import { SettingsAdminPage } from '@/pages/admin/SettingsAdminPage'
 
 function App() {
   return (
@@ -36,6 +48,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/access-ended" element={<AccessEndedPage />} />
+          <Route path="/book-consultation" element={<BookConsultationPage />} />
 
           {/* Client area — client accounts only (staff land in /admin) */}
           <Route element={<ProtectedRoute roles={['client']} />}>
@@ -63,47 +76,18 @@ function App() {
           {/* Admin area — staff only */}
           <Route element={<ProtectedRoute roles={['consultant', 'admin']} />}>
             <Route path="/admin" element={<AdminLayout />}>
-              <Route
-                index
-                element={
-                  <PlaceholderPage
-                    title="Admin Overview"
-                    description="KPIs, client activity feed, budget/theme charts, upcoming consultations."
-                    sprintNumber={13}
-                  />
-                }
-              />
-              <Route
-                path="clients"
-                element={
-                  <PlaceholderPage
-                    title="Client Management"
-                    description="Create, extend, and revoke temporary client accounts."
-                    sprintNumber={13}
-                  />
-                }
-              />
-              <Route path="messages" element={<MessagesPage className="h-screen" />} />
-              <Route
-                path="inquiries"
-                element={<PlaceholderPage title="Inquiries" description="Public consultation-form submissions to convert." sprintNumber={14} />}
-              />
-              <Route
-                path="analytics"
-                element={<PlaceholderPage title="Analytics" description="Popular themes, budget ranges, consultation trends." sprintNumber={14} />}
-              />
-              <Route
-                path="inventory"
-                element={<PlaceholderPage title="Inventory Catalogue" description="CMS for the inventory used by recommendations." sprintNumber={14} />}
-              />
-              <Route
-                path="inspirations"
-                element={<PlaceholderPage title="Inspiration Concepts" description="CMS for the inspiration gallery." sprintNumber={14} />}
-              />
-              <Route
-                path="settings"
-                element={<PlaceholderPage title="Admin Settings" description="Team, roles, branding, email templates." sprintNumber={14} />}
-              />
+              <Route index element={<OverviewPage />} />
+              <Route path="clients" element={<ClientsPage />} />
+              <Route path="clients/:id" element={<ClientDetailPage />} />
+              <Route path="messages" element={<MessagesPage className="h-[calc(100vh-57px)] md:h-screen" />} />
+              <Route path="quotes" element={<QuotesPage />} />
+              <Route path="inquiries" element={<InquiriesPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="inventory" element={<InventoryAdminPage />} />
+              <Route path="inspirations" element={<InspirationsAdminPage />} />
+              <Route path="ar" element={<ArSetsAdminPage />} />
+              <Route path="team" element={<AdminOnly><TeamPage /></AdminOnly>} />
+              <Route path="settings" element={<AdminOnly><SettingsAdminPage /></AdminOnly>} />
             </Route>
           </Route>
 

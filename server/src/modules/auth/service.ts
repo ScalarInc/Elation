@@ -60,6 +60,11 @@ async function findOpenInvite(db: Db, code: string) {
   if (!invite || invite.acceptedAt || invite.revokedAt || invite.expiresAt <= new Date()) {
     throw new AppError('INVITE_INVALID', 404, 'This invitation is invalid or has expired. Ask your consultant for a new one.')
   }
+  // A closed (revoked) or already active account can't be (re)activated with an old code.
+  const user = await db.user.findUnique({ where: { id: invite.userId }, select: { status: true } })
+  if (!user || user.status !== 'INVITED') {
+    throw new AppError('INVITE_INVALID', 404, 'This invitation is invalid or has expired. Ask your consultant for a new one.')
+  }
   return invite
 }
 
@@ -80,13 +85,15 @@ export async function acceptInvite(
   const now = new Date()
 
   await db.$transaction(async (tx) => {
+    const invited = await tx.user.findUniqueOrThrow({ where: { id: invite.userId }, select: { role: true } })
     await tx.user.update({
       where: { id: invite.userId },
       data: {
         passwordHash,
         status: 'ACTIVE',
         ...(input.name ? { name: input.name } : {}),
-        accessExpiresAt: new Date(now.getTime() + invite.accessDays * DAY_MS),
+        // Clients get their access window; the Elation team doesn't expire.
+        accessExpiresAt: invited.role === 'CLIENT' ? new Date(now.getTime() + invite.accessDays * DAY_MS) : null,
       },
     })
     await tx.invite.update({ where: { id: invite.id }, data: { acceptedAt: now } })

@@ -9,7 +9,7 @@ import {
 import type { Config } from './config'
 import { LogMailer, ResendMailer, type Mailer } from './lib/mailer'
 import { createStorage, type Storage } from './lib/storage'
-import { adminRoutes } from './modules/admin/routes'
+import { adminRoutes, publicInquiryRoutes } from './modules/admin/routes'
 import { authRoutes } from './modules/auth/routes'
 import { expireLapsedClients } from './modules/auth/sweep'
 import { eventRoutes } from './modules/events/routes'
@@ -80,7 +80,9 @@ async function loggerOptions(config: Config): Promise<FastifyServerOptions['logg
 export async function buildApp(config: Config, deps: AppDeps = {}) {
   const app = Fastify({
     logger: await loggerOptions(config),
-    trustProxy: true, // Railway terminates TLS in front of us
+    // Railway's edge is the one proxy in front of us: trust exactly that hop, so a
+    // caller can't pick their own IP with X-Forwarded-For (rate limits, audit).
+    trustProxy: (_address: string, hop: number) => hop === 0,
   }).withTypeProvider<ZodTypeProvider>()
 
   app.setValidatorCompiler(validatorCompiler)
@@ -121,6 +123,7 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
       await api.register(fileRoutes)
       await api.register(localStorageRoutes)
       await api.register(adminRoutes)
+      await api.register(publicInquiryRoutes)
     },
     { prefix: API_PREFIX },
   )
