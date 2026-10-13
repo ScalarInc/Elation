@@ -93,25 +93,21 @@ export type Moodboard = {
   liked: boolean
 }
 
+export const INVENTORY_CATEGORIES = [
+  'Sofa', 'Chair', 'Table', 'Chandelier', 'Floral', 'Backdrop', 'Prop', 'Signage', 'Lighting', 'Fabric', 'Structure',
+] as const
+export const INVENTORY_UNITS = ['each', 'set', 'linear ft', 'sqft'] as const
+
+/** An inventory item as returned by GET /api/inventory. Prices are live from the database. */
 export type InventoryItem = {
   id: UUID
   name: string
-  category:
-    | 'Sofa'
-    | 'Chair'
-    | 'Table'
-    | 'Chandelier'
-    | 'Floral'
-    | 'Backdrop'
-    | 'Prop'
-    | 'Signage'
-    | 'Lighting'
-    | 'Fabric'
-  colour: string
-  material?: string
-  pricePKR: number
-  unit: 'each' | 'set' | 'linear ft' | 'sqft'
-  image: string
+  category: (typeof INVENTORY_CATEGORIES)[number]
+  colour: string | null
+  material: string | null
+  pricePkr: number
+  unit: (typeof INVENTORY_UNITS)[number]
+  imageUrl: string | null
   tags: string[]
 }
 

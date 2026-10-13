@@ -47,8 +47,8 @@ export const api = {
   },
 
   inventory: {
-    list: async (): Promise<InventoryItem[]> => [],
-    get: async (_id: UUID): Promise<InventoryItem | undefined> => undefined,
+    list: (): Promise<InventoryItem[]> => apiRequest('/api/inventory'),
+    get: (id: UUID): Promise<InventoryItem> => apiRequest(`/api/inventory/${id}`),
   },
 
   budget: {

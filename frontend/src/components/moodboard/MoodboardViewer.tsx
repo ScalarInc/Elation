@@ -348,18 +348,18 @@ export function MoodboardViewer({ eventId }: Props) {
                 </div>
 
                 <img
-                  src={drawerItem.image}
+                  src={drawerItem.imageUrl ?? undefined}
                   alt={drawerItem.name}
                   className="mt-5 h-56 w-full rounded-2xl object-cover"
                 />
 
                 <dl className="mt-5 space-y-2 text-sm">
-                  <Row label="Colour" value={drawerItem.colour} />
+                  {drawerItem.colour && <Row label="Colour" value={drawerItem.colour} />}
                   {drawerItem.material && <Row label="Material" value={drawerItem.material} />}
                   <Row label="Unit" value={drawerItem.unit} />
                   <Row
                     label="Price"
-                    value={`${formatPKR(drawerItem.pricePKR)} / ${drawerItem.unit}`}
+                    value={`${formatPKR(drawerItem.pricePkr)} / ${drawerItem.unit}`}
                   />
                   <Row label="Tags" value={drawerItem.tags.join(', ')} />
                 </dl>

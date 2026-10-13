@@ -1,4 +1,4 @@
-import type { UUID } from '@/types'
+import type { InventoryItem, UUID } from '@/types'
 
 /** Types for the admin console API (/api/admin/*). */
 
@@ -51,3 +51,30 @@ export type InviteResult = {
   emailSent: boolean
   emailError: string | null
 }
+
+
+/** Inventory item as seen by admins (includes archived items and audit fields). */
+export type AdminInventoryItem = InventoryItem & {
+  sku: string
+  stockQty: number | null
+  isActive: boolean
+  /** True until an admin first sets the price; seed prices are estimates. */
+  isProvisionalPrice: boolean
+  priceUpdatedAt: string | null
+  updatedAt: string
+}
+
+export type InventoryItemInput = {
+  name: string
+  category: InventoryItem['category']
+  unit: InventoryItem['unit']
+  pricePkr: number
+  colour?: string | null
+  material?: string | null
+  stockQty?: number | null
+  tags?: string[]
+}
+
+export type InventoryItemUpdate = Partial<InventoryItemInput & { isActive: boolean }>
+
+export type PriceChange = { oldPricePkr: number; newPricePkr: number; changedByName: string | null; changedAt: string }

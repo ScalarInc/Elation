@@ -212,7 +212,7 @@ export function InspirationDetailPage() {
                   >
                     <div className="h-32 overflow-hidden">
                       <img
-                        src={it.image}
+                        src={it.imageUrl ?? undefined}
                         alt={it.name}
                         className="h-full w-full object-cover"
                       />

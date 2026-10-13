@@ -69,7 +69,7 @@ function includedTotal(
   return snap.lines.reduce((sum, l) => {
     if (!l.included) return sum
     const item = invById.get(l.itemId)
-    return item ? sum + item.pricePKR * l.qty : sum
+    return item ? sum + item.pricePkr * l.qty : sum
   }, 0)
 }
 

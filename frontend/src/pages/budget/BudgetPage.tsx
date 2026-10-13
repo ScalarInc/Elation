@@ -126,7 +126,7 @@ function groupByCategory(
     if (!l.included) continue
     const item = inv.get(l.itemId)
     if (!item) continue
-    const sub = item.pricePKR * l.qty
+    const sub = item.pricePkr * l.qty
     const bucket = grouped.get(l.category) ?? {
       category: l.category,
       total: 0,
@@ -453,7 +453,7 @@ function AddInventorySheet({
                     className="border-border/10 bg-surface hover:shadow-soft flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition hover:-translate-y-0.5"
                   >
                     <img
-                      src={item.image}
+                      src={item.imageUrl ?? undefined}
                       alt=""
                       className="h-14 w-14 shrink-0 rounded-xl object-cover"
                     />
@@ -468,7 +468,7 @@ function AddInventorySheet({
                     </div>
                     <div className="text-right">
                       <p className="text-text text-xs font-semibold tabular-nums">
-                        {formatPKRCompact(item.pricePKR)}
+                        {formatPKRCompact(item.pricePkr)}
                       </p>
                       <p className="text-muted/70 text-[10px]">/ {item.unit}</p>
                     </div>
@@ -511,7 +511,7 @@ function LineRow({
     )
   }
 
-  const subtotal = item.pricePKR * line.qty
+  const subtotal = item.pricePkr * line.qty
   const dimmed = !line.included
 
   return (
@@ -527,7 +527,7 @@ function LineRow({
       )}
     >
       <img
-        src={item.image}
+        src={item.imageUrl ?? undefined}
         alt=""
         className="h-12 w-12 shrink-0 rounded-xl object-cover"
       />
@@ -535,7 +535,7 @@ function LineRow({
         <p className="text-text truncate text-sm font-semibold">{item.name}</p>
         <p className="text-muted/70 truncate text-[11px]">
           {item.colour}
-          {item.material ? ` · ${item.material}` : ''} · {formatPKR(item.pricePKR)} / {item.unit}
+          {item.material ? ` · ${item.material}` : ''} · {formatPKR(item.pricePkr)} / {item.unit}
         </p>
       </div>
       <Input
@@ -631,7 +631,7 @@ export function BudgetPage() {
       lines.reduce((sum, l) => {
         if (!l.included) return sum
         const item = invById.get(l.itemId)
-        return item ? sum + item.pricePKR * l.qty : sum
+        return item ? sum + item.pricePkr * l.qty : sum
       }, 0),
     [lines, invById],
   )
@@ -840,7 +840,7 @@ export function BudgetPage() {
               const catTotal = catLines.reduce((sum, l) => {
                 if (!l.included) return sum
                 const item = invById.get(l.itemId)
-                return item ? sum + item.pricePKR * l.qty : sum
+                return item ? sum + item.pricePkr * l.qty : sum
               }, 0)
 
               return (
