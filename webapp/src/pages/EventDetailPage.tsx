@@ -1,5 +1,6 @@
 import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
+import { LoadError } from '@/components/ui/load-error'
 import {
   ArrowLeft,
   ArrowRight,
@@ -23,7 +24,7 @@ import { useEventBudget } from '@/data/budget'
 import { BUDGET_TONE } from '@/components/budget/tone'
 import { useEventMoodboards } from '@/data/moodboards'
 import { MoodboardViewer } from '@/components/MoodboardViewer'
-import { useEventView } from '@/data/events'
+import { useEvent } from '@/data/events'
 import { useQuestionnaireSync } from '@/data/questionnaire'
 import {
   computeCategoryProgress,
@@ -39,6 +40,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { formatDate, daysUntil, formatBudget, formatPKR, formatPKRCompact } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { isApiError } from '@/lib/api/client'
 import type { ClientEvent, ModuleStatus } from '@/mocks/types'
 
 const weight: Record<ModuleStatus, number> = { complete: 1, in_progress: 0.5, pending: 0 }
@@ -206,7 +208,8 @@ function OverviewTab({ event }: { event: ClientEvent }) {
       4) *
       100,
   )
-  const { data: eventBoards = [] } = useEventMoodboards(event.id)
+  const boardsQuery = useEventMoodboards(event.id)
+  const eventBoards = boardsQuery.data ?? []
   // Lead concept first, then the newest.
   const boards = [...eventBoards].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
   const { data: budget } = useEventBudget(event.id)
@@ -258,7 +261,9 @@ function OverviewTab({ event }: { event: ClientEvent }) {
                 </Link>
               )}
             </div>
-            {boards[0] ? (
+            {boardsQuery.isError && !boardsQuery.data ? (
+              <LoadError what="your moodboards" onRetry={() => void boardsQuery.refetch()} className="py-6" />
+            ) : boards[0] ? (
               <>
                 <div className="mt-4 grid grid-cols-4 gap-2">
                   {boards[0].tiles.slice(0, 4).map((src, i) => (
@@ -399,9 +404,10 @@ function QuestionnaireSummary({ eventId }: { eventId: string }) {
 
 /** Budget tab: the live numbers, one click from the estimator (docs/step-08-budget.md, J2). */
 function BudgetSummary({ eventId }: { eventId: string }) {
-  const { data, isPending } = useEventBudget(eventId)
+  const { data, isPending, isError, refetch } = useEventBudget(eventId)
   const href = `/events/${eventId}/budget?from=event`
   if (isPending) return <Skeleton className="mt-4 h-56 w-full rounded-3xl" />
+  if (isError && !data) return <LoadError what="your budget" onRetry={() => void refetch()} />
   const plan = data?.plan
   if (!plan) {
     return (
@@ -538,11 +544,22 @@ export function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
-  const { event, isPending } = useEventView(id)
-  useQuestionnaireSync(event ? id : undefined)
+  const query = useEvent(id)
+  const event = query.data
+  const sync = useQuestionnaireSync(event ? id : undefined)
 
-  if (isPending) return <PageSkeleton />
-  if (!event) return <EventNotFound />
+  if (query.isPending && id) return <PageSkeleton />
+  if (!event) {
+    // A 404 means the event is gone; anything else is worth a retry.
+    if (query.isError && !(isApiError(query.error) && query.error.status === 404)) {
+      return (
+        <div className="px-10 pb-12 pt-8">
+          <LoadError what="this event" onRetry={() => void query.refetch()} className="py-16" />
+        </div>
+      )
+    }
+    return <EventNotFound />
+  }
 
   const rawTab = params.get('tab') as TabKey | null
   const tab: TabKey = rawTab && TAB_KEYS.includes(rawTab) ? rawTab : 'overview'
@@ -581,7 +598,11 @@ export function EventDetailPage() {
         </TabsContent>
 
         <TabsContent value="questionnaire">
-          <QuestionnaireSummary eventId={event.id} />
+          {sync.isError ? (
+            <LoadError what="your questionnaire" onRetry={() => void sync.refetch()} />
+          ) : (
+            <QuestionnaireSummary eventId={event.id} />
+          )}
         </TabsContent>
         <TabsContent value="moodboard">
           <MoodboardViewer eventId={event.id} />

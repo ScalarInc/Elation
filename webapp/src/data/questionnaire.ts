@@ -39,8 +39,8 @@ export function useQuestionnaireSync(eventId: string | undefined) {
     if (eventId && query.data) hydrate(eventId, query.data)
   }, [eventId, query.data, hydrate])
 
-  if (API_MODE === 'mock') return { isPending: false, isError: false, refetch: () => {} }
-  return { isPending: query.isPending, isError: query.isError, refetch: query.refetch }
+  if (API_MODE === 'mock') return { isPending: false, isError: false, hasData: true, refetch: () => {} }
+  return { isPending: query.isPending, isError: query.isError, hasData: Boolean(query.data), refetch: query.refetch }
 }
 
 export function useSubmitQuestionnaire(eventId: string) {

@@ -31,13 +31,14 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { LoadError } from '@/components/ui/load-error'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/toast'
 import { BUDGET_TONE, backTarget } from '@/components/budget/tone'
 import { useCurrentUser } from '@/data/auth'
 import { budgetApi, eventBudgetKey, useBudgetActions, useEventBudget } from '@/data/budget'
-import { useEventView } from '@/data/events'
+import { useEvent } from '@/data/events'
 import { isPriced, useInventory } from '@/data/inventory'
 import { isApiError } from '@/lib/api/client'
 import { formatPKR, formatPKRCompact } from '@/lib/format'
@@ -248,7 +249,7 @@ function AddInventorySheet({
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const { data: inventory = [], isPending } = useInventory()
+  const { data: inventory = [], isPending, isError, refetch } = useInventory()
 
   const filtered = useMemo(() => {
     const preferred = BUDGET_CATEGORY_INVENTORY[category as BudgetCategory] ?? []
@@ -281,6 +282,8 @@ function AddInventorySheet({
                 <Skeleton key={i} className="h-20 w-full" />
               ))}
             </div>
+          ) : isError && inventory.length === 0 ? (
+            <LoadError what="the inventory" onRetry={() => void refetch()} />
           ) : filtered.length === 0 ? (
             <p className="text-muted mt-6 text-center text-sm">No matches. Try a different keyword.</p>
           ) : (
@@ -644,7 +647,8 @@ function Estimator({
         { key: crypto.randomUUID(), item, category, qty: 1, included: true, unitPricePkr: item.pricePKR, currentPricePkr: item.pricePKR },
       ],
     }))
-    toast.success(`${item.name} added to ${category}`)
+    // The autosave confirms it (and reports failures) — say what happened, not that it's saved.
+    toast(`${item.name} added to ${category}`, { description: 'Saving…' })
   }
   const setTarget = (n: number) => edit((d) => ({ ...d, targetPkr: Math.max(0, Math.round(n)) }))
 
@@ -909,7 +913,9 @@ function Estimator({
 export function BudgetPage() {
   const { id } = useParams<{ id: string }>()
   const [params] = useSearchParams()
-  const { event, isPending: eventPending } = useEventView(id)
+  const eventQuery = useEvent(id)
+  const event = eventQuery.data
+  const eventPending = eventQuery.isPending && Boolean(id)
   const budget = useEventBudget(id)
 
   if (!id) return <EventNotFound />
@@ -929,6 +935,24 @@ export function BudgetPage() {
             <Skeleton className="h-64 w-full" />
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // A 404 means "not found"; any other failure gets a retry.
+  const failed = (q: { isError: boolean; error: unknown }) =>
+    q.isError && !(isApiError(q.error) && q.error.status === 404)
+  if ((!event && failed(eventQuery)) || (!budget.data && failed(budget))) {
+    return (
+      <div className="px-10 pb-12 pt-8">
+        <LoadError
+          what="this budget"
+          className="py-16"
+          onRetry={() => {
+            if (eventQuery.isError) void eventQuery.refetch()
+            if (budget.isError) void budget.refetch()
+          }}
+        />
       </div>
     )
   }

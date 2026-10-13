@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
+import { LoadError } from '@/components/ui/load-error'
 import { BUDGET_TONE } from '@/components/budget/tone'
 import { useBudgets } from '@/data/budget'
 import { formatPKRCompact } from '@/lib/format'
@@ -13,7 +14,7 @@ import { cn } from '@/lib/utils'
 
 /** Every event, with its budget or a "Start budget" card (docs/step-08-budget.md, J3/J10). */
 export function BudgetListPage() {
-  const { data: rows = [], isPending } = useBudgets()
+  const { data: rows = [], isPending, isError, refetch } = useBudgets()
 
   return (
     <div className="px-10 pb-12 pt-8">
@@ -30,6 +31,8 @@ export function BudgetListPage() {
             <Skeleton key={i} className="h-64 w-full" />
           ))}
         </div>
+      ) : isError && rows.length === 0 ? (
+        <LoadError what="your budgets" onRetry={() => void refetch()} className="py-16" />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<Wallet className="h-6 w-6" />}

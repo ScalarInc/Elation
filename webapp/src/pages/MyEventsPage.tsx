@@ -59,6 +59,11 @@ export function MyEventsPage() {
     return sortEvents(source.filter((e) => filterEvent(e, filter)), sort)
   }, [allEvents, archived.data, filter, sort])
   const loading = isPending || (filter === 'archived' && archived.isPending)
+  const failed = isError || (filter === 'archived' && archived.isError)
+  const retry = () => {
+    if (isError) void refetch()
+    if (archived.isError) void archived.refetch()
+  }
 
   return (
     <div className="px-10 pb-12 pt-8">
@@ -125,11 +130,11 @@ export function MyEventsPage() {
             <Skeleton key={i} className="h-80 w-full rounded-3xl" />
           ))}
         </div>
-      ) : isError ? (
+      ) : failed ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
             <p className="font-display text-text text-xl">We couldn’t load your events</p>
-            <Button variant="outline" onClick={() => refetch()}>
+            <Button variant="outline" onClick={retry}>
               <RefreshCw className="h-4 w-4" />
               Try again
             </Button>

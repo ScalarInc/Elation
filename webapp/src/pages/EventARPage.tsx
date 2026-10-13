@@ -1,10 +1,11 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { LoadError } from '@/components/ui/load-error'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Sparkles } from 'lucide-react'
 import type { EventType } from '@elation/shared/domain'
 import { useArSets, useEventAr } from '@/data/ar'
-import { useEventView } from '@/data/events'
+import { useEvent } from '@/data/events'
 import { ARSetCard, ARStatusPill } from '@/components/ARSetCard'
 import { ARAssetList } from '@/components/ARAssetList'
 import { ARHero } from '@/components/ARHero'
@@ -12,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { formatDate } from '@/lib/format'
+import { isApiError } from '@/lib/api/client'
 
 const WEDDING_SET_TYPES: EventType[] = ['Baraat', 'Walima', 'Mehndi']
 
@@ -51,7 +53,9 @@ function PageSkeleton() {
 
 export function EventARPage() {
   const { id } = useParams<{ id: string }>()
-  const { event, isPending } = useEventView(id)
+  const eventQuery = useEvent(id)
+  const event = eventQuery.data
+  const isPending = eventQuery.isPending && Boolean(id)
   const eventAr = useEventAr(id)
   const { data: allSets = [] } = useArSets()
   const set = eventAr.isPending ? undefined : (eventAr.data?.set ?? null)
@@ -59,6 +63,14 @@ export function EventARPage() {
   const siblings = allSets.filter((s) => s.eventId !== id)
 
   if (isPending) return <PageSkeleton />
+  // A 404 is "not found"; any other failure gets a retry.
+  if (!event && eventQuery.isError && !(isApiError(eventQuery.error) && eventQuery.error.status === 404)) {
+    return (
+      <div className="px-10 pb-12 pt-8">
+        <LoadError what="this event" onRetry={() => void eventQuery.refetch()} className="py-16" />
+      </div>
+    )
+  }
   if (!event) return <ARNotFound />
   if (eventAr.isError) {
     return (

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   CalendarDays,
@@ -115,12 +115,27 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+
 function TopBar() {
   const navigate = useNavigate()
   const me = useCurrentUser()
   const signOut = useSignOut()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const unread = useUnreadCount().data?.unread ?? 0
+  const searchRef = useRef<HTMLInputElement>(null)
+  const location = useLocation()
+  // ⌘K / Ctrl+K jumps to search from anywhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   return (
     <header className="flex items-center justify-between gap-3 border-b border-border/10 bg-bg/85 px-4 py-3 backdrop-blur md:px-10 md:py-4">
       {/* Mobile menu */}
@@ -140,16 +155,29 @@ function TopBar() {
       </Sheet>
 
       {/* Search */}
-      <div className="border-border/10 hover:border-border/25 flex flex-1 items-center gap-2 rounded-xl border bg-surface px-3 py-2 transition md:w-96 md:flex-none">
+      <form
+        role="search"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const q = searchRef.current?.value.trim()
+          if (q) navigate(`/search?q=${encodeURIComponent(q)}`)
+        }}
+        className="border-border/10 hover:border-border/25 flex flex-1 items-center gap-2 rounded-xl border bg-surface px-3 py-2 transition md:w-96 md:flex-none"
+      >
         <Search className="h-4 w-4 text-muted/60" />
         <input
+          key={location.search}
+          ref={searchRef}
+          type="search"
+          aria-label="Search"
+          defaultValue={new URLSearchParams(location.search).get('q') ?? ''}
           placeholder="Search events, moodboards, inventory…"
           className="w-full bg-transparent text-sm text-text outline-none placeholder:text-muted/50"
         />
-        <kbd className="border-border/15 hidden rounded border px-1.5 py-0.5 text-[10px] font-semibold text-muted/50 md:inline-block">
-          ⌘K
+        <kbd className="border-border/15 hidden shrink-0 whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-semibold text-muted/50 md:inline-block">
+          {isMac ? '⌘K' : 'Ctrl K'}
         </kbd>
-      </div>
+      </form>
 
       <div className="flex items-center gap-2 md:gap-3">
         <ThemeToggle />

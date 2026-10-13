@@ -1,4 +1,5 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { ApiError } from './client'
 
 /**
@@ -6,6 +7,23 @@ import { ApiError } from './client'
  * ACCESS_REVOKED means the user is no longer signed in: reset `me` so
  * ProtectedRoute sends them to sign-in or the access-ended screen.
  */
+let lastServerToast = 0
+
+/** Server trouble (5xx / no connection): one toast at most every 10 s, pages keep their own retry. */
+function onServerError(err: unknown) {
+  if (!(err instanceof ApiError) || (err.status !== 0 && err.status < 500) || err.code === 'MOCK_MODE') return
+  if (Date.now() - lastServerToast < 10_000) return
+  lastServerToast = Date.now()
+  toast.error(err.status === 0 ? 'You seem to be offline' : 'Something went wrong on our side', {
+    description: err.status === 0 ? 'We’ll keep trying — check your connection.' : 'Please try again in a moment.',
+  })
+}
+
+function onQueryError(err: unknown) {
+  onServerError(err)
+  onAuthError(err)
+}
+
 function onAuthError(err: unknown) {
   if (!(err instanceof ApiError)) return
   if (err.status === 401) {
@@ -17,7 +35,8 @@ function onAuthError(err: unknown) {
 }
 
 export const queryClient = new QueryClient({
-  queryCache: new QueryCache({ onError: onAuthError }),
+  // Mutations show their own error toasts; failed loads get one shared notice.
+  queryCache: new QueryCache({ onError: onQueryError }),
   mutationCache: new MutationCache({ onError: onAuthError }),
   defaultOptions: {
     queries: {

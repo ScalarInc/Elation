@@ -312,9 +312,9 @@ export function AuthSwitch({
         {isActivate ? (
           <div className="pt-1">
             <Checkbox checked={terms} onChange={setTerms}>
-              I agree to the{' '}
-              <a href="#" className="text-ink font-semibold underline underline-offset-2">
-                Terms & Conditions
+              I’ve read the{' '}
+              <a href="/terms" target="_blank" rel="noopener" className="text-ink font-semibold underline underline-offset-2">
+                privacy summary
               </a>
             </Checkbox>
           </div>

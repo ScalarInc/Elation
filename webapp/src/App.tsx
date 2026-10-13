@@ -1,4 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/toast'
 import { ClientLayout } from '@/layouts/ClientLayout'
@@ -24,6 +26,8 @@ import { SettingsPage } from '@/pages/SettingsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { BookConsultationPage } from '@/pages/BookConsultationPage'
+import { SearchPage } from '@/pages/SearchPage'
+import { TermsPage } from '@/pages/TermsPage'
 import { AdminOnly } from '@/layouts/AdminLayout'
 import { OverviewPage } from '@/pages/admin/OverviewPage'
 import { ClientsPage } from '@/pages/admin/ClientsPage'
@@ -37,10 +41,17 @@ import { ArSetsAdminPage } from '@/pages/admin/ArSetsAdminPage'
 import { TeamPage } from '@/pages/admin/TeamPage'
 import { SettingsAdminPage } from '@/pages/admin/SettingsAdminPage'
 
+/** Resets the error boundary on navigation. */
+function Guarded({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation()
+  return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>
+}
+
 function App() {
   return (
     <TooltipProvider delayDuration={200}>
       <BrowserRouter>
+        <Guarded>
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/login" element={<Navigate to="/auth?mode=signin" replace />} />
@@ -49,6 +60,7 @@ function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/access-ended" element={<AccessEndedPage />} />
           <Route path="/book-consultation" element={<BookConsultationPage />} />
+          <Route path="/terms" element={<TermsPage />} />
 
           {/* Client area — client accounts only (staff land in /admin) */}
           <Route element={<ProtectedRoute roles={['client']} />}>
@@ -70,6 +82,7 @@ function App() {
               <Route path="/messages" element={<MessagesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/search" element={<SearchPage />} />
             </Route>
           </Route>
 
@@ -93,6 +106,7 @@ function App() {
 
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </Guarded>
 
         <Toaster />
       </BrowserRouter>

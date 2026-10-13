@@ -48,12 +48,12 @@ Move every page from `src/mocks` to the real API **one page at a time**, without
 
 For each row, the PR must:
 
-- [ ] Replace data access with hooks; no direct `api.*` or fixture imports remain in the touched files.
-- [ ] Keep loading skeletons, add an inline error state with retry, keep the empty state.
-- [ ] Turn every toast-only action in the file into a real mutation (or remove the button) — no fake success toasts in `http` mode.
-- [ ] Invalidate the right query keys after mutations (e.g. questionnaire save → `['events', id]`).
-- [ ] Check dark mode and the "Elation decides / curated" copy rule.
-- [ ] Update the "Which page consumes what" table in `PLAN.md`.
+- [x] Replace data access with hooks; no direct `api.*` or fixture imports remain in the touched files.
+- [x] Keep loading skeletons, add an inline error state with retry, keep the empty state.
+- [x] Turn every toast-only action in the file into a real mutation (or remove the button) — no fake success toasts in `http` mode.
+- [x] Invalidate the right query keys after mutations (e.g. questionnaire save → `['events', id]`).
+- [x] Check dark mode and the "Elation decides / curated" copy rule.
+- [x] Update the "Which page consumes what" table in `PLAN.md`.
 
 ## 13.4 Toast-only actions to make real (inventory)
 
@@ -77,6 +77,18 @@ For each row, the PR must:
 
 ## Definition of done
 
-- [ ] Production build with `VITE_API_MODE=http` has no reference to `src/mocks` (verify with `vite build` + bundle grep).
-- [ ] No toast claims success for an action that didn't hit the server.
-- [ ] All pages have loading, error and empty states against the real API.
+- [x] Production build with `VITE_API_MODE=http` has no reference to `src/mocks` (verify with `vite build` + bundle grep).
+- [x] No toast claims success for an action that didn't hit the server.
+- [x] All pages have loading, error and empty states against the real API.
+
+## As built (2026-10-13)
+
+Rows 1–12 of the migration table landed with Steps 3–11 (each step's "As built"); row 13 (admin pages) with Step 12. This step closes the playbook:
+
+- **No demo data in production** (P57): every `vite build` aliases `@/mocks/fixtures` and `@/mocks/hydrate` to empty stubs (`src/lib/no-mocks*.ts`) and forces `API_MODE` to `http`; mock mode exists only in `vite dev`. `npm run check:bundle` (markers read from the fixtures: ids and emails; all of `dist/`) runs in CI after the normal build and after a `VITE_API_MODE=mock` build. `src/lib/api.ts` (Step 10) and `PlaceholderPage` (Step 12) are gone.
+- **Errors**: a page-level `ErrorBoundary` (resets on navigation; logs only the error name in production); one throttled toast for failed loads when the server is down or the connection drops (mutations report their own errors; 401/403 route to sign-in / access-ended); inline `LoadError` with retry on every client page and section that loads data — shown only when nothing is cached, 404s keep their "not found" screens.
+- **No fake actions**: every success toast follows a server response; the budget's "added" note says "Saving…" until the autosave confirms; AR model downloads are links (disabled until uploaded); the "System" theme now follows the device; dead social links removed.
+- **Search**: the top-bar search (⌘K / Ctrl K) opens `/search` over events, saved concepts, the inspiration gallery and Elation's pieces (client-side over the loaded lists — P59).
+- **Privacy summary** at `/terms`, linked from account activation (P58).
+- `PLAN.md` "Which page consumes what" rewritten for the API; README updated.
+- Review: [step-13-review.md](reviews/step-13-review.md).

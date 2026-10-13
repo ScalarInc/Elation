@@ -184,7 +184,7 @@ function ThemeCard({
 }
 
 function AppearanceSection() {
-  const { theme, setTheme } = useTheme()
+  const { mode, setMode } = useTheme()
   return (
     <Card id="appearance">
       <CardContent className="p-6">
@@ -200,28 +200,24 @@ function AppearanceSection() {
               value="light"
               label="Light"
               Icon={Sun}
-              active={theme === 'light'}
-              onSelect={() => setTheme('light')}
+              active={mode === 'light'}
+              onSelect={() => setMode('light')}
               swatches={['#FAF3EF', '#E3BFB9', '#9AB1AE']}
             />
             <ThemeCard
               value="dark"
               label="Dark"
               Icon={Moon}
-              active={theme === 'dark'}
-              onSelect={() => setTheme('dark')}
+              active={mode === 'dark'}
+              onSelect={() => setMode('dark')}
               swatches={['#1F1E22', '#CFAE96', '#7E9895']}
             />
             <ThemeCard
               value="system"
               label="System"
               Icon={Monitor}
-              active={false}
-              onSelect={() =>
-                toast('System sync is coming soon', {
-                  description: 'For now, pick Light or Dark explicitly.',
-                })
-              }
+              active={mode === 'system'}
+              onSelect={() => setMode('system')}
               swatches={['#E1CBAD', '#CFAE96', '#3B3A3F']}
             />
           </div>

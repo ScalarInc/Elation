@@ -158,11 +158,6 @@ export function useArchivedEvents(enabled: boolean) {
 
 const NO_EVENTS: EventDto[] = []
 
-/** One event with flags shaped for pages (loading → skeleton, missing → not found). */
-export function useEventView(id: string | undefined) {
-  const q = useEvent(id)
-  return { event: q.data, isPending: q.isPending && Boolean(id), isError: q.isError, refetch: q.refetch }
-}
 
 /** All of the client's (non-archived) events, shaped for pages. */
 export function useEventsView() {

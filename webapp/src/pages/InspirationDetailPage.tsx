@@ -6,10 +6,12 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { EmptyState } from '@/components/ui/empty-state'
+import { LoadError } from '@/components/ui/load-error'
 import { AdoptInspiration } from '@/components/AdoptInspiration'
 import { useInspiration } from '@/data/inspirations'
 import { isPriced } from '@/data/inventory'
 import { formatPKRCompact } from '@/lib/format'
+import { isApiError } from '@/lib/api/client'
 
 function splitStyles(style: string): string[] {
   return style
@@ -28,6 +30,15 @@ export function InspirationDetailPage() {
     return (
       <div className="flex items-center justify-center px-10 py-24">
         <Spinner size="lg" />
+      </div>
+    )
+  }
+
+  // A 404 is "not found"; any other failure gets a retry.
+  if (query.isError && !query.data && !(isApiError(query.error) && query.error.status === 404)) {
+    return (
+      <div className="px-10 py-12">
+        <LoadError what="this concept" onRetry={() => void query.refetch()} className="py-16" />
       </div>
     )
   }

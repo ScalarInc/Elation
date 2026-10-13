@@ -12,12 +12,12 @@ The platform is **never public**: client accounts are created by the Elation tea
 
 | Area | State |
 | --- | --- |
-| Client-facing frontend (`webapp/`) | Built — every page runs on mock data |
+| Client-facing frontend (`webapp/`) | Built — every page runs on the API (client studio + admin console) |
 | Admin area (`/admin/*`) | Routes + layout only, pages are placeholders |
-| Backend | **In progress** on `feature/backend` — Steps 1–12 (foundation, database, auth, events, questionnaire, inventory, moodboard, budget, inspirations & AR, chat & activity, files, admin console) done; plan in [`docs/`](docs/README.md) |
+| Backend | **In progress** on `feature/backend` — Steps 1–13 (foundation, database, auth, events, questionnaire, inventory, moodboard, budget, inspirations & AR, chat & activity, files, admin console, frontend integration) done; plan in [`docs/`](docs/README.md) |
 | AR sets (Meta Quest 3) | Separate track; web app shows status + assets |
 
-Today every page reads from `webapp/src/mocks/*` through `webapp/src/lib/api.ts` (a `setTimeout` wrapper), and questionnaire answers live in a Zustand store persisted to `localStorage`. Nothing survives a browser change, and events created in the UI are lost on refresh. The backend plan replaces this layer step by step.
+Every page reads the API through `webapp/src/data/*` (TanStack Query); questionnaire edits are buffered locally and synced to the server. `webapp/src/mocks/*` only backs `VITE_API_MODE=mock` in `npm run dev` — production builds stub it out and CI fails if demo data reaches the bundle.
 
 ---
 
@@ -87,9 +87,9 @@ npm run db:seed -w server            # demo data
 npm run dev                          # API on :4000 + webapp on :5173
 ```
 
-Open <http://localhost:5173/> and sign in with a demo account (password `elation-dev`): client `malaika.khan@example.com`, consultant `ayesha@elationbyfmh.com`, admin `admin@elationx.local`. Sign-in, invitations, password reset, profile, settings, events and the 134-question questionnaire run against the real API; moodboards, budget and messages still read mock data until their backend step lands. Server details: [`server/README.md`](server/README.md).
+Open <http://localhost:5173/> and sign in with a demo account (password `elation-dev`): client `malaika.khan@example.com`, consultant `ayesha@elationbyfmh.com`, admin `admin@elationx.local`. Everything runs against the real API — events, questionnaire, moodboards, budgets, inspirations, AR, live chat, files and the admin console (`/admin`). Server details: [`server/README.md`](server/README.md).
 
-Without `RESEND_API_KEY`, invitation and password-reset emails are printed to the server log, links included. To work on the frontend without the server, set `VITE_API_MODE=mock` (see `webapp/.env.example`).
+Without `RESEND_API_KEY`, invitation and password-reset emails are printed to the server log, links included. To work on the frontend without the server, run `npm run dev` with `VITE_API_MODE=mock` (see `webapp/.env.example`); builds always use the API.
 
 Root scripts: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` — each runs across all workspaces.
 

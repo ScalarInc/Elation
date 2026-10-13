@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import { Camera, MessageSquare, Play, Mail, Phone, MapPin } from 'lucide-react'
+import { Mail, Phone, MapPin } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -94,29 +94,7 @@ function Footer() {
           <p className="mt-4 max-w-sm font-display text-lg text-muted">
             Elevate your everyday.
           </p>
-          <div className="mt-6 flex items-center gap-3">
-            <a
-              href="#"
-              aria-label="Instagram"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-border/15 text-muted transition hover:border-accent/40 hover:text-text"
-            >
-              <Camera className="h-4 w-4" />
-            </a>
-            <a
-              href="#"
-              aria-label="Facebook"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-border/15 text-muted transition hover:border-accent/40 hover:text-text"
-            >
-              <MessageSquare className="h-4 w-4" />
-            </a>
-            <a
-              href="#"
-              aria-label="YouTube"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-border/15 text-muted transition hover:border-accent/40 hover:text-text"
-            >
-              <Play className="h-4 w-4" />
-            </a>
-          </div>
+          {/* Social links go here once Elation confirms its accounts. */}
         </div>
 
         <div>

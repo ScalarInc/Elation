@@ -11,7 +11,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react'
-import { useEventView } from '@/data/events'
+import { useEvent } from '@/data/events'
 import { useQuestionnaireSync, useSubmitQuestionnaire } from '@/data/questionnaire'
 import { isApiError } from '@/lib/api/client'
 import { questionById } from '@elation/shared/questionnaire'
@@ -29,6 +29,7 @@ import { CategoryRail } from '@/questionnaire/CategoryRail'
 import { QuestionField } from '@/questionnaire/QuestionField'
 import { CATEGORY_TIPS } from '@/questionnaire/CategoryTips'
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/components/ui/load-error'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { toast } from '@/components/ui/toast'
 import { useCurrentUser } from '@/data/auth'
@@ -121,7 +122,9 @@ export function QuestionnairePage() {
   const me = useCurrentUser()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const { event, isPending: eventPending } = useEventView(id)
+  const eventQuery = useEvent(id)
+  const event = eventQuery.data
+  const eventPending = eventQuery.isPending && Boolean(id)
   const [railOpen, setRailOpen] = useState(false)
 
   const answers = useQuestionnaire((s) => s.byEvent[id ?? '']?.answers ?? EMPTY_ANSWERS)
@@ -209,6 +212,20 @@ export function QuestionnairePage() {
 
   if (eventPending || (event && sync.isPending)) {
     return <div className="bg-bg min-h-screen" aria-busy="true" />
+  }
+
+  // A 404 falls through to "Event not found"; other failures can be retried.
+  const eventFailed =
+    !event && eventQuery.isError && !(isApiError(eventQuery.error) && eventQuery.error.status === 404)
+  if (eventFailed || (event && sync.isError && !sync.hasData)) {
+    return (
+      <div className="bg-bg text-text flex min-h-screen items-center justify-center p-8">
+        <LoadError
+          what={eventFailed ? 'this event' : 'your questionnaire'}
+          onRetry={() => void (eventFailed ? eventQuery.refetch() : sync.refetch())}
+        />
+      </div>
+    )
   }
 
   if (!event) {

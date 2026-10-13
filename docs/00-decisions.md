@@ -227,3 +227,7 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-13 — Step 12 — P55: inquiries are unassigned leads, visible to every consultant.
 - 2026-10-13 — Step 12 — P56: deferred — Turnstile on the public form (honeypot + rate limit for now), editable email templates beyond the invite intro, staff notifications for new inquiries, a chart library.
 - 2026-10-13 — Step 12 — Migration `settings` (Setting table, AuditLog/Inquiry indexes).
+- 2026-10-13 — Step 13 — P57: production builds can't ship demo data — fixtures aliased to empty stubs on every build, `API_MODE` forced to http, CI bundle check (also on a mock-mode build).
+- 2026-10-13 — Step 13 — P58: `/terms` is a factual privacy summary of how the studio works today; Elation's legal terms (and the data-retention period they promise) replace or join it before launch. ❓ Needs Elation.
+- 2026-10-13 — Step 13 — P59: search filters the client's already-loaded lists in the browser; a server search endpoint when the catalogue or history grows.
+- 2026-10-13 — Step 13 — P60: failed loads show an inline retry only when nothing is cached; one shared toast for server/network trouble on loads; mutations own their error messages.

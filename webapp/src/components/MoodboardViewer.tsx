@@ -18,6 +18,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { LoadError } from '@/components/ui/load-error'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
@@ -102,6 +103,20 @@ export function MoodboardViewer({ eventId }: Props) {
     actions.reorder.mutate(
       { id: active.id, eventId, tileIds: next },
       { onError: (err) => toast.error('Could not save the new order', { description: err.message }) },
+    )
+  }
+
+  // Without the concepts (or, before any concept exists, the defaults) there's nothing to direct.
+  if ((boardsQuery.isError && !boardsQuery.data) || (defaultsQuery.isError && !controls)) {
+    return (
+      <LoadError
+        what="your moodboard"
+        className="mt-4 py-16"
+        onRetry={() => {
+          if (boardsQuery.isError) void boardsQuery.refetch()
+          if (defaultsQuery.isError) void defaultsQuery.refetch()
+        }}
+      />
     )
   }
 
@@ -580,6 +595,8 @@ function TileDrawer({ board, tile, onClose }: { board: MoodboardDto; tile: Moodb
               <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">From Elation’s inventory</p>
               {alternatives.isPending ? (
                 <Skeleton className="h-20 w-full rounded-xl" />
+              ) : alternatives.isError && !alternatives.data ? (
+                <LoadError what="alternatives" onRetry={() => void alternatives.refetch()} className="py-4" />
               ) : (alternatives.data ?? []).length === 0 ? (
                 <p className="text-muted text-xs">Nothing else in inventory fits this spot yet.</p>
               ) : (

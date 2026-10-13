@@ -3,12 +3,20 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react()],
   resolve: {
-    alias: {
-      '@': path.resolve(import.meta.dirname, './src'),
-    },
+    alias: [
+      // Every `vite build` (any --mode) ships no demo data: the fixtures become an empty stub and
+      // API_MODE is forced to http (P57). Mock mode exists only in `vite dev`.
+      ...(command === 'build'
+        ? [
+            { find: '@/mocks/fixtures', replacement: path.resolve(import.meta.dirname, './src/lib/no-mocks.ts') },
+            { find: '@/mocks/hydrate', replacement: path.resolve(import.meta.dirname, './src/lib/no-mocks-hydrate.ts') },
+          ]
+        : []),
+      { find: '@', replacement: path.resolve(import.meta.dirname, './src') },
+    ],
   },
   test: {
     environment: 'node',
@@ -20,4 +28,4 @@ export default defineConfig({
       '/api': { target: 'http://localhost:4000', ws: true },
     },
   },
-})
+}))

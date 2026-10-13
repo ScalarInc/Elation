@@ -6,8 +6,12 @@
 
 export const API_BASE = '/api/v1'
 
-/** `mock` keeps the app runnable without the server (frontend-only work). */
-export const API_MODE: 'http' | 'mock' = import.meta.env.VITE_API_MODE === 'mock' ? 'mock' : 'http'
+/**
+ * `mock` keeps the app runnable without the server (frontend-only work, `npm run dev`
+ * with VITE_API_MODE=mock). Production builds are always `http`: the condition folds
+ * to a constant, so every mock branch — and the fixtures — drop out of the bundle.
+ */
+export const API_MODE: 'http' | 'mock' = !import.meta.env.PROD && import.meta.env.VITE_API_MODE === 'mock' ? 'mock' : 'http'
 
 export class ApiError extends Error {
   readonly status: number

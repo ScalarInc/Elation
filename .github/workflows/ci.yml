@@ -61,3 +61,12 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: No demo data in the bundle
+        run: npm run check:bundle --workspace webapp
+
+      # Even a build asking for mock mode must not ship demo data (P57).
+      - name: No demo data in a mock-mode build either
+        run: |
+          VITE_API_MODE=mock npm run build --workspace webapp
+          npm run check:bundle --workspace webapp

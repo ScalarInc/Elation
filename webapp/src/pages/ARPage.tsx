@@ -7,9 +7,10 @@ import { ARSetCard } from '@/components/ARSetCard'
 import { ARFloorPlanGallery } from '@/components/ARFloorPlanGallery'
 import { ARAssetList } from '@/components/ARAssetList'
 import { Spinner } from '@/components/ui/spinner'
+import { LoadError } from '@/components/ui/load-error'
 
 export function ARPage() {
-  const { data } = useArSets()
+  const { data, isError, refetch } = useArSets()
   const sets = data ?? null
   const { data: events } = useEvents()
   const primary = pickPrimaryEvent(events)
@@ -36,7 +37,9 @@ export function ARPage() {
           </div>
         </motion.div>
 
-        {sets === null ? (
+        {isError && sets === null ? (
+          <LoadError what="your AR sets" onRetry={() => void refetch()} className="py-16" />
+        ) : sets === null ? (
           <div className="flex items-center justify-center py-16">
             <Spinner size="lg" />
           </div>

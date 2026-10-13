@@ -5,6 +5,7 @@ import type { InspirationDto } from '@elation/shared/api'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
+import { LoadError } from '@/components/ui/load-error'
 import { useEventBudget } from '@/data/budget'
 import { useEventsView } from '@/data/events'
 import { useAdoptInspiration } from '@/data/inspirations'
@@ -16,7 +17,7 @@ import { cn } from '@/lib/utils'
  */
 export function AdoptInspiration({ inspiration, size = 'lg' }: { inspiration: InspirationDto; size?: 'md' | 'lg' }) {
   const navigate = useNavigate()
-  const { events } = useEventsView()
+  const { events, isError: eventsFailed, refetch: refetchEvents } = useEventsView()
   const [picked, setPicked] = useState<string>('')
   // Prefer an event the concept is made for.
   const eventId = picked || (events.find((e) => inspiration.eventTypes.includes(e.type)) ?? events[0])?.id || ''
@@ -49,31 +50,35 @@ export function AdoptInspiration({ inspiration, size = 'lg' }: { inspiration: In
 
   return (
     <div className="flex flex-col gap-3">
-      <Select
-        value={eventId}
-        onValueChange={(v) => {
-          setPicked(v)
-          // A new event starts from the safe choice; "replace" is always a deliberate pick.
-          setMode('merge')
-        }}
-      >
-        <SelectTrigger aria-label="Target event">
-          <SelectValue placeholder="Select an event" />
-        </SelectTrigger>
-        <SelectContent>
-          {events.length === 0 ? (
-            <SelectItem value="_none" disabled>
-              No events yet
-            </SelectItem>
-          ) : (
-            events.map((e) => (
-              <SelectItem key={e.id} value={e.id}>
-                {(e.concept ?? e.name) + ' · ' + e.type}
+      {eventsFailed && events.length === 0 ? (
+        <LoadError what="your events" onRetry={() => void refetchEvents()} className="py-2" />
+      ) : (
+        <Select
+          value={eventId}
+          onValueChange={(v) => {
+            setPicked(v)
+            // A new event starts from the safe choice; "replace" is always a deliberate pick.
+            setMode('merge')
+          }}
+        >
+          <SelectTrigger aria-label="Target event">
+            <SelectValue placeholder="Select an event" />
+          </SelectTrigger>
+          <SelectContent>
+            {events.length === 0 ? (
+              <SelectItem value="_none" disabled>
+                No events yet
               </SelectItem>
-            ))
-          )}
-        </SelectContent>
-      </Select>
+            ) : (
+              events.map((e) => (
+                <SelectItem key={e.id} value={e.id}>
+                  {(e.concept ?? e.name) + ' · ' + e.type}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      )}
 
       {hasBudget && (
         <div role="radiogroup" aria-label="Budget" className="grid grid-cols-2 gap-2">

@@ -3,12 +3,12 @@ import { Download, Layers } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { toast } from '@/components/ui/toast'
+import { LoadError } from '@/components/ui/load-error'
 import { useArAssets } from '@/data/ar'
 
 /** The 3D pieces a set is built from (docs/step-09-inspirations-ar.md). */
 export function ARAssetList({ setId }: { setId: string | undefined }) {
-  const { data: assets = [], isPending } = useArAssets(setId)
+  const { data: assets = [], isPending, isError, refetch } = useArAssets(setId)
   if (!setId) return null
 
   return (
@@ -41,6 +41,8 @@ export function ARAssetList({ setId }: { setId: string | undefined }) {
                   <Skeleton key={i} className="h-11 w-full" />
                 ))}
               </div>
+            ) : isError && assets.length === 0 ? (
+              <LoadError what="the set’s assets" onRetry={() => void refetch()} className="py-8" />
             ) : assets.length === 0 ? (
               <p className="text-muted p-6 text-center text-sm">Elation hasn't added the 3D pieces for this set yet.</p>
             ) : (
@@ -80,8 +82,9 @@ export function ARAssetList({ setId }: { setId: string | undefined }) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            aria-label={`Download ${a.name}`}
-                            onClick={() => toast("This model isn't uploaded yet — Elation will add it as the set is finalised.")}
+                            disabled
+                            aria-label={`${a.name}: model not uploaded yet`}
+                            title="Elation adds the model as the set is finalised"
                           >
                             <Download className="h-4 w-4 opacity-40" />
                           </Button>

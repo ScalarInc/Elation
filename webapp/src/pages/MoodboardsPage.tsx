@@ -10,6 +10,7 @@ import { formatDate } from '@/lib/format'
 import { useEvents } from '@/data/events'
 import { useMoodboardAction, useMoodboardLibrary } from '@/data/moodboards'
 import { Skeleton } from '@/components/ui/skeleton'
+import { LoadError } from '@/components/ui/load-error'
 import type { MoodboardDto } from '@elation/shared/api'
 
 export function MoodboardsPage() {
@@ -77,6 +78,8 @@ export function MoodboardsPage() {
             <Skeleton key={i} className="h-80 w-full rounded-3xl" />
           ))}
         </div>
+      ) : library.isError && !library.data ? (
+        <LoadError what="your moodboards" onRetry={() => void library.refetch()} className="py-16" />
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-16 text-center">

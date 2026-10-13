@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
+import { LoadError } from '@/components/ui/load-error'
 import { Spinner } from '@/components/ui/spinner'
 import {
   Dialog,
@@ -55,7 +56,7 @@ function splitStyles(style: string): string[] {
 }
 
 export function InspirationsPage() {
-  const { data, isPending: loading } = useInspirations()
+  const { data, isPending: loading, isError, refetch } = useInspirations()
   const items = data ?? null
 
   const [selectedType, setSelectedType] = useState<EventType | 'All'>('All')
@@ -314,6 +315,8 @@ export function InspirationsPage() {
           <div className="flex items-center justify-center py-20">
             <Spinner size="lg" />
           </div>
+        ) : isError && !items ? (
+          <LoadError what="the inspiration library" onRetry={() => void refetch()} className="py-20" />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={<Sparkles className="h-6 w-6" />}
@@ -538,7 +541,8 @@ function InspirationDetailDialog({
   onOpenChange: (open: boolean) => void
 }) {
   // The pieces Elation would pull in come with the concept's detail.
-  const { data: detail } = useInspiration(inspiration?.slug)
+  const detailQuery = useInspiration(inspiration?.slug)
+  const detail = detailQuery.data
   const recommendedInventory = (detail?.items ?? []).slice(0, 4).map((i) => i.item)
 
   return (
@@ -633,6 +637,14 @@ function InspirationDetailDialog({
                 <p className="text-text/85 text-sm leading-relaxed">
                   {inspiration.summary}
                 </p>
+
+                {detailQuery.isError && !detail && (
+                  <LoadError
+                    what="the pieces for this concept"
+                    onRetry={() => void detailQuery.refetch()}
+                    className="py-2"
+                  />
+                )}
 
                 {recommendedInventory.length > 0 && (
                   <div>
