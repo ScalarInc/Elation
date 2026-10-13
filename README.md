@@ -53,6 +53,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Configuration comes 
 cd backend
 uv sync                      # create .venv and install pinned dependencies
 uv run alembic upgrade head  # create/update database tables
+uv run python -m app.seed.inventory_seed       # provisional inventory prices (safe to re-run)
 uv run python -m app.scripts.create_superuser   # first admin: prints a one-time set-password link
 uv run python -m app         # API on http://localhost:8787 (docs at /docs)
 uv run pytest                # tests (no database needed)
