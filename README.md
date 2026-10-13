@@ -76,6 +76,8 @@ Overview KPIs · Client management (invite / extend / revoke access) · Inquirie
 
 ## Run locally
 
+Picking the project up? Read [`docs/HANDOFF.md`](docs/HANDOFF.md) first.
+
 Requires Node 24 (`.nvmrc`) and Docker.
 
 ```bash

@@ -6,6 +6,7 @@ This folder is the plan for building the Elation X backend and wiring the existi
 
 | File | What it covers |
 | --- | --- |
+| [HANDOFF.md](HANDOFF.md) | **Start here** — what's built, how to run it, decisions and what's left |
 | [00-decisions.md](00-decisions.md) | The decision panel, and every architecture decision with its reasoning (ADR log) |
 | [01-architecture.md](01-architecture.md) | System overview, folder layout, API conventions, auth model, realtime, jobs |
 
