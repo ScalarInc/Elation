@@ -14,7 +14,7 @@ The platform is **never public**: client accounts are created by the Elation tea
 | --- | --- |
 | Client-facing frontend (`webapp/`) | Built — every page runs on mock data |
 | Admin area (`/admin/*`) | Routes + layout only, pages are placeholders |
-| Backend | **In progress** on `feature/backend` — Steps 1–10 (foundation, database, auth, events, questionnaire, inventory, moodboard, budget, inspirations & AR, chat & activity) done; plan in [`docs/`](docs/README.md) |
+| Backend | **In progress** on `feature/backend` — Steps 1–11 (foundation, database, auth, events, questionnaire, inventory, moodboard, budget, inspirations & AR, chat & activity, files) done; plan in [`docs/`](docs/README.md) |
 | AR sets (Meta Quest 3) | Separate track; web app shows status + assets |
 
 Today every page reads from `webapp/src/mocks/*` through `webapp/src/lib/api.ts` (a `setTimeout` wrapper), and questionnaire answers live in a Zustand store persisted to `localStorage`. Nothing survives a browser change, and events created in the UI are lost on refresh. The backend plan replaces this layer step by step.

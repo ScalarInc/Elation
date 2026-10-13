@@ -129,6 +129,26 @@ async function recordActivity(tx: DbTx, event: Event, actorId: string, touchedCa
 
 // ─────────────── Save ───────────────
 
+/**
+ * Upload answers hold file ids (docs/step-11-files.md). Newly added ids must be
+ * this event's own uploaded venue/reference files — never someone else's.
+ */
+async function assertNewUploads(tx: DbTx, eventId: string, current: Answers, set: Record<string, unknown>) {
+  const added: string[] = []
+  for (const [qid, value] of Object.entries(set)) {
+    if (questionById.get(qid)?.kind !== 'upload' || !Array.isArray(value)) continue
+    const before = new Set(Array.isArray(current[qid]) ? (current[qid] as unknown[]) : [])
+    for (const v of value) if (typeof v === 'string' && !before.has(v)) added.push(v)
+  }
+  if (added.length === 0) return
+  const ok = await tx.file.count({
+    where: { id: { in: added.filter((v) => /^[0-9a-f-]{36}$/i.test(v)) }, eventId, status: 'READY', purpose: { in: ['VENUE_MEDIA', 'REFERENCE_IMAGE'] } },
+  })
+  if (ok !== new Set(added).size) {
+    throw new AppError('ANSWER_FILE_INVALID', 422, 'One of the files isn’t uploaded for this event — upload it again')
+  }
+}
+
 export async function patchQuestionnaire(db: Db, actor: Actor, eventId: string, body: PatchQuestionnaireBody) {
   const event = await assertEventAccess(db, actor, eventId)
   if (event.status === 'ARCHIVED') throw new AppError('EVENT_ARCHIVED', 422, 'Unarchive this event before editing it')
@@ -147,6 +167,7 @@ export async function patchQuestionnaire(db: Db, actor: Actor, eventId: string, 
     const decides = { ...((existing?.elationDecides ?? {}) as Record<string, boolean>) }
     const changes: Change[] = []
 
+    await assertNewUploads(tx, eventId, answers, body.set ?? {})
     for (const [qid, value] of Object.entries(body.set ?? {})) {
       if (JSON.stringify(answers[qid]) !== JSON.stringify(value) || decides[qid]) {
         changes.push({ qid, from: answers[qid] ?? null, to: value })

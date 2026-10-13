@@ -21,7 +21,7 @@ export const arRoutes: FastifyPluginAsyncZod = async (app) => {
   )
 
   app.get('/ar-sets/:id/assets', { schema: { params, response: { 200: z.array(arAssetSchema) } } }, async (request) =>
-    ar.listArAssets(app.prisma, currentUser(request), request.params.id),
+    ar.listArAssets(app.prisma, app.storage, currentUser(request), request.params.id),
   )
 
   app.post(

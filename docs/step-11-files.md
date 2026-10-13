@@ -66,7 +66,19 @@ Access: a file is visible to whoever can access its `eventId` (or thread, for at
 
 ## Definition of done
 
-- [ ] Venue photos uploaded in the questionnaire appear in the Files tab and are only viewable by that client, their consultant, and admins.
-- [ ] Direct-to-R2 upload with progress; API never proxies file bytes.
-- [ ] EXIF/GPS stripped from processed images.
-- [ ] Orphaned pending uploads cleaned up.
+- [x] Venue photos uploaded in the questionnaire appear in the Files tab and are only viewable by that client, their consultant, and admins.
+- [x] Direct-to-R2 upload with progress; API never proxies file bytes. *(local development uses signed API links instead of a bucket — P42)*
+- [x] EXIF/GPS stripped from processed images.
+- [x] Orphaned pending uploads cleaned up.
+
+## As built (2026-10-13)
+
+- **Storage** (`server/src/lib/storage.ts`, P42): Cloudflare R2 through the S3 API when `R2_ACCESS_KEY_ID` is set (any S3-compatible store via `R2_ENDPOINT`, e.g. MinIO); otherwise local disk with HMAC-signed `/api/v1/storage/local?t=` links — development and tests only (production refuses to start without R2 and `R2_PUBLIC_BASE_URL`). Signed PUTs fix the type, the exact size and `If-None-Match: *`, so a link can't overwrite a completed file (P43).
+- **API** (`server/src/modules/files/`): `POST /files/presign` (rules per purpose from `FILE_RULES` in shared; venue/reference need an event; staff-only purposes for staff; 2 GB per person per day, 500 files per event), `POST /files/:id/complete` (size + type + magic-byte check; photos → 400 px and 1600 px WebP with all metadata removed, ≤ 40 MP), `GET /files/:id`, `GET /events/:id/files?purpose=`, `DELETE /files/:id` (soft delete; leaves moodboard tiles and questionnaire answers; bytes removed). Abandoned uploads are swept after 24 h with the hourly sweep.
+- **Privacy**: originals always sit in the private bucket; only the processed copies of catalogue media are public, under unrelated keys. Photo originals (which may carry GPS) download for the uploader and Elation staff only. Catalogue media (inventory, inspiration, AR) never lists to clients; they get 3D models through their AR set. Upload answers may only point at the event's own files.
+- **Chat attachments**: `attachmentFileIds` on send (the sender's own, uploaded, unsent `attachment` files, claimed atomically); messages carry `attachments` with a 400 px preview.
+- **AR**: `GET /ar-sets/:id/assets` returns a 10-minute `downloadUrl` once a model file is attached (admin upload in Step 12).
+- **Webapp**: `lib/upload.ts` (presign → XHR PUT with progress → complete; retry, cancel on leaving), `data/files.ts`, event **Files** tab (`components/EventFiles.tsx`), questionnaire upload field (drag and drop, previews; removing takes the file off the answer only), chat composer attachments and previews.
+- **R2 setup** (Step 14): create `elation-private` and `elation-public` buckets, connect a public domain to `elation-public` (`R2_PUBLIC_BASE_URL`), and apply [`server/deploy/r2-cors.json`](../server/deploy/r2-cors.json) to `elation-private` with `APP_URL` as the allowed origin — browsers PUT straight to the bucket.
+- Not built here (P45): multipart uploads, a job queue for processing, malware scanning, moodboard reference tiles, avatar / event cover upload UI, admin uploads (Step 12).
+- Review: [step-11-review.md](reviews/step-11-review.md).

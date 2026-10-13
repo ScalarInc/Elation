@@ -4,7 +4,7 @@ import { z } from 'zod'
 const emptyToUndefined = (v: unknown) => (v === '' ? undefined : v)
 const optionalString = z.preprocess(emptyToUndefined, z.string().optional())
 
-const schema = z.object({
+const base = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
   HOST: z.string().default('0.0.0.0'),
@@ -31,9 +31,36 @@ const schema = z.object({
   LOGIN_MAX_PER_EMAIL: z.coerce.number().int().positive().default(10),
   LOGIN_MAX_PER_IP: z.coerce.number().int().positive().default(30),
 
+  // File storage (docs/step-11-files.md). With R2 credentials: Cloudflare R2 (or any
+  // S3-compatible store via R2_ENDPOINT, e.g. MinIO). Without: files on local disk,
+  // served through signed API links — development and tests only.
+  R2_ACCOUNT_ID: optionalString,
+  R2_ENDPOINT: optionalString,
+  R2_ACCESS_KEY_ID: optionalString,
+  R2_SECRET_ACCESS_KEY: optionalString,
+  R2_PRIVATE_BUCKET: z.string().default('elation-private'),
+  R2_PUBLIC_BUCKET: z.string().default('elation-public'),
+  // CDN origin of the public bucket (r2.dev or a custom domain).
+  R2_PUBLIC_BASE_URL: optionalString,
+  STORAGE_LOCAL_DIR: z.string().default('.storage'),
+  // Signs local-storage links; any long random string.
+  STORAGE_SIGNING_SECRET: z.string().min(16).default('dev-only-storage-signing-secret'),
+
   // Absolute or server-relative path to the built webapp (webapp/dist).
   // Set in production so one Railway service serves both web and API.
   SERVE_WEBAPP_DIST: optionalString,
+})
+
+const schema = base.superRefine((c, ctx) => {
+  if (c.NODE_ENV === 'production' && !c.R2_ACCESS_KEY_ID) {
+    ctx.addIssue({ code: 'custom', path: ['R2_ACCESS_KEY_ID'], message: 'File storage (R2) is required in production' })
+  }
+  if (c.NODE_ENV === 'production' && !c.R2_PUBLIC_BASE_URL) {
+    ctx.addIssue({ code: 'custom', path: ['R2_PUBLIC_BASE_URL'], message: 'Set the public bucket URL (CDN) in production' })
+  }
+  if (c.R2_ACCESS_KEY_ID && (!c.R2_SECRET_ACCESS_KEY || !(c.R2_ENDPOINT || c.R2_ACCOUNT_ID))) {
+    ctx.addIssue({ code: 'custom', path: ['R2_SECRET_ACCESS_KEY'], message: 'Set R2_SECRET_ACCESS_KEY and R2_ACCOUNT_ID (or R2_ENDPOINT)' })
+  }
 })
 
 export type Config = z.infer<typeof schema>

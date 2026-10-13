@@ -70,7 +70,8 @@ export async function sendUnreadDigests(
             db.thread.findUniqueOrThrow({ where: { id: r.threadId } }),
             db.message.findUniqueOrThrow({ where: { id: r.lastId }, include: { author: { select: { name: true } } } }),
           ])
-          const preview = last.body.length > 140 ? `${last.body.slice(0, 137)}…` : last.body
+          const text = last.body || 'Sent an attachment'
+          const preview = text.length > 140 ? `${text.slice(0, 137)}…` : text
           return { title: thread.title, count: r.n, from: last.author?.name ?? 'Elation', preview }
         }),
       )

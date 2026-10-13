@@ -7,7 +7,7 @@ import type { WebSocket } from 'ws'
 import type { Role } from '../generated/prisma/client'
 import { accessProblem } from '../modules/auth/access'
 import { toActivityDto } from '../modules/activity/service'
-import { toMessageDto } from '../modules/chat/service'
+import { messageInclude, toMessageDto } from '../modules/chat/service'
 
 /**
  * Realtime hub (docs/step-10-chat-activity.md, P9 / P37).
@@ -79,11 +79,11 @@ export default fp<{ databaseUrl: string }>(async function realtimePlugin(app: Fa
     switch (event.t) {
       case 'message': {
         const [message, canSee] = await Promise.all([
-          app.prisma.message.findUnique({ where: { id: event.id }, include: { author: { select: { id: true, name: true, role: true } } } }),
+          app.prisma.message.findUnique({ where: { id: event.id }, include: messageInclude }),
           threadAudience(event.threadId),
         ])
         if (!message || !canSee) return
-        const dto = toMessageDto(message)
+        const dto = await toMessageDto(app.storage, message)
         for (const c of all()) if (canSee(c)) send(c, { type: 'message.created', threadId: event.threadId, message: dto })
         return
       }

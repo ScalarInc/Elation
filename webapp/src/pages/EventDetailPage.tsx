@@ -16,6 +16,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { ActivityFeed } from '@/components/ActivityFeed'
+import { EventFiles } from '@/components/EventFiles'
 import { useThreads } from '@/data/chat'
 import { useCurrentUser } from '@/data/auth'
 import { useEventBudget } from '@/data/budget'
@@ -396,20 +397,6 @@ function QuestionnaireSummary({ eventId }: { eventId: string }) {
   )
 }
 
-function TabPlaceholder({ title, body }: { title: string; body: string }) {
-  return (
-    <Card className="mt-4">
-      <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
-        <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
-          Coming next
-        </p>
-        <p className="font-display text-text text-xl">{title}</p>
-        <p className="text-muted max-w-md text-sm">{body}</p>
-      </CardContent>
-    </Card>
-  )
-}
-
 /** Budget tab: the live numbers, one click from the estimator (docs/step-08-budget.md, J2). */
 function BudgetSummary({ eventId }: { eventId: string }) {
   const { data, isPending } = useEventBudget(eventId)
@@ -611,10 +598,7 @@ export function EventDetailPage() {
           />
         </TabsContent>
         <TabsContent value="files">
-          <TabPlaceholder
-            title="Files & references"
-            body="Venue photos, floor plans, inspiration boards. Sprint 12."
-          />
+          <EventFiles eventId={event.id} />
         </TabsContent>
         <TabsContent value="messages">
           <EventThreadHandoff eventId={event.id} />

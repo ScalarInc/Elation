@@ -33,6 +33,7 @@ Hosting ([D2](00-decisions.md#d2-hosting--railway-or-render--neon-or-railway-pos
 | Transport | HTTPS only, HSTS (via `@fastify/helmet`) |
 | Headers | CSP on the web app (self + CDN + R2 domains), `X-Content-Type-Options`, `Referrer-Policy: strict-origin-when-cross-origin` |
 | CORS | Only `WEB_ORIGIN`, `credentials: true` |
+| R2 bucket CORS | `elation-private`: PUT/GET/HEAD from `APP_URL` only, headers `Content-Type`, `If-None-Match` — [`server/deploy/r2-cors.json`](../server/deploy/r2-cors.json) (uploads go browser → R2, Step 11) |
 | Auth | Step 3 checklist (argon2id, rate limits, hashed tokens, session revocation, Origin check) |
 | Authorization | Policy matrix tests in CI for every route |
 | Input | zod on every route; Prisma parameterises queries; chat rendered as text |

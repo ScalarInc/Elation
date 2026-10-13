@@ -8,6 +8,7 @@ import {
 } from 'fastify-type-provider-zod'
 import type { Config } from './config'
 import { LogMailer, ResendMailer, type Mailer } from './lib/mailer'
+import { createStorage, type Storage } from './lib/storage'
 import { adminRoutes } from './modules/admin/routes'
 import { authRoutes } from './modules/auth/routes'
 import { expireLapsedClients } from './modules/auth/sweep'
@@ -21,6 +22,8 @@ import { inspirationRoutes } from './modules/inspirations/routes'
 import { arRoutes } from './modules/ar/routes'
 import { activityRoutes } from './modules/activity/routes'
 import { chatRoutes } from './modules/chat/routes'
+import { fileRoutes, localStorageRoutes } from './modules/files/routes'
+import { sweepPendingUploads } from './modules/files/service'
 import { sendUnreadDigests } from './modules/chat/digest'
 import { questionnaireRoutes } from './modules/questionnaire/routes'
 import authPlugin from './plugins/auth'
@@ -35,12 +38,15 @@ declare module 'fastify' {
   interface FastifyInstance {
     config: Config
     mailer: Mailer
+    storage: Storage
   }
 }
 
 export type AppDeps = {
   /** Override the mailer (tests pass a MemoryMailer). */
   mailer?: Mailer
+  /** Override file storage. */
+  storage?: Storage
 }
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000
@@ -58,6 +64,15 @@ async function loggerOptions(config: Config): Promise<FastifyServerOptions['logg
     level: config.LOG_LEVEL,
     // Never log credentials or contact details (docs/step-14-deploy-ops.md).
     redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],
+    serializers: {
+      // Signed storage links carry their token in ?t= — never write it to the logs.
+      req: (req: { method: string; url: string; hostname?: string; ip?: string }) => ({
+        method: req.method,
+        url: req.url.replace(/([?&]t=)[^&]+/, '$1[redacted]'),
+        host: req.hostname,
+        remoteAddress: req.ip,
+      }),
+    },
     stream,
   }
 }
@@ -77,6 +92,8 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
     deps.mailer ??
       (config.RESEND_API_KEY ? new ResendMailer(config.RESEND_API_KEY, config.MAIL_FROM) : new LogMailer(app.log)),
   )
+
+  app.decorate('storage', deps.storage ?? createStorage(config))
 
   await app.register(errorsPlugin)
   // CSP is configured in Step 14 once the webapp's asset origins are final.
@@ -101,6 +118,8 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
       await api.register(arRoutes)
       await api.register(chatRoutes)
       await api.register(activityRoutes)
+      await api.register(fileRoutes)
+      await api.register(localStorageRoutes)
       await api.register(adminRoutes)
     },
     { prefix: API_PREFIX },
@@ -108,10 +127,15 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
 
   // Access-expiry sweep (docs/step-03-auth.md). Tests call expireLapsedClients directly.
   if (config.NODE_ENV !== 'test') {
-    const sweep = () =>
-      expireLapsedClients(app.prisma)
+    const sweep = () => {
+      void expireLapsedClients(app.prisma)
         .then((n) => n > 0 && app.log.info({ expired: n }, 'access sweep: clients expired'))
         .catch((err) => app.log.error({ err }, 'access sweep failed'))
+      // Uploads started but never completed (docs/step-11-files.md).
+      void sweepPendingUploads({ db: app.prisma, storage: app.storage })
+        .then((n) => n > 0 && app.log.info({ removed: n }, 'upload sweep: abandoned uploads removed'))
+        .catch((err) => app.log.error({ err }, 'upload sweep failed'))
+    }
     let timer: NodeJS.Timeout | undefined
     app.addHook('onReady', async () => {
       void sweep()

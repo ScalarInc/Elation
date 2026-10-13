@@ -13,6 +13,16 @@ export const chatPersonSchema = z.object({
 })
 export type ChatPersonDto = z.infer<typeof chatPersonSchema>
 
+export const attachmentSchema = z.object({
+  id: z.string(),
+  filename: z.string(),
+  mime: z.string(),
+  sizeBytes: z.number().int(),
+  /** 400 px preview for photos (expires in 10 minutes); open the file via GET /files/:id. */
+  thumbUrl: z.string().nullable(),
+})
+export type AttachmentDto = z.infer<typeof attachmentSchema>
+
 export const messageSchema = z.object({
   id: z.string(),
   threadId: z.string(),
@@ -23,6 +33,7 @@ export const messageSchema = z.object({
   /** System messages: `{ type, eventId?, moodboardId?, … }` for links and cards. */
   meta: z.record(z.string(), z.unknown()).nullable(),
   clientMessageId: z.string().nullable(),
+  attachments: z.array(attachmentSchema),
   createdAt: z.string(),
 })
 export type MessageDto = z.infer<typeof messageSchema>
@@ -66,11 +77,12 @@ export const messagePageSchema = z.object({
 export type MessagePageDto = z.infer<typeof messagePageSchema>
 
 export const sendMessageBody = z.object({
-  body: z.string().trim().min(1, 'Write a message first').max(MESSAGE_MAX),
-  /** Attachments arrive with file storage (Step 11). */
+  /** May be empty when the message is only attachments. */
+  body: z.string().trim().max(MESSAGE_MAX),
+  /** Files uploaded with purpose `attachment` (POST /files/presign). */
   attachmentFileIds: z.array(z.string().uuid()).max(10).optional(),
   clientMessageId: z.string().min(8).max(64),
-})
+}).refine((m) => m.body.length > 0 || (m.attachmentFileIds?.length ?? 0) > 0, { message: 'Write a message first', path: ['body'] })
 export type SendMessageBody = z.input<typeof sendMessageBody>
 
 export const markReadBody = z.object({ messageId: z.string().uuid() })

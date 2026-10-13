@@ -6,6 +6,7 @@ import { AppError } from '../../lib/errors'
 import type { Mailer } from '../../lib/mailer'
 import { assertEventAccess, eventScope } from '../../lib/policy'
 import { postSystemMessage } from '../../lib/threads'
+import type { Bucket, Storage } from '../../lib/storage'
 import type { Db } from '../../plugins/db'
 
 type Actor = Pick<User, 'id' | 'role'>
@@ -75,19 +76,24 @@ export async function getEventAr(db: Db, actor: Actor, eventId: string): Promise
   return { set: null, showcase: showcase ? toDto(showcase) : null }
 }
 
-export async function listArAssets(db: Db, actor: Actor, setId: string): Promise<ArAssetDto[]> {
+export async function listArAssets(db: Db, storage: Storage, actor: Actor, setId: string): Promise<ArAssetDto[]> {
   await assertSetAccess(db, actor, setId)
   const assets = await db.aRAsset.findMany({ where: { setId }, orderBy: { name: 'asc' } })
   const itemIds = assets.flatMap((a) => (a.inventoryItemId ? [a.inventoryItemId] : []))
   const items = new Map((await db.inventoryItem.findMany({ where: { id: { in: itemIds } }, select: { id: true, category: true } })).map((i) => [i.id, i]))
-  return assets.map((a) => ({
+  const modelIds = assets.flatMap((a) => (a.modelFileId ? [a.modelFileId] : []))
+  const models = new Map((await db.file.findMany({ where: { id: { in: modelIds }, status: 'READY', purpose: 'AR_MODEL' } })).map((f) => [f.id, f]))
+  return Promise.all(assets.map(async (a) => {
+    const model = a.modelFileId ? models.get(a.modelFileId) : undefined
+    return {
     id: a.id,
     name: a.name,
     category: a.inventoryItemId && items.has(a.inventoryItemId) ? inventoryCategoryFromDb(items.get(a.inventoryItemId)!.category) : null,
     thumbnailUrl: a.thumbnailUrl,
     source: a.source,
-    // Model files live in the private bucket; signed links arrive with file storage (Step 11).
-    downloadUrl: null,
+    // Private bucket: a fresh 10-minute link per request, never stored.
+    downloadUrl: model ? await storage.presignGet('private' satisfies Bucket, model.key, { expiresIn: 600, filename: model.filename }) : null,
+    }
   }))
 }
 

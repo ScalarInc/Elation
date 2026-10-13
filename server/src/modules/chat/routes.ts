@@ -33,16 +33,16 @@ const SOCKETS_PER_USER = 10
 /** Chat history + realtime socket (docs/step-10-chat-activity.md). */
 export const chatRoutes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.requireAuth)
-  const deps = { db: app.prisma, realtime: app.realtime }
+  const deps = { db: app.prisma, realtime: app.realtime, storage: app.storage }
 
   app.get('/threads', { schema: { querystring: listThreadsQuery, response: { 200: z.array(threadSchema) } } }, async (request) =>
-    chat.listThreads(app.prisma, currentUser(request), request.query),
+    chat.listThreads(deps, currentUser(request), request.query),
   )
 
   app.get(
     '/threads/:id/messages',
     { schema: { params: threadParams, querystring: listMessagesQuery, response: { 200: messagePageSchema } } },
-    async (request) => chat.listMessages(app.prisma, currentUser(request), request.params.id, request.query),
+    async (request) => chat.listMessages(deps, currentUser(request), request.params.id, request.query),
   )
 
   app.post(

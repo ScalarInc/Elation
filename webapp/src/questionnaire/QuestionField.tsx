@@ -1,10 +1,15 @@
-import { Check, Sparkles, Upload, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Check, FileText, Sparkles, Upload, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { useQuestionnaire } from './store'
 import type { Question } from '@elation/shared/questionnaire'
+import type { FilePurposeDto } from '@elation/shared/api'
+import { useEventFiles } from '@/data/files'
+import { API_MODE } from '@/lib/api/client'
+import { acceptFor, useUpload } from '@/lib/upload'
 
 type Props = { eventId: string; question: Question }
 
@@ -150,48 +155,137 @@ function DimensionsField({ eventId, question }: Props) {
   )
 }
 
-function UploadField({ eventId, question }: Props) {
-  const files = useValue(eventId, question.id) as string[] | undefined
-  const set = useQuestionnaire((s) => s.setAnswer)
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-  function fake(e: React.ChangeEvent<HTMLInputElement>) {
-    const names = Array.from(e.target.files ?? []).map((f) => f.name)
-    if (names.length) set(eventId, question.id, [...(files ?? []), ...names])
+/** Real uploads (docs/step-11-files.md): the answer is the list of file ids. */
+function UploadField({ eventId, question }: Props) {
+  const value = (useValue(eventId, question.id) as string[] | undefined) ?? []
+  const set = useQuestionnaire((s) => s.setAnswer)
+  const purpose: FilePurposeDto = question.id === 'q13_references' ? 'reference-image' : 'venue-media'
+  const { data: files } = useEventFiles(API_MODE === 'http' ? eventId : undefined)
+  const [dragging, setDragging] = useState(false)
+  const latest = useRef(value)
+  useEffect(() => {
+    latest.current = value
+  })
+  const { items, upload, retry, dismiss } = useUpload({
+    purpose,
+    eventId,
+    questionId: question.id,
+    onDone: (f) => {
+      set(eventId, question.id, [...latest.current, f.id])
+      latest.current = [...latest.current, f.id]
+    },
+  })
+
+  function pick(list: FileList | null) {
+    if (!list?.length) return
+    if (API_MODE === 'mock') {
+      set(eventId, question.id, [...value, ...Array.from(list).map((f) => f.name)])
+      return
+    }
+    void upload(list)
   }
-  function removeFile(name: string) {
-    set(eventId, question.id, (files ?? []).filter((n) => n !== name))
+
+  // Takes the file off this answer only; it stays in the event's Files tab (delete it there).
+  function removeEntry(entry: string) {
+    set(eventId, question.id, value.filter((v) => v !== entry))
   }
+
+  const byId = new Map((files ?? []).map((f) => [f.id, f]))
+  const uploading = items.filter((i) => i.status !== 'done')
 
   return (
     <div className="space-y-3">
-      <label className="border-border/25 hover:border-accent/50 hover:bg-accent/5 group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition">
+      <label
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragging(true)
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragging(false)
+          pick(e.dataTransfer.files)
+        }}
+        className={cn(
+          'border-border/25 hover:border-accent/50 hover:bg-accent/5 group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition',
+          dragging && 'border-accent bg-accent/10',
+        )}
+      >
         <span className="bg-accent/15 text-accent flex h-11 w-11 items-center justify-center rounded-xl transition group-hover:scale-105">
           <Upload className="h-5 w-5" />
         </span>
         <p className="text-text mt-1 text-sm font-semibold">Drop files here or tap to upload</p>
         <p className="text-muted/70 text-xs">
-          Frontend preview — files aren't stored yet.
+          {purpose === 'venue-media' ? 'Photos (15 MB), videos (200 MB) or a PDF floor plan (25 MB)' : 'Photos up to 15 MB'} · only you, your consultant
+          and Elation see them
         </p>
-        <input type="file" multiple onChange={fake} className="hidden" />
+        <input
+          type="file"
+          multiple
+          accept={acceptFor(purpose)}
+          onChange={(e) => {
+            pick(e.target.files)
+            e.target.value = ''
+          }}
+          className="sr-only"
+        />
       </label>
-      {files && files.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
-          {files.map((name) => (
-            <li
-              key={name}
-              className="bg-surface-2 text-muted flex items-center gap-2 rounded-full px-3 py-1.5 text-xs"
-            >
-              {name}
-              <button
-                type="button"
-                onClick={() => removeFile(name)}
-                className="hover:text-danger transition"
-                aria-label={`Remove ${name}`}
-              >
-                <X className="h-3 w-3" />
-              </button>
+
+      {uploading.length > 0 && (
+        <ul className="space-y-2">
+          {uploading.map((u) => (
+            <li key={u.localId} className="bg-surface-2 flex items-center gap-3 rounded-xl px-3 py-2 text-xs">
+              <span className="text-text min-w-0 flex-1 truncate">{u.name}</span>
+              {u.status === 'uploading' ? (
+                <span className="bg-border/20 h-1.5 w-24 overflow-hidden rounded-full" aria-label={`Uploading ${Math.round(u.progress * 100)}%`}>
+                  <span className="bg-accent block h-full transition-all" style={{ width: `${Math.round(u.progress * 100)}%` }} />
+                </span>
+              ) : (
+                <span className="text-danger">{u.error}</span>
+              )}
+              {u.status === 'failed' && (
+                <button type="button" onClick={() => retry(u.localId)} className="text-accent font-semibold hover:underline">
+                  Retry
+                </button>
+              )}
+              {u.status === 'failed' && (
+                <button type="button" onClick={() => dismiss(u.localId)} className="hover:text-danger" aria-label={`Dismiss ${u.name}`}>
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </li>
           ))}
+        </ul>
+      )}
+
+      {value.length > 0 && (
+        <ul className="flex flex-wrap gap-2">
+          {value.map((entry) => {
+            const f = byId.get(entry)
+            const label = f?.filename ?? (UUID.test(entry) ? 'File' : entry)
+            return (
+              <li key={entry} className="bg-surface-2 text-muted relative flex items-center gap-2 overflow-hidden rounded-xl text-xs">
+                {f?.thumbUrl ? (
+                  <img src={f.thumbUrl} alt={label} className="h-16 w-16 object-cover" />
+                ) : (
+                  <span className="flex h-16 w-12 items-center justify-center">
+                    <FileText className="h-4 w-4" />
+                  </span>
+                )}
+                <span className="max-w-[10rem] truncate pr-1">{label}</span>
+                <button
+                  type="button"
+                  onClick={() => removeEntry(entry)}
+                  className="hover:text-danger mr-2 transition"
+                  aria-label={`Remove ${label}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>

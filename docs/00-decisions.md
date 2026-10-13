@@ -210,3 +210,9 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-13 — Step 10 — P40: a consultant inbox at `/admin/messages` ships now (same page as the client's) so both sides can talk before Step 12; admins see every thread by design.
 - 2026-10-13 — Step 10 — P41: deferred — `moodboard.ready` / `budget.updated` socket events (HTTP responses and budget version conflicts cover them), chat attachments (Step 11), access-extended note, consultant-note activity and consultant reassignment (Step 12 — the old consultant must lose write access).
 - 2026-10-13 — Step 10 — Migrations `chat_realtime` (Message.clientMessageId, ThreadParticipant.lastEmailedMessageId, NOTIFY triggers) and `chat_backfill`.
+- 2026-10-13 — Step 11 — P42: storage driver — R2 (S3 API) whenever credentials are set, required in production; local disk with HMAC-signed API links for development and tests.
+- 2026-10-13 — Step 11 — P43: uploads are checked twice — the signed PUT fixes type, size and "no overwrite"; completion re-checks size, type and the file's first bytes; photos are re-encoded without metadata (≤ 40 MP).
+- 2026-10-13 — Step 11 — P44: no HEIC (can't be processed here; iPhones give browsers JPEG copies). Videos and PDFs are stored as uploaded — the UI promises location removal for photos only.
+- 2026-10-13 — Step 11 — P45: deferred — multipart uploads (single signed PUT up to 300 MB for now), a job queue for processing (done inline on completion), malware scanning, moodboard reference tiles, avatar / cover upload UI; admin uploads in Step 12.
+- 2026-10-13 — Step 11 — P46: originals always private; public bucket holds only processed catalogue copies under unrelated keys. Clients never list catalogue media; consultants see their clients' files and the catalogue.
+- 2026-10-13 — Step 11 — Migration `file_variants` (File.thumbKey / previewKey, pending-sweep index); upload budget 2 GB/person/day, 500 files/event.

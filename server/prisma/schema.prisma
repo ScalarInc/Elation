@@ -623,10 +623,14 @@ model File {
   width      Int?
   height     Int?
   status     FileStatus  @default(PENDING)
+  /// Processed copies of photos (EXIF stripped): 400 px and 1600 px WebP.
+  thumbKey   String?
+  previewKey String?
   createdAt  DateTime    @default(now())
   deletedAt  DateTime?
 
   @@index([eventId, purpose])
+  @@index([status, createdAt])
 }
 
 // ─────────────────────────────── Activity, admin, audit ───────────────────────────────

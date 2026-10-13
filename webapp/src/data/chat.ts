@@ -1,5 +1,6 @@
 import type {
   ActivityDto,
+  AttachmentDto,
   ActivityPageDto,
   MessageDto,
   MessagePageDto,
@@ -52,6 +53,7 @@ const mockMessages = (threadId: string): MessagePageDto => ({
       body: m.body,
       meta: null,
       clientMessageId: null,
+      attachments: [],
       createdAt: m.createdAt,
     }))
     .reverse(),
@@ -69,7 +71,7 @@ export const chatApi = {
     API_MODE === 'mock'
       ? Promise.resolve(mockMessages(threadId))
       : apiFetch<MessagePageDto>(`/threads/${threadId}/messages?limit=30${before ? `&before=${before}` : ''}`),
-  send: (threadId: string, body: { body: string; clientMessageId: string }) =>
+  send: (threadId: string, body: { body: string; clientMessageId: string; attachmentFileIds?: string[] }) =>
     API_MODE === 'mock' ? needsServer() : apiFetch<MessageDto>(`/threads/${threadId}/messages`, { method: 'POST', body }),
   read: (threadId: string, messageId: string) =>
     API_MODE === 'mock' ? Promise.resolve() : apiFetch<void>(`/threads/${threadId}/read`, { method: 'POST', body: { messageId } }),
@@ -103,8 +105,10 @@ export function useMessages(threadId: string | null) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextBefore ?? undefined,
     enabled: Boolean(threadId),
-    // Live updates arrive over the socket; HTTP only fills history and gaps.
+    // Live updates arrive over the socket; HTTP fills history and gaps, and
+    // refreshes attachment previews before their 10-minute links expire.
     staleTime: Infinity,
+    refetchInterval: 8 * 60_000,
   })
 }
 
@@ -130,7 +134,8 @@ export const newClientMessageId = () =>
 export function useSendMessage(threadId: string | null, me: { id: string; name: string; role: string; avatarInitials: string }) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (v: { body: string; clientMessageId: string }) => chatApi.send(threadId!, v),
+    mutationFn: (v: { body: string; clientMessageId: string; attachments?: AttachmentDto[] }) =>
+      chatApi.send(threadId!, { body: v.body, clientMessageId: v.clientMessageId, attachmentFileIds: v.attachments?.map((a) => a.id) }),
     onMutate: (v) => {
       upsertMessage(qc, threadId!, {
         id: `local-${v.clientMessageId}`,
@@ -140,6 +145,7 @@ export function useSendMessage(threadId: string | null, me: { id: string; name: 
         body: v.body,
         meta: null,
         clientMessageId: v.clientMessageId,
+        attachments: v.attachments ?? [],
         createdAt: new Date().toISOString(),
         status: 'sending',
       })

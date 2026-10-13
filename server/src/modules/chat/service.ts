@@ -1,10 +1,12 @@
 import type { MessageDto, ThreadDto } from '@elation/shared/api'
-import { Prisma, type Message, type User } from '../../generated/prisma/client'
+import { Prisma, type File, type Message, type User } from '../../generated/prisma/client'
 import { AppError } from '../../lib/errors'
 import { assertClientAccess, assertThreadAccess } from '../../lib/policy'
 import { ensureThreads } from '../../lib/threads'
+import type { Storage } from '../../lib/storage'
 import type { Db } from '../../plugins/db'
 import type { Realtime } from '../../plugins/realtime'
+import { claimAttachments } from '../files/service'
 import { initials } from '../me/dto'
 
 type Actor = Pick<User, 'id' | 'role' | 'name'>
@@ -22,7 +24,15 @@ export function toPerson(u: Person) {
 
 const personSelect = { id: true, name: true, role: true } as const
 
-export function toMessageDto(m: Message & { author: Person | null }): MessageDto {
+const PREVIEW_TTL_S = 10 * 60
+
+/** Author + live attachments: what every message read needs. */
+export const messageInclude = {
+  author: { select: { id: true, name: true, role: true } },
+  attachments: { where: { deletedAt: null }, orderBy: { id: 'asc' } },
+} satisfies Prisma.MessageInclude
+
+export async function toMessageDto(storage: Storage, m: Message & { author: Person | null; attachments: File[] }): Promise<MessageDto> {
   return {
     id: m.id,
     threadId: m.threadId,
@@ -31,6 +41,15 @@ export function toMessageDto(m: Message & { author: Person | null }): MessageDto
     body: m.body,
     meta: m.meta && typeof m.meta === 'object' && !Array.isArray(m.meta) ? (m.meta as Record<string, unknown>) : null,
     clientMessageId: m.clientMessageId,
+    attachments: await Promise.all(
+      m.attachments.map(async (f) => ({
+        id: f.id,
+        filename: f.filename,
+        mime: f.mime,
+        sizeBytes: f.sizeBytes,
+        thumbUrl: f.thumbKey ? await storage.presignGet('private', f.thumbKey, { expiresIn: PREVIEW_TTL_S }) : null,
+      })),
+    ),
     createdAt: m.createdAt.toISOString(),
   }
 }
@@ -77,18 +96,18 @@ async function threadsMissing(db: Db, clientId: string) {
 }
 
 /** Newest message of each thread, in two queries. */
-async function latestMessages(db: Db, threadIds: string[]) {
+async function latestMessages(db: Db, storage: Storage, threadIds: string[]) {
   if (threadIds.length === 0) return new Map<string, MessageDto>()
   const newest = await db.$queryRaw<{ id: string }[]>`
     SELECT DISTINCT ON (m."threadId") m."id"
     FROM "Message" m
     WHERE m."threadId" = ANY(${threadIds}::uuid[]) AND m."deletedAt" IS NULL
     ORDER BY m."threadId", m."id" DESC`
-  const rows = await db.message.findMany({ where: { id: { in: newest.map((r) => r.id) } }, include: { author: { select: personSelect } } })
-  return new Map(rows.map((m) => [m.threadId, toMessageDto(m)]))
+  const rows = await db.message.findMany({ where: { id: { in: newest.map((r) => r.id) } }, include: messageInclude })
+  return new Map(await Promise.all(rows.map(async (m) => [m.threadId, await toMessageDto(storage, m)] as const)))
 }
 
-export async function listThreads(db: Db, actor: Actor, query: { clientId?: string }): Promise<ThreadDto[]> {
+export async function listThreads({ db, storage }: { db: Db; storage: Storage }, actor: Actor, query: { clientId?: string }): Promise<ThreadDto[]> {
   const clientIds = await inboxClientIds(db, actor, query.clientId)
   // Threads missing for one client (e.g. an event created by staff before Step 10) are added on first look.
   if (clientIds?.length === 1 && (await threadsMissing(db, clientIds[0]))) await ensureThreads(db, clientIds[0])
@@ -111,7 +130,7 @@ export async function listThreads(db: Db, actor: Actor, query: { clientId?: stri
   const [unread, clients, lastMessages] = await Promise.all([
     unreadByThread(db, actor.id, ids),
     db.user.findMany({ where: { id: { in: [...new Set(threads.map((t) => t.clientId))] }, deletedAt: {} }, select: { id: true, name: true } }),
-    latestMessages(db, ids),
+    latestMessages(db, storage, ids),
   ])
   const clientName = new Map(clients.map((c) => [c.id, c.name]))
 
@@ -130,17 +149,17 @@ export async function listThreads(db: Db, actor: Actor, query: { clientId?: stri
   return rows.sort((a, b) => (b.lastMessage?.id ?? '').localeCompare(a.lastMessage?.id ?? ''))
 }
 
-export async function listMessages(db: Db, actor: Actor, threadId: string, query: { before?: string; limit: number }) {
+export async function listMessages({ db, storage }: { db: Db; storage: Storage }, actor: Actor, threadId: string, query: { before?: string; limit: number }) {
   await assertThreadAccess(db, actor, threadId)
   const rows = await db.message.findMany({
     where: { threadId, deletedAt: null, ...(query.before ? { id: { lt: query.before } } : {}) },
     orderBy: { id: 'desc' },
     take: query.limit + 1,
-    include: { author: { select: personSelect } },
+    include: messageInclude,
   })
   const more = rows.length > query.limit
   const page = more ? rows.slice(0, query.limit) : rows
-  return { messages: page.map(toMessageDto), nextBefore: more ? page[page.length - 1].id : null }
+  return { messages: await Promise.all(page.map((m) => toMessageDto(storage, m))), nextBefore: more ? page[page.length - 1].id : null }
 }
 
 /** Moves the reader's pointer forward only (an old tab can't mark newer messages unread). */
@@ -153,35 +172,42 @@ async function advanceRead(db: Db, threadId: string, userId: string, messageId: 
 }
 
 export async function sendMessage(
-  deps: { db: Db; realtime: Realtime },
+  deps: { db: Db; realtime: Realtime; storage: Storage },
   actor: Actor,
   threadId: string,
   input: { body: string; clientMessageId: string; attachmentFileIds?: string[] },
 ) {
   const { db } = deps
   const thread = await assertThreadAccess(db, actor, threadId)
-  if (input.attachmentFileIds?.length) {
-    throw new AppError('ATTACHMENTS_UNAVAILABLE', 422, 'Attachments arrive with file uploads — send the message on its own for now')
-  }
 
   const existing = () =>
     db.message.findUnique({
       where: { authorId_clientMessageId: { authorId: actor.id, clientMessageId: input.clientMessageId } },
-      include: { author: { select: personSelect } },
+      include: messageInclude,
     })
   const replay = await existing()
   if (replay) {
     if (replay.threadId !== thread.id) throw new AppError('DUPLICATE_MESSAGE_ID', 409, 'That message id was already used')
-    return toMessageDto(replay)
+    return toMessageDto(deps.storage, replay)
   }
 
   let message
   try {
+    const attachmentIds = [...new Set(input.attachmentFileIds ?? [])]
+    if (attachmentIds.length) await claimAttachments(db, actor, attachmentIds)
     message = await db.$transaction(async (tx) => {
-      const m = await tx.message.create({
+      const created = await tx.message.create({
         data: { threadId: thread.id, authorId: actor.id, kind: 'USER', body: input.body, clientMessageId: input.clientMessageId },
-        include: { author: { select: personSelect } },
       })
+      if (attachmentIds.length) {
+        // Claimed atomically: a file can only ever belong to one message.
+        const linked = await tx.file.updateMany({
+          where: { id: { in: attachmentIds }, ownerId: actor.id, status: 'READY', purpose: 'ATTACHMENT', messageId: null, deletedAt: null },
+          data: { messageId: created.id },
+        })
+        if (linked.count !== attachmentIds.length) throw new AppError('ATTACHMENT_INVALID', 422, 'One of the attachments isn’t available — upload it again')
+      }
+      const m = await tx.message.findUniqueOrThrow({ where: { id: created.id }, include: messageInclude })
       await tx.thread.update({ where: { id: thread.id }, data: { lastMessageAt: m.createdAt } })
       // Staff who weren't in the thread yet (admins) join on their first reply.
       await tx.threadParticipant.upsert({
@@ -195,11 +221,11 @@ export async function sendMessage(
     // Two retries raced: the first one won, hand back its message.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       const won = await existing()
-      if (won) return toMessageDto(won)
+      if (won) return toMessageDto(deps.storage, won)
     }
     throw err
   }
-  return toMessageDto(message)
+  return toMessageDto(deps.storage, message)
 }
 
 export async function markRead(deps: { db: Db; realtime: Realtime }, actor: Actor, threadId: string, messageId: string) {

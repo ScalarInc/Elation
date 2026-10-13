@@ -1,3 +1,5 @@
+import os from 'node:os'
+import path from 'node:path'
 import { buildApp } from '../app'
 import { loadConfig } from '../config'
 import { MemoryMailer } from '../lib/mailer'
@@ -13,6 +15,9 @@ export async function buildTestApp(overrides: Record<string, string> = {}) {
     ...process.env,
     NODE_ENV: 'test',
     DATABASE_URL: databaseUrl,
+    // Uploads land in a throwaway folder, never the dev storage.
+    STORAGE_LOCAL_DIR: path.join(os.tmpdir(), 'elation-test-storage'),
+    R2_ACCESS_KEY_ID: '',
     ...overrides,
   })
   const mailer = new MemoryMailer()

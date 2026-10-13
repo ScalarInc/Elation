@@ -2,15 +2,14 @@ import type * as React from 'react'
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertCircle, ArrowLeft, MessageCircle, Paperclip, RotateCw, Search, Send, Sparkles } from 'lucide-react'
-import { MESSAGE_MAX, type ThreadDto } from '@elation/shared/api'
+import { AlertCircle, ArrowLeft, FileText, MessageCircle, Paperclip, RotateCw, Search, Send, Sparkles, X } from 'lucide-react'
+import { MESSAGE_MAX, type AttachmentDto, type ThreadDto } from '@elation/shared/api'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { toast } from '@/components/ui/toast'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCurrentUser } from '@/data/auth'
 import {
   newClientMessageId,
@@ -20,7 +19,9 @@ import {
   useThreads,
   type ChatMessage,
 } from '@/data/chat'
+import { openFile } from '@/data/files'
 import { isApiError } from '@/lib/api/client'
+import { acceptFor, useUpload } from '@/lib/upload'
 import { sendRealtime, useRealtime } from '@/lib/realtime'
 import { cn } from '@/lib/utils'
 
@@ -133,7 +134,7 @@ function ThreadRow({ thread, isActive, onClick, viewerIsClient, meId }: {
         </div>
         <p className="text-muted mt-0.5 truncate text-xs">
           {thread.lastMessage
-            ? `${thread.lastMessage.author?.id === meId ? 'You: ' : ''}${thread.lastMessage.body}`
+            ? `${thread.lastMessage.author?.id === meId ? 'You: ' : ''}${thread.lastMessage.body || attachmentLabel(thread.lastMessage.attachments)}`
             : viewerIsClient
               ? `With ${who.name}`
               : who.name}
@@ -202,9 +203,12 @@ function Bubble({ m, mine, showAvatar, onRetry, linkable }: {
         )}
       >
         {!mine && showAvatar && m.author && <p className="text-muted mb-0.5 text-[10px] font-semibold">{m.author.name}</p>}
-        <p className="whitespace-pre-wrap break-words">
-          <Linkified text={m.body} />
-        </p>
+        {m.body && (
+          <p className="whitespace-pre-wrap break-words">
+            <Linkified text={m.body} />
+          </p>
+        )}
+        {m.attachments.length > 0 && <Attachments list={m.attachments} pending={Boolean(m.status)} />}
         <p className={cn('mt-1 text-[10px]', mine ? 'text-ink/60 text-right' : 'text-muted/70')}>
           {m.status === 'sending' ? 'Sending…' : bubbleTime(m.createdAt)}
         </p>
@@ -215,6 +219,46 @@ function Bubble({ m, mine, showAvatar, onRetry, linkable }: {
         )}
       </div>
     </motion.div>
+  )
+}
+
+function attachmentLabel(list: AttachmentDto[]) {
+  if (list.length === 0) return ''
+  const photos = list.filter((a) => a.mime.startsWith('image/')).length
+  if (photos === list.length) return photos === 1 ? 'Sent a photo' : `Sent ${photos} photos`
+  return list.length === 1 ? `Sent ${list[0].filename}` : `Sent ${list.length} files`
+}
+
+function formatSize(bytes: number) {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
+function Attachments({ list, pending }: { list: AttachmentDto[]; pending: boolean }) {
+  const open = (a: AttachmentDto) => {
+    if (pending) return
+    openFile(a.id).catch(() => toast.error('Couldn’t open that file', { description: 'Please try again.' }))
+  }
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {list.map((a) =>
+        a.thumbUrl ? (
+          <button key={a.id} type="button" onClick={() => open(a)} className="overflow-hidden rounded-xl" aria-label={`Open ${a.filename}`}>
+            <img src={a.thumbUrl} alt={a.filename} className="h-32 w-32 object-cover" />
+          </button>
+        ) : (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => open(a)}
+            className="border-border/15 bg-surface text-text inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px]"
+          >
+            <FileText className="h-3 w-3" />
+            <span className="max-w-[12rem] truncate">{a.filename}</span>
+            <span className="text-muted">{formatSize(a.sizeBytes)}</span>
+          </button>
+        ),
+      )}
+    </div>
   )
 }
 
@@ -251,6 +295,12 @@ export function MessagesPage({ className }: { className?: string }) {
   const threads = useMemo(() => threadsQuery.data ?? [], [threadsQuery.data])
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState('')
+  const [attached, setAttached] = useState<AttachmentDto[]>([])
+  const attachments = useUpload({
+    purpose: 'attachment',
+    onDone: (f) => setAttached((list) => [...list, { id: f.id, filename: f.filename, mime: f.mime, sizeBytes: f.sizeBytes, thumbUrl: f.thumbUrl }]),
+  })
+  const fileInput = useRef<HTMLInputElement>(null)
   const [typing, setTyping] = useState<{ threadId: string; name: string; until: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -259,6 +309,14 @@ export function MessagesPage({ className }: { className?: string }) {
   const requested = params.get('thread')
   const activeThreadId = threads.find((t) => t.id === requested)?.id ?? threads[0]?.id ?? null
   const activeThread = threads.find((t) => t.id === activeThreadId) ?? null
+  // Attachments belong to the conversation they were picked in.
+  const { clearDone: clearUploads } = attachments
+  const [attachedFor, setAttachedFor] = useState<string | null>(null)
+  if (attachedFor !== activeThreadId) {
+    setAttachedFor(activeThreadId)
+    setAttached([])
+    clearUploads()
+  }
   const selectThread = (id: string) => setParams((p) => {
     p.set('thread', id)
     return p
@@ -367,9 +425,9 @@ export function MessagesPage({ className }: { className?: string }) {
     )
   }, [threads, query])
 
-  function deliver(body: string, clientMessageId: string) {
+  function deliver(body: string, clientMessageId: string, files: AttachmentDto[] = []) {
     send.mutate(
-      { body, clientMessageId },
+      { body, clientMessageId, attachments: files },
       {
         onError: (err) => {
           const description = isApiError(err, 'RATE_LIMITED') ? 'You’re sending quickly — wait a moment and retry.' : 'Tap the message to retry.'
@@ -379,12 +437,16 @@ export function MessagesPage({ className }: { className?: string }) {
     )
   }
 
+  const canSend = Boolean(activeThreadId) && (draft.trim().length > 0 || attached.length > 0) && !attachments.busy
+
   function handleSend() {
     const body = draft.trim()
-    if (!body || !activeThreadId) return
+    if (!canSend) return
     setDraft('')
+    setAttached([])
+    attachments.clearDone()
     forceBottom.current = true
-    deliver(body, newClientMessageId())
+    deliver(body, newClientMessageId(), attached)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -545,7 +607,7 @@ export function MessagesPage({ className }: { className?: string }) {
                             m={m}
                             mine={m.author?.id === me.id}
                             showAvatar={showAvatar}
-                            onRetry={() => deliver(m.body, m.clientMessageId!)}
+                            onRetry={() => deliver(m.body, m.clientMessageId!, m.attachments)}
                             linkable={viewerIsClient}
                           />
                           {m.id === lastMine?.id && seenBy && (
@@ -577,18 +639,63 @@ export function MessagesPage({ className }: { className?: string }) {
 
         {/* Composer */}
         <div className="border-border/10 sticky bottom-0 border-t bg-surface px-4 py-4 md:px-6">
+          {(attached.length > 0 || attachments.items.some((i) => i.status !== 'done')) && (
+            <ul className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-2">
+              {attached.map((a) => (
+                <li key={a.id} className="bg-surface-2 text-text flex items-center gap-2 rounded-lg px-2 py-1 text-[11px]">
+                  {a.thumbUrl ? <img src={a.thumbUrl} alt="" className="h-6 w-6 rounded object-cover" /> : <FileText className="h-3 w-3" />}
+                  <span className="max-w-[10rem] truncate">{a.filename}</span>
+                  <button type="button" aria-label={`Remove ${a.filename}`} onClick={() => setAttached((l) => l.filter((x) => x.id !== a.id))}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </li>
+              ))}
+              {attachments.items
+                .filter((i) => i.status !== 'done')
+                .map((i) => (
+                  <li key={i.localId} className="bg-surface-2 text-muted flex items-center gap-2 rounded-lg px-2 py-1 text-[11px]">
+                    <span className="max-w-[10rem] truncate">{i.name}</span>
+                    {i.status === 'uploading' ? (
+                      <span>{Math.round(i.progress * 100)}%</span>
+                    ) : (
+                      <>
+                        <span className="text-danger">{i.error}</span>
+                        <button type="button" onClick={() => attachments.retry(i.localId)} className="text-accent font-semibold">
+                          Retry
+                        </button>
+                        <button type="button" aria-label={`Dismiss ${i.name}`} onClick={() => attachments.dismiss(i.localId)}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </>
+                    )}
+                  </li>
+                ))}
+            </ul>
+          )}
           <div className="border-border/15 bg-surface mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border p-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                {/* Attachments arrive with file uploads (Step 11). */}
-                <span tabIndex={0}>
-                  <Button variant="ghost" size="icon" aria-label="Attach file (coming soon)" type="button" disabled>
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Attachments are coming soon</TooltipContent>
-            </Tooltip>
+            <input
+              ref={fileInput}
+              type="file"
+              multiple
+              accept={acceptFor('attachment')}
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden
+              onChange={(e) => {
+                if (e.target.files?.length) void attachments.upload(e.target.files)
+                e.target.value = ''
+              }}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Attach photos or PDFs"
+              type="button"
+              disabled={!activeThreadId}
+              onClick={() => fileInput.current?.click()}
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
             <textarea
               ref={textareaRef}
               value={draft}
@@ -601,7 +708,7 @@ export function MessagesPage({ className }: { className?: string }) {
               placeholder="Write a message…"
               className="text-text placeholder:text-muted/60 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-5 outline-none"
             />
-            <Button onClick={handleSend} disabled={!draft.trim() || !activeThreadId} size="icon" aria-label="Send message">
+            <Button onClick={handleSend} disabled={!canSend} size="icon" aria-label="Send message">
               <Send className="h-4 w-4" />
             </Button>
           </div>
