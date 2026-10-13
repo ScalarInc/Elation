@@ -83,6 +83,7 @@ function App() {
                   />
                 }
               />
+              <Route path="messages" element={<MessagesPage className="h-screen" />} />
               <Route
                 path="inquiries"
                 element={<PlaceholderPage title="Inquiries" description="Public consultation-form submissions to convert." sprintNumber={14} />}

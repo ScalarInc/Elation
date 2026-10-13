@@ -29,6 +29,8 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { ConsentGate } from '@/components/ConsentGate'
 import { cn } from '@/lib/utils'
 import { useCurrentUser, useLogout } from '@/data/auth'
+import { useRealtimeCacheSync, useUnreadCount } from '@/data/chat'
+import { useRealtimeConnection } from '@/lib/realtime'
 
 /** Sign out on the server, drop cached data, return to sign-in. */
 function useSignOut() {
@@ -51,6 +53,7 @@ const nav = [
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const me = useCurrentUser()
   const signOut = useSignOut()
+  const unread = useUnreadCount().data?.unread ?? 0
   return (
     <aside className="bg-sage-veil relative flex h-full w-64 shrink-0 flex-col text-ink dark:text-cream">
       <div className="px-6 pt-8 pb-6">
@@ -77,6 +80,14 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
               >
                 <Icon className="h-4 w-4" />
                 {label}
+                {to === '/messages' && unread > 0 && (
+                  <span
+                    className="bg-accent text-accent-fg ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
+                    aria-label={`${unread} unread`}
+                  >
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
               </NavLink>
             </li>
           ))}
@@ -109,6 +120,7 @@ function TopBar() {
   const me = useCurrentUser()
   const signOut = useSignOut()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const unread = useUnreadCount().data?.unread ?? 0
   return (
     <header className="flex items-center justify-between gap-3 border-b border-border/10 bg-bg/85 px-4 py-3 backdrop-blur md:px-10 md:py-4">
       {/* Mobile menu */}
@@ -144,11 +156,11 @@ function TopBar() {
         <button
           type="button"
           onClick={() => navigate('/messages')}
-          aria-label="Notifications"
+          aria-label={unread > 0 ? `Messages, ${unread} unread` : 'Messages'}
           className="border-border/10 bg-surface relative flex h-10 w-10 items-center justify-center rounded-xl border transition hover:border-accent/40"
         >
           <Bell className="h-4 w-4 text-text" />
-          <span className="bg-accent absolute right-2 top-2 h-2 w-2 rounded-full ring-2 ring-bg animate-pulse-soft" />
+          {unread > 0 && <span className="bg-accent absolute right-2 top-2 h-2 w-2 rounded-full ring-2 ring-bg animate-pulse-soft" />}
         </button>
 
         <DropdownMenu>
@@ -187,6 +199,8 @@ function TopBar() {
 }
 
 export function ClientLayout() {
+  useRealtimeConnection(true)
+  useRealtimeCacheSync()
   return (
     <div className="bg-bg flex min-h-screen text-text">
       <div className="hidden md:block">

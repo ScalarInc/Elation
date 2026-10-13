@@ -564,36 +564,42 @@ model Thread {
   messages     Message[]
 
   @@index([clientId, lastMessageAt])
+  @@index([eventId])
 }
 
 model ThreadParticipant {
-  threadId          String    @db.Uuid
-  thread            Thread    @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  userId            String    @db.Uuid
-  user              User      @relation(fields: [userId], references: [id])
-  lastReadMessageId String?   @db.Uuid
-  lastReadAt        DateTime?
-  joinedAt          DateTime  @default(now())
+  threadId             String    @db.Uuid
+  thread               Thread    @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId               String    @db.Uuid
+  user                 User      @relation(fields: [userId], references: [id])
+  lastReadMessageId    String?   @db.Uuid
+  lastReadAt           DateTime?
+  /// Newest message already covered by an unread-messages email (Step 10 digest).
+  lastEmailedMessageId String?   @db.Uuid
+  joinedAt             DateTime  @default(now())
 
   @@id([threadId, userId])
   @@index([userId])
 }
 
 model Message {
-  id        String      @id @default(uuid(7)) @db.Uuid // UUIDv7 → ordering by id = ordering by time
-  threadId  String      @db.Uuid
-  thread    Thread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  authorId  String?     @db.Uuid // null for SYSTEM messages
-  author    User?       @relation(fields: [authorId], references: [id])
-  kind      MessageKind @default(USER)
-  body      String
-  meta      Json? // SYSTEM: { type: "moodboard.generated", moodboardId }
-  createdAt DateTime    @default(now())
-  editedAt  DateTime?
-  deletedAt DateTime?
+  id              String      @id @default(uuid(7)) @db.Uuid // UUIDv7 → ordering by id = ordering by time
+  threadId        String      @db.Uuid
+  thread          Thread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorId        String?     @db.Uuid // null for SYSTEM messages
+  author          User?       @relation(fields: [authorId], references: [id])
+  kind            MessageKind @default(USER)
+  body            String
+  /// Sender-generated id: retries are idempotent and the UI reconciles optimistic messages.
+  clientMessageId String?
+  meta            Json? // SYSTEM: { type: "moodboard.generated", moodboardId }
+  createdAt       DateTime    @default(now())
+  editedAt        DateTime?
+  deletedAt       DateTime?
 
   attachments File[]
 
+  @@unique([authorId, clientMessageId])
   @@index([threadId, id])
 }
 

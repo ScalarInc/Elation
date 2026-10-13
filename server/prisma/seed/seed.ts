@@ -463,9 +463,10 @@ export async function seed(db: Db) {
   const consultantThreadFixtureId = 't_ayesha'
   const userIdFor = (fixtureUserId: string) => (fixtureUserId === client.id ? clientId : id.user(fixtureUserId))
 
-  for (const t of fixtures.threads) {
+  for (const [i, t] of fixtures.threads.entries()) {
     const threadId = id.thread(t.id)
-    const data = { clientId, title: t.title, lastMessageAt: new Date(t.lastMessageAt) }
+    // Creation order matters: the first thread without an event is the client's general thread.
+    const data = { clientId, title: t.title, lastMessageAt: new Date(t.lastMessageAt), createdAt: new Date(Date.parse(SEED_EPOCH) + i * 60_000) }
     await db.thread.upsert({ where: { id: threadId }, create: { id: threadId, ...data }, update: data })
   }
 

@@ -2,6 +2,7 @@ import type { Config } from '../../config'
 import { randomToken, sha256 } from '../../lib/crypto'
 import { passwordResetEmail } from '../../lib/emails'
 import { AppError } from '../../lib/errors'
+import { ensureThreadsTx } from '../../lib/threads'
 import type { Mailer } from '../../lib/mailer'
 import {
   assertPasswordAllowed,
@@ -78,8 +79,8 @@ export async function acceptInvite(
   const passwordHash = await hashPassword(input.password)
   const now = new Date()
 
-  await db.$transaction([
-    db.user.update({
+  await db.$transaction(async (tx) => {
+    await tx.user.update({
       where: { id: invite.userId },
       data: {
         passwordHash,
@@ -87,14 +88,16 @@ export async function acceptInvite(
         ...(input.name ? { name: input.name } : {}),
         accessExpiresAt: new Date(now.getTime() + invite.accessDays * DAY_MS),
       },
-    }),
-    db.invite.update({ where: { id: invite.id }, data: { acceptedAt: now } }),
+    })
+    await tx.invite.update({ where: { id: invite.id }, data: { acceptedAt: now } })
     // Any other open invites for this person are now pointless.
-    db.invite.updateMany({
+    await tx.invite.updateMany({
       where: { userId: invite.userId, id: { not: invite.id }, acceptedAt: null, revokedAt: null },
       data: { revokedAt: now },
-    }),
-  ])
+    })
+    // Their conversation with Elation opens with the account (docs/step-10-chat-activity.md).
+    await ensureThreadsTx(tx, invite.userId)
+  })
 
   const token = await createSession(db, config, { userId: invite.userId, persistent: true, ...meta })
   return { userId: invite.userId, token }

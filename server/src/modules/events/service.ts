@@ -11,6 +11,7 @@ import type { Prisma, User } from '../../generated/prisma/client'
 import { eventTypeFromDb, eventTypeToDb, venueSettingFromDb, venueSettingToDb } from '../../lib/enums'
 import { AppError } from '../../lib/errors'
 import { assertClientAccess, assertEventAccess, eventScope } from '../../lib/policy'
+import { ensureThreadsTx } from '../../lib/threads'
 import type { Db, DbTx } from '../../plugins/db'
 
 type Actor = Pick<User, 'id' | 'role'>
@@ -223,6 +224,8 @@ export async function createEvent(db: Db, actor: Actor, input: CreateEventBody) 
         detail: `${input.type} · ${input.guests} guests · ${input.venueName}`,
       },
     })
+    // The event's own thread with the consultant.
+    await ensureThreadsTx(tx, clientId)
     return created
   })
 

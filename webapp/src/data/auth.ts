@@ -13,6 +13,7 @@ import {
 } from '@elation/shared/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { API_BASE, API_MODE, ApiError, apiFetch } from '@/lib/api/client'
+import { disconnectRealtime } from '@/lib/realtime'
 import { currentUser } from '@/mocks/fixtures'
 
 export const meKey = ['me'] as const
@@ -142,7 +143,8 @@ export function useLogout() {
   return useMutation({
     mutationFn: authApi.logout,
     onSettled: () => {
-      // Drop every cached query — the next user must not see this user's data.
+      // Drop every cached query and the socket — the next user must not see this user's data.
+      disconnectRealtime()
       qc.clear()
       qc.setQueryData(meKey, null)
     },

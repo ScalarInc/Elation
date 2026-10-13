@@ -203,3 +203,10 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-13 — Step 9 — P35: the inspiration gallery filters in the browser over the full published list; the API supports the same filters.
 - 2026-10-13 — Step 9 — New table `ARNotifyRequest` (migration `ar_notify_requests`); 3 showcase AR sets seeded.
 - 2026-10-13 — Step 9 — AR model downloads return `downloadUrl: null` until file storage (Step 11).
+- 2026-10-13 — Step 10 — P36: one general thread per client + one per live event (client + consultant); created at invite acceptance / event creation, back-filled by migration; admins join on first reply; archived events' threads leave the inbox.
+- 2026-10-13 — Step 10 — P37: realtime events travel through Postgres (NOTIFY triggers on Message/ActivityEntry, `pg_notify` for typing/read); each instance LISTENs and fans out; `resync` after a lost LISTEN link.
+- 2026-10-13 — Step 10 — P38: unread-message emails from an in-process 1-minute sweep (no job queue yet); people's messages only; any open tab counts as online; presence is per instance until we scale out.
+- 2026-10-13 — Step 10 — P39: system notes don't raise the unread badge or email; for clients they link to the event's budget / moodboards / AR page (the note text carries totals and status).
+- 2026-10-13 — Step 10 — P40: a consultant inbox at `/admin/messages` ships now (same page as the client's) so both sides can talk before Step 12; admins see every thread by design.
+- 2026-10-13 — Step 10 — P41: deferred — `moodboard.ready` / `budget.updated` socket events (HTTP responses and budget version conflicts cover them), chat attachments (Step 11), access-extended note, consultant-note activity and consultant reassignment (Step 12 — the old consultant must lose write access).
+- 2026-10-13 — Step 10 — Migrations `chat_realtime` (Message.clientMessageId, ThreadParticipant.lastEmailedMessageId, NOTIFY triggers) and `chat_backfill`.

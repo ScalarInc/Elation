@@ -11,6 +11,8 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
   DATABASE_URL: z.string().url(),
+  // Direct (session-mode) connection for realtime LISTEN, when DATABASE_URL goes through a pooler.
+  DATABASE_LISTEN_URL: optionalString,
 
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
   SESSION_COOKIE_DOMAIN: optionalString,

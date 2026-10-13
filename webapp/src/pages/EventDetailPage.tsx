@@ -11,12 +11,13 @@ import {
   Palette,
   Calculator,
   Boxes,
-  Sparkles,
   Check,
   Clock,
   Loader2,
 } from 'lucide-react'
-import { messages } from '@/mocks/fixtures'
+import { ActivityFeed } from '@/components/ActivityFeed'
+import { useThreads } from '@/data/chat'
+import { useCurrentUser } from '@/data/auth'
 import { useEventBudget } from '@/data/budget'
 import { BUDGET_TONE } from '@/components/budget/tone'
 import { useEventMoodboards } from '@/data/moodboards'
@@ -320,38 +321,7 @@ function OverviewTab({ event }: { event: ClientEvent }) {
         </Card>
       </div>
 
-      {/* Recent activity — from messages fixture */}
-      <Card>
-        <CardContent className="p-6">
-          <h2 className="font-display text-text text-lg">Recent activity</h2>
-          <ul className="mt-4 space-y-3">
-            {messages.slice(0, 3).map((m) => (
-              <li key={m.id} className="flex items-start gap-3 text-sm">
-                <span
-                  className={cn(
-                    'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                    m.authorRole === 'system'
-                      ? 'bg-accent/20 text-accent'
-                      : m.authorRole === 'consultant'
-                      ? 'bg-sage/25 text-sage-deep'
-                      : 'bg-blush/40 text-ink',
-                  )}
-                >
-                  {m.authorRole === 'system' ? <Sparkles className="h-4 w-4" /> : m.authorName[0]}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-muted text-[11px]">
-                    <span className="text-text font-semibold">{m.authorName}</span>
-                    {' · '}
-                    {formatDate(m.createdAt)}
-                  </p>
-                  <p className="text-text mt-0.5 text-sm">{m.body}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+      <EventActivity eventId={event.id} />
     </div>
   )
 }
@@ -529,6 +499,41 @@ function ModuleHandoff({
   )
 }
 
+function EventActivity({ eventId }: { eventId: string }) {
+  const { data: threads } = useThreads()
+  const thread = threads?.find((t) => t.eventId === eventId)
+  return (
+    <ActivityFeed
+      eventId={eventId}
+      title="Recent activity"
+      subtitle="Everything that happened on this event."
+      limit={5}
+      messagesHref={thread ? `/messages?thread=${thread.id}` : '/messages'}
+    />
+  )
+}
+
+/** The event's own conversation with the consultant, opened in Messages. */
+function EventThreadHandoff({ eventId }: { eventId: string }) {
+  const me = useCurrentUser()
+  const { data: threads } = useThreads()
+  const thread = threads?.find((t) => t.eventId === eventId)
+  const consultant = me.consultant?.name ?? 'your consultant'
+  const last = thread?.lastMessage
+  return (
+    <ModuleHandoff
+      title="Event thread"
+      body={
+        last
+          ? `Latest: “${last.body.length > 120 ? `${last.body.slice(0, 117)}…` : last.body}”`
+          : `A direct line to ${consultant} about this event — moodboard notes, questions, follow-ups.`
+      }
+      href={thread ? `/messages?thread=${thread.id}` : '/messages'}
+      cta={thread?.unread ? `Open messages (${thread.unread} new)` : 'Open messages'}
+    />
+  )
+}
+
 function PageSkeleton() {
   return (
     <div className="space-y-6 px-10 pb-12 pt-8">
@@ -612,12 +617,7 @@ export function EventDetailPage() {
           />
         </TabsContent>
         <TabsContent value="messages">
-          <ModuleHandoff
-            title="Consultant thread"
-            body="A direct line to Ayesha and the Elation studio — moodboard notes, quick calls, follow-ups."
-            href="/messages"
-            cta="Open messages"
-          />
+          <EventThreadHandoff eventId={event.id} />
         </TabsContent>
       </Tabs>
     </div>

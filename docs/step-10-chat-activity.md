@@ -79,8 +79,19 @@ Rate limit: 30 messages/minute/user. Message bodies are plain text (rendered wit
 
 ## Definition of done
 
-- [ ] Client and consultant in two browsers see each other's messages instantly, with typing and read receipts.
-- [ ] Full chat history persists and paginates.
-- [ ] System messages appear for moodboard, budget, inspiration and access events.
-- [ ] Activity feed is real on dashboard and event detail.
-- [ ] Expired client's open socket is closed within 5 minutes.
+- [x] Client and consultant in two browsers see each other's messages instantly, with typing and read receipts.
+- [x] Full chat history persists and paginates.
+- [x] System messages appear for moodboard, budget, inspiration and access events. *(access-extended arrives with the admin extend action, Step 12)*
+- [x] Activity feed is real on dashboard and event detail.
+- [x] Expired client's open socket is closed within 5 minutes.
+
+## As built (2026-10-13)
+
+- **Threads** (`server/src/lib/threads.ts`, P36): a general "Elation Studio" thread per client and one "<Concept> · <Type>" thread per live event, both with the client and their consultant. Created when the invite is accepted (same transaction) and when an event is created; migration `chat_backfill` added them for older accounts, and `GET /threads` fills any gap. Admins join a thread on their first reply. Threads of archived events leave the inbox.
+- **API** (`server/src/modules/chat/`): `GET /threads` (unread + last message, `?clientId=` for staff), `GET /threads/:id/messages?before=&limit=` (newest first), `POST /threads/:id/messages` (`clientMessageId` idempotent, 30/min/user; attachments return 422 until Step 11), `POST /threads/:id/read` (pointer only moves forward), `GET /unread-count`. Unread counts people's messages only — system notes show but don't badge (P39). `GET /activity?eventId=&clientId=&cursor=` in `modules/activity/`.
+- **Realtime** (`server/src/plugins/realtime.ts`, `/api/v1/ws`, P37): Postgres triggers NOTIFY new messages and activity on commit; typing and read receipts go through `pg_notify` too, so every instance fans out the same events. Session cookie + Origin check on upgrade, sessions re-checked every 5 min (close `4003`), ping every 25 s, 20 frames/s per socket, 10 tabs per user. If the LISTEN link drops, open tabs get `resync` and refetch. `DATABASE_LISTEN_URL` for a direct connection when `DATABASE_URL` is pooled.
+- **System messages**: first curation / curation on submit, "asked for an alternative to …", budget hand-offs, quote requests, inspiration adopted, AR session requests. Clients see a link to the event's budget, moodboards or AR page.
+- **Offline email** (`modules/chat/digest.ts`, P38): every minute, people with messages unread for 10 minutes and no open tab get one email (respecting `consultantMessages`); each message is emailed at most once; old backlog was marked as already emailed at deploy.
+- **Webapp**: `lib/realtime.ts` (one socket per tab, backoff, closes on sign-out), `data/chat.ts` (threads, infinite history, optimistic send with retry, read, unread, activity, cache sync), `MessagesPage` (real threads, typing, "Seen by", history on scroll-up, linkified text, mobile list/conversation views), consultant inbox at `/admin/messages`, unread badges in both layouts, `ActivityFeed` on the dashboard and event page, event Messages tab deep-links to the event thread. `lib/api.ts` (mock fixtures) is gone.
+- Not built here (P41): `moodboard.ready` / `budget.updated` socket events, attachments (Step 11), access-extended note and consultant reassignment (Step 12).
+- Review: [step-10-review.md](reviews/step-10-review.md).

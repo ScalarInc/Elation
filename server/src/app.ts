@@ -19,10 +19,14 @@ import { moodboardRoutes } from './modules/moodboards/routes'
 import { budgetRoutes } from './modules/budget/routes'
 import { inspirationRoutes } from './modules/inspirations/routes'
 import { arRoutes } from './modules/ar/routes'
+import { activityRoutes } from './modules/activity/routes'
+import { chatRoutes } from './modules/chat/routes'
+import { sendUnreadDigests } from './modules/chat/digest'
 import { questionnaireRoutes } from './modules/questionnaire/routes'
 import authPlugin from './plugins/auth'
 import dbPlugin from './plugins/db'
 import errorsPlugin, { errorBody } from './plugins/errors'
+import realtimePlugin from './plugins/realtime'
 import webappPlugin from './plugins/webapp'
 
 export const API_PREFIX = '/api/v1'
@@ -40,6 +44,7 @@ export type AppDeps = {
 }
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000
+const DIGEST_INTERVAL_MS = 60 * 1000
 
 async function loggerOptions(config: Config): Promise<FastifyServerOptions['logger']> {
   if (config.NODE_ENV === 'test') return false
@@ -79,6 +84,7 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
   await app.register(cookie)
   await app.register(dbPlugin, { databaseUrl: config.DATABASE_URL })
   await app.register(authPlugin, { config })
+  await app.register(realtimePlugin, { databaseUrl: config.DATABASE_LISTEN_URL ?? config.DATABASE_URL })
 
   await app.register(
     async (api) => {
@@ -93,6 +99,8 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
       await api.register(budgetRoutes)
       await api.register(inspirationRoutes)
       await api.register(arRoutes)
+      await api.register(chatRoutes)
+      await api.register(activityRoutes)
       await api.register(adminRoutes)
     },
     { prefix: API_PREFIX },
@@ -111,6 +119,24 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
       timer.unref()
     })
     app.addHook('onClose', async () => clearInterval(timer))
+
+    // Unread-message emails for people who are offline (docs/step-10-chat-activity.md).
+    const digest = () =>
+      sendUnreadDigests({
+        db: app.prisma,
+        mailer: app.mailer,
+        config,
+        isOnline: app.realtime.isOnline,
+        onError: (err, userId) => app.log.error({ err, userId }, 'unread digest email failed'),
+      })
+        .then((n) => n > 0 && app.log.info({ sent: n }, 'unread digests sent'))
+        .catch((err) => app.log.error({ err }, 'unread digest sweep failed'))
+    let digestTimer: NodeJS.Timeout | undefined
+    app.addHook('onReady', async () => {
+      digestTimer = setInterval(digest, DIGEST_INTERVAL_MS)
+      digestTimer.unref()
+    })
+    app.addHook('onClose', async () => clearInterval(digestTimer))
   }
 
   const servesWebapp = Boolean(config.SERVE_WEBAPP_DIST)

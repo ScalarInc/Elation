@@ -208,7 +208,7 @@ export async function adoptInspiration(
       clientId: event.clientId,
       eventId: event.id,
       body: `Adopted the ${inspiration.name} concept for ${event.concept ?? event.name}.`,
-      meta: { type: 'inspiration.adopted', inspirationId: inspiration.id, moodboardId: board.id },
+      meta: { type: 'inspiration.adopted', eventId: event.id, inspirationId: inspiration.id, moodboardId: board.id },
     })
     return { moodboardId: board.id, budgetPlanId: planId }
   })

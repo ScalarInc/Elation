@@ -162,3 +162,38 @@ Elation by FMH`,
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 }
+
+export function unreadMessagesEmail(input: {
+  to: string
+  name: string
+  threads: { title: string; count: number; from: string; preview: string }[]
+  url: string
+}): Mail {
+  const total = input.threads.reduce((n, t) => n + t.count, 0)
+  const noun = total === 1 ? 'message' : 'messages'
+  const lines = input.threads.map((t) => `${t.title} — ${t.count} from ${t.from}: “${t.preview}”`).join('\n')
+  return {
+    to: input.to,
+    subject: `${total} unread ${noun} in Elation X`,
+    text: `Hi ${input.name},
+
+You have ${total} unread ${noun}:
+
+${lines}
+
+${input.url}
+
+Elation by FMH`,
+    html: layout(
+      `You have ${total} unread ${noun}`,
+      `<p>Hi ${escapeHtml(input.name)},</p>
+       ${input.threads
+         .map(
+           (t) =>
+             `<p style="margin:14px 0"><strong>${escapeHtml(t.title)}</strong> · ${t.count} from ${escapeHtml(t.from)}<br><span style="color:#55545a">“${escapeHtml(t.preview)}”</span></p>`,
+         )
+         .join('')}`,
+      { label: 'Open messages', url: input.url },
+    ),
+  }
+}

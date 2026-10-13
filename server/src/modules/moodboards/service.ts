@@ -13,6 +13,7 @@ import type { Event, InventoryItem, Prisma, User } from '../../generated/prisma/
 import { eventTypeFromDb, inventoryCategoryFromDb } from '../../lib/enums'
 import { AppError } from '../../lib/errors'
 import { assertEventAccess, eventScope } from '../../lib/policy'
+import { postSystemMessage } from '../../lib/threads'
 import type { Db, DbTx } from '../../plugins/db'
 import { toInventoryDto } from '../inventory/service'
 import { alternativesFor, excludedBy, generateConcepts, type EngineInput, type EngineItem } from './engine/engine'
@@ -210,6 +211,9 @@ export async function generateForEvent(
   }
 
   const ids = await db.$transaction(async (tx) => {
+    // Locked so two first generations can't both announce themselves.
+    await lockEvent(tx, eventId)
+    const isFirst = (await tx.moodboard.count({ where: { eventId } })) === 0
     // Earlier generations' unsaved drafts are superseded; saved concepts stay.
     await tx.moodboard.updateMany({ where: { eventId, status: 'DRAFT', isPrimary: false }, data: { status: 'ARCHIVED' } })
     const created: string[] = []
@@ -254,6 +258,16 @@ export async function generateForEvent(
         meta: { generationId },
       },
     })
+    // The chat hears about the first curation only, not every regenerate.
+    if (isFirst || opts.reason === 'questionnaire-submitted') {
+      const n = concepts.length === 1 ? 'a new concept' : `${concepts.length} new concepts`
+      await postSystemMessage(tx, {
+        clientId: event.clientId,
+        eventId,
+        body: `Elation curated ${n} for ${event.concept ?? event.name}.`,
+        meta: { type: 'moodboard.generated', eventId, generationId },
+      })
+    }
     return created
   })
 
@@ -446,7 +460,7 @@ export async function tileAlternatives(db: Db, actor: Actor, id: string, tileId:
   return alts.map((a) => ({ item: toInventoryDto(byId.get(a.item.id)!, { staff }), score: staff ? a.score : null, reasons: a.reasons }))
 }
 
-/** "Ask my consultant" for an alternative — recorded for the consultant (chat message in Step 10). */
+/** "Ask my consultant" for an alternative — lands in the event's chat thread and the activity feed. */
 export async function consultOnTile(db: Db, actor: Actor, id: string, tileId: string, note?: string) {
   const board = await assertMoodboardAccess(db, actor, id)
   const tile = await db.moodboardTile.findFirst({ where: { id: tileId, moodboardId: id }, include: { inventoryItem: true } })
@@ -463,5 +477,12 @@ export async function consultOnTile(db: Db, actor: Actor, id: string, tileId: st
       detail: note || undefined,
       meta: { moodboardId: id, tileId, request: 'swap' },
     },
+  })
+  const who = await db.user.findUniqueOrThrow({ where: { id: actor.id }, select: { name: true } })
+  await postSystemMessage(db, {
+    clientId: event.clientId,
+    eventId: event.id,
+    body: `${who.name.split(' ')[0]} asked for an alternative to ${piece}.${note ? ` “${note}”` : ''}`,
+    meta: { type: 'moodboard.consult', eventId: event.id, moodboardId: id, tileId },
   })
 }
