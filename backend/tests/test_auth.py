@@ -13,50 +13,12 @@ from app import deps
 from app.db import get_db
 from app.errors import ApiError
 from app.main import create_app
-from app.models import Profile
-
-ISSUER = "https://test-project.supabase.co/auth/v1"
-SIGNING_KEY = ec.generate_private_key(ec.SECP256R1())
-
-
-class FakeSession:
-    def __init__(self, *profiles: Profile):
-        self.rows = {p.id: p for p in profiles}
-        self.commits = 0
-
-    def get(self, _model, key):
-        return self.rows.get(key)
-
-    def commit(self):
-        self.commits += 1
-
-
-def make_profile(**overrides) -> Profile:
-    values = dict(
-        id=uuid.uuid4(), role="client", is_superuser=False, full_name="Test Client", email="client@example.com",
-        access_status="active", invitation_status="pending", access_expires_at=datetime.now(UTC) + timedelta(days=30),
-        notification_prefs={}, assigned_admin_id=None,
-    )
-    values.update(overrides)
-    return Profile(**values)
-
-
-def token_for(user_id: uuid.UUID, **claims) -> str:
-    payload = {"sub": str(user_id), "aud": "authenticated", "iss": ISSUER, "exp": datetime.now(UTC) + timedelta(hours=1)}
-    payload.update(claims)
-    return jwt.encode(payload, SIGNING_KEY, algorithm="ES256")
+from tests.helpers import ISSUER, FakeSession, client_with, make_profile, token_for, use_local_jwks
 
 
 @pytest.fixture(autouse=True)
 def local_jwks(monkeypatch):
-    fake_client = SimpleNamespace(get_signing_key_from_jwt=lambda _t: SimpleNamespace(key=SIGNING_KEY.public_key()))
-    monkeypatch.setattr(deps, "_jwks_client", lambda: fake_client)
-
-
-def client_with(session: FakeSession) -> TestClient:
-    app = create_app()
-    app.dependency_overrides[get_db] = lambda: session
-    return TestClient(app)
+    use_local_jwks(monkeypatch)
 
 
 def test_me_requires_a_token() -> None:

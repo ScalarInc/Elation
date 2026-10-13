@@ -30,7 +30,11 @@ def send_email(to: str, subject: str, html_body: str) -> None:
     )
     if response.status_code >= 400:
         logger.warning("Resend rejected email (HTTP %s): %s", response.status_code, response.text[:300])
-        raise EmailSendFailed(f"Resend returned HTTP {response.status_code}.")
+        try:
+            reason = response.json().get("message")
+        except ValueError:
+            reason = None
+        raise EmailSendFailed(reason or f"Resend returned HTTP {response.status_code}.")
 
 
 def _layout(heading: str, body: str, link: str, button: str) -> str:
@@ -45,11 +49,13 @@ def _layout(heading: str, body: str, link: str, button: str) -> str:
     </div>"""
 
 
-def invitation_email(full_name: str, link: str) -> tuple[str, str]:
+def invitation_email(full_name: str, link: str, access_until: str | None = None) -> tuple[str, str]:
     body = (
         f"Hello {html.escape(full_name)}, your private Elation X studio is ready. "
         "Set a password to open your event planning space. This link can be used once."
     )
+    if access_until:
+        body += f" Your access is open until {html.escape(access_until)}."
     return "Your Elation X invitation", _layout("You're invited", body, link, "Set your password")
 
 

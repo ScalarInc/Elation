@@ -50,3 +50,16 @@ def generate_link(link_type: LinkType, email: str, redirect_path: str) -> Genera
     redirect_to = get_settings().frontend_url.rstrip("/") + redirect_path
     data = _admin_request("POST", "/generate_link", {"type": link_type, "email": email, "redirect_to": redirect_to})
     return GeneratedLink(user_id=data["id"], action_link=data["action_link"])
+
+
+# Effectively permanent; Supabase needs a duration, not a flag.
+_BAN_FOREVER = "876000h"
+
+
+def set_banned(user_id: str, banned: bool) -> None:
+    """Block (or unblock) sign-in and token refresh for a user. Used when access is revoked."""
+    _admin_request("PUT", f"/users/{user_id}", {"ban_duration": _BAN_FOREVER if banned else "none"})
+
+
+def delete_user(user_id: str) -> None:
+    _admin_request("DELETE", f"/users/{user_id}")
