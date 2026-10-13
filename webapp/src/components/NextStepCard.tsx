@@ -1,42 +1,19 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { events } from '@/mocks/fixtures'
+import type { ClientEvent } from '@/mocks/types'
 
-function pickNextStep() {
-  const e = events[0]
-  const p = e.progress
-  if (p.questionnaire !== 'complete')
-    return {
-      title: 'Continue the questionnaire',
-      body: "You're a few chapters in — Elation needs the rest to finish the concept.",
-      href: `/events/${e.id}/questionnaire`,
-      cta: 'Continue',
-    }
-  if (p.moodboard !== 'complete')
-    return {
-      title: 'Review your moodboard',
-      body: 'Two revised concepts are ready — Concept B leans heavier on florals as you asked.',
-      href: `/events/${e.id}?tab=moodboard`,
-      cta: 'Open moodboard',
-    }
-  if (p.budget !== 'complete')
-    return {
-      title: 'Tune your budget',
-      body: 'Everything is priced against real inventory — check the traffic light before you sign off.',
-      href: `/events/${e.id}/budget`,
-      cta: 'Open estimator',
-    }
-  return {
-    title: 'Preview on Meta Quest 3',
-    body: 'Walk your venue in AR passthrough before the first chair is hung.',
-    href: `/events/${e.id}/ar`,
-    cta: 'Open AR studio',
-  }
+/** Button label for the step's destination. */
+function ctaFor(href: string) {
+  if (href.endsWith('/questionnaire')) return 'Continue'
+  if (href.includes('tab=moodboard')) return 'Open moodboard'
+  if (href.endsWith('/budget')) return 'Open estimator'
+  if (href.endsWith('/ar')) return 'Open AR studio'
+  return 'Open event'
 }
 
-export function NextStepCard() {
-  const step = pickNextStep()
+export function NextStepCard({ event }: { event: ClientEvent }) {
+  const step = { ...event.nextStep, cta: ctaFor(event.nextStep.href) }
 
   return (
     <motion.section

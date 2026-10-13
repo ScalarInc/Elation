@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   CalendarDays,
@@ -28,7 +28,16 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { ConsentGate } from '@/components/ConsentGate'
 import { cn } from '@/lib/utils'
-import { currentUser } from '@/mocks/fixtures'
+import { useCurrentUser, useLogout } from '@/data/auth'
+import { useRealtimeCacheSync, useUnreadCount } from '@/data/chat'
+import { useRealtimeConnection } from '@/lib/realtime'
+
+/** Sign out on the server, drop cached data, return to sign-in. */
+function useSignOut() {
+  const navigate = useNavigate()
+  const logout = useLogout()
+  return () => logout.mutate(undefined, { onSettled: () => navigate('/auth?mode=signin', { replace: true }) })
+}
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -42,7 +51,9 @@ const nav = [
 ]
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
-  const navigate = useNavigate()
+  const me = useCurrentUser()
+  const signOut = useSignOut()
+  const unread = useUnreadCount().data?.unread ?? 0
   return (
     <aside className="bg-sage-veil relative flex h-full w-64 shrink-0 flex-col text-ink dark:text-cream">
       <div className="px-6 pt-8 pb-6">
@@ -69,6 +80,14 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
               >
                 <Icon className="h-4 w-4" />
                 {label}
+                {to === '/messages' && unread > 0 && (
+                  <span
+                    className="bg-accent text-accent-fg ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
+                    aria-label={`${unread} unread`}
+                  >
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
               </NavLink>
             </li>
           ))}
@@ -77,15 +96,15 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="mx-4 mb-3 mt-6 flex items-center gap-3 rounded-xl bg-white/30 px-3 py-2 dark:bg-white/10">
         <Avatar className="h-9 w-9">
-          <AvatarFallback>{currentUser.avatarInitials}</AvatarFallback>
+          <AvatarFallback>{me.avatarInitials}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{currentUser.name}</p>
+          <p className="truncate text-sm font-semibold">{me.name}</p>
           <p className="text-[10px] uppercase tracking-widest opacity-60">Client</p>
         </div>
         <button
           type="button"
-          onClick={() => navigate('/auth?mode=signin')}
+          onClick={signOut}
           aria-label="Log out"
           className="rounded-lg p-1.5 opacity-70 transition hover:bg-white/25 hover:opacity-100"
         >
@@ -96,9 +115,27 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+
 function TopBar() {
   const navigate = useNavigate()
+  const me = useCurrentUser()
+  const signOut = useSignOut()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const unread = useUnreadCount().data?.unread ?? 0
+  const searchRef = useRef<HTMLInputElement>(null)
+  const location = useLocation()
+  // ⌘K / Ctrl+K jumps to search from anywhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   return (
     <header className="flex items-center justify-between gap-3 border-b border-border/10 bg-bg/85 px-4 py-3 backdrop-blur md:px-10 md:py-4">
       {/* Mobile menu */}
@@ -118,27 +155,40 @@ function TopBar() {
       </Sheet>
 
       {/* Search */}
-      <div className="border-border/10 hover:border-border/25 flex flex-1 items-center gap-2 rounded-xl border bg-surface px-3 py-2 transition md:w-96 md:flex-none">
+      <form
+        role="search"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const q = searchRef.current?.value.trim()
+          if (q) navigate(`/search?q=${encodeURIComponent(q)}`)
+        }}
+        className="border-border/10 hover:border-border/25 flex flex-1 items-center gap-2 rounded-xl border bg-surface px-3 py-2 transition md:w-96 md:flex-none"
+      >
         <Search className="h-4 w-4 text-muted/60" />
         <input
+          key={location.search}
+          ref={searchRef}
+          type="search"
+          aria-label="Search"
+          defaultValue={new URLSearchParams(location.search).get('q') ?? ''}
           placeholder="Search events, moodboards, inventory…"
           className="w-full bg-transparent text-sm text-text outline-none placeholder:text-muted/50"
         />
-        <kbd className="border-border/15 hidden rounded border px-1.5 py-0.5 text-[10px] font-semibold text-muted/50 md:inline-block">
-          ⌘K
+        <kbd className="border-border/15 hidden shrink-0 whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-semibold text-muted/50 md:inline-block">
+          {isMac ? '⌘K' : 'Ctrl K'}
         </kbd>
-      </div>
+      </form>
 
       <div className="flex items-center gap-2 md:gap-3">
         <ThemeToggle />
         <button
           type="button"
           onClick={() => navigate('/messages')}
-          aria-label="Notifications"
+          aria-label={unread > 0 ? `Messages, ${unread} unread` : 'Messages'}
           className="border-border/10 bg-surface relative flex h-10 w-10 items-center justify-center rounded-xl border transition hover:border-accent/40"
         >
           <Bell className="h-4 w-4 text-text" />
-          <span className="bg-accent absolute right-2 top-2 h-2 w-2 rounded-full ring-2 ring-bg animate-pulse-soft" />
+          {unread > 0 && <span className="bg-accent absolute right-2 top-2 h-2 w-2 rounded-full ring-2 ring-bg animate-pulse-soft" />}
         </button>
 
         <DropdownMenu>
@@ -149,12 +199,12 @@ function TopBar() {
               className="border-border/10 bg-surface flex h-10 w-10 items-center justify-center rounded-xl border transition hover:border-accent/40"
             >
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="text-[10px]">{currentUser.avatarInitials}</AvatarFallback>
+                <AvatarFallback className="text-[10px]">{me.avatarInitials}</AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>{currentUser.name}</DropdownMenuLabel>
+            <DropdownMenuLabel>{me.name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => navigate('/profile')}>
               <UserCircle2 className="h-4 w-4" />
@@ -165,7 +215,7 @@ function TopBar() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => navigate('/auth?mode=signin')}>
+            <DropdownMenuItem onSelect={signOut}>
               <LogOut className="h-4 w-4" />
               Log out
             </DropdownMenuItem>
@@ -177,6 +227,8 @@ function TopBar() {
 }
 
 export function ClientLayout() {
+  useRealtimeConnection(true)
+  useRealtimeCacheSync()
   return (
     <div className="bg-bg flex min-h-screen text-text">
       <div className="hidden md:block">

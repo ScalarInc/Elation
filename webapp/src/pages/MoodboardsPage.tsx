@@ -7,39 +7,41 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/format'
-import { events, moodboards as seedMoodboards } from '@/mocks/fixtures'
-import type { Moodboard } from '@/mocks/types'
+import { useEvents } from '@/data/events'
+import { useMoodboardAction, useMoodboardLibrary } from '@/data/moodboards'
+import { Skeleton } from '@/components/ui/skeleton'
+import { LoadError } from '@/components/ui/load-error'
+import type { MoodboardDto } from '@elation/shared/api'
 
 export function MoodboardsPage() {
-  const [boards, setBoards] = useState<Moodboard[]>(seedMoodboards)
   const [eventFilter, setEventFilter] = useState<string>('all')
+  const library = useMoodboardLibrary({ status: 'saved' })
+  const actions = useMoodboardAction()
 
-  const filtered = useMemo(
-    () => (eventFilter === 'all' ? boards : boards.filter((b) => b.eventId === eventFilter)),
-    [boards, eventFilter],
-  )
+  const { data: events = [] } = useEvents()
+  const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
 
-  const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [])
+  const filtered = useMemo(() => {
+    const boards = library.data ?? []
+    return eventFilter === 'all' ? boards : boards.filter((b) => b.eventId === eventFilter)
+  }, [library.data, eventFilter])
 
-  function duplicate(b: Moodboard) {
-    const copy: Moodboard = {
-      ...b,
-      id: `${b.id}_copy_${Date.now()}`,
-      title: `${b.title} · Copy`,
-      liked: false,
-      createdAt: new Date().toISOString(),
-    }
-    setBoards((prev) => [copy, ...prev])
-    toast.success('Concept duplicated')
+  function duplicate(b: MoodboardDto) {
+    actions.duplicate.mutate(b.id, {
+      onSuccess: () => toast.success('Concept duplicated'),
+      onError: (err) => toast.error('Could not duplicate', { description: err.message }),
+    })
   }
 
   function remove(id: string) {
-    setBoards((prev) => prev.filter((b) => b.id !== id))
-    toast('Concept removed', { description: 'You can regenerate a new one anytime.' })
+    actions.archive.mutate(id, {
+      onSuccess: () => toast('Concept removed', { description: 'You can curate a new one anytime.' }),
+      onError: (err) => toast.error('Could not remove', { description: err.message }),
+    })
   }
 
-  function toggleLike(id: string) {
-    setBoards((prev) => prev.map((b) => (b.id === id ? { ...b, liked: !b.liked } : b)))
+  function toggleLike(b: MoodboardDto) {
+    actions.patch.mutate({ id: b.id, liked: !b.liked })
   }
 
   return (
@@ -70,7 +72,15 @@ export function MoodboardsPage() {
         </div>
       </header>
 
-      {filtered.length === 0 ? (
+      {library.isPending ? (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-80 w-full rounded-3xl" />
+          ))}
+        </div>
+      ) : library.isError && !library.data ? (
+        <LoadError what="your moodboards" onRetry={() => void library.refetch()} className="py-16" />
+      ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
             <span className="bg-accent/15 text-accent flex h-14 w-14 items-center justify-center rounded-2xl">
@@ -79,7 +89,7 @@ export function MoodboardsPage() {
             <div className="max-w-md">
               <p className="font-display text-text text-xl">No moodboards yet</p>
               <p className="text-muted/70 mt-2 text-sm">
-                Open an event and let Elation curate a concept from your questionnaire answers.
+                Open an event and let Elation curate concepts from its inventory — save the ones you love and they’ll live here.
               </p>
             </div>
             <Button asChild>
@@ -96,7 +106,7 @@ export function MoodboardsPage() {
                 <div className="relative h-52 overflow-hidden">
                   <div className="grid h-full grid-cols-2 gap-1">
                     <img
-                      src={b.tiles[0]}
+                      src={b.cover ?? b.tiles[0]}
                       alt=""
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                     />
@@ -112,7 +122,7 @@ export function MoodboardsPage() {
                       </Badge>
                     )}
                     <button
-                      onClick={() => toggleLike(b.id)}
+                      onClick={() => toggleLike(b)}
                       aria-label={b.liked ? 'Unfavourite' : 'Favourite'}
                       className={cn(
                         'flex h-8 w-8 items-center justify-center rounded-full shadow transition',

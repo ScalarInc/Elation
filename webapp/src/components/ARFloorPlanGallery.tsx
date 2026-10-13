@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import type { ARSet } from '@/mocks/types'
+import type { ArSetDto as ARSet } from '@elation/shared/api'
 import {
   Accordion,
   AccordionItem,
@@ -41,13 +41,11 @@ export function ARFloorPlanGallery({ sets }: { sets: ARSet[] }) {
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="pt-2">
-                    <div className="border-border/10 mb-3 overflow-hidden rounded-2xl border">
-                      <img
-                        src={set.floorPlan}
-                        alt={`${set.title} floor plan`}
-                        className="h-64 w-full object-cover"
-                      />
-                    </div>
+                    {set.floorPlan && (
+                      <div className="border-border/10 mb-3 overflow-hidden rounded-2xl border">
+                        <img src={set.floorPlan} alt={`${set.title} floor plan`} className="h-64 w-full object-cover" />
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                       {set.aerialViews.slice(0, 4).map((src, i) => (
                         <div

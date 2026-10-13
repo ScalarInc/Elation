@@ -1,10 +1,15 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/toast'
 import { ClientLayout } from '@/layouts/ClientLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { ProtectedRoute } from '@/layouts/ProtectedRoute'
 import { AuthPage } from '@/pages/AuthPage'
+import { AccessEndedPage } from '@/pages/AccessEndedPage'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { MyEventsPage } from '@/pages/MyEventsPage'
 import { EventDetailPage } from '@/pages/EventDetailPage'
@@ -20,19 +25,45 @@ import { MessagesPage } from '@/pages/MessagesPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
-import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { BookConsultationPage } from '@/pages/BookConsultationPage'
+import { SearchPage } from '@/pages/SearchPage'
+import { TermsPage } from '@/pages/TermsPage'
+import { AdminOnly } from '@/layouts/AdminLayout'
+import { OverviewPage } from '@/pages/admin/OverviewPage'
+import { ClientsPage } from '@/pages/admin/ClientsPage'
+import { ClientDetailPage } from '@/pages/admin/ClientDetailPage'
+import { QuotesPage } from '@/pages/admin/QuotesPage'
+import { InquiriesPage } from '@/pages/admin/InquiriesPage'
+import { AnalyticsPage } from '@/pages/admin/AnalyticsPage'
+import { InventoryAdminPage } from '@/pages/admin/InventoryAdminPage'
+import { InspirationsAdminPage } from '@/pages/admin/InspirationsAdminPage'
+import { ArSetsAdminPage } from '@/pages/admin/ArSetsAdminPage'
+import { TeamPage } from '@/pages/admin/TeamPage'
+import { SettingsAdminPage } from '@/pages/admin/SettingsAdminPage'
+
+/** Resets the error boundary on navigation. */
+function Guarded({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation()
+  return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>
+}
 
 function App() {
   return (
     <TooltipProvider delayDuration={200}>
       <BrowserRouter>
+        <Guarded>
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/login" element={<Navigate to="/auth?mode=signin" replace />} />
-          <Route path="/signup" element={<Navigate to="/auth" replace />} />
+          <Route path="/signup" element={<Navigate to="/auth?mode=activate" replace />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/access-ended" element={<AccessEndedPage />} />
+          <Route path="/book-consultation" element={<BookConsultationPage />} />
+          <Route path="/terms" element={<TermsPage />} />
 
-          {/* Client area */}
-          <Route element={<ProtectedRoute />}>
+          {/* Client area — client accounts only (staff land in /admin) */}
+          <Route element={<ProtectedRoute roles={['client']} />}>
             {/* Full-screen flows (no sidebar) */}
             <Route path="/events/:id/questionnaire" element={<QuestionnairePage />} />
 
@@ -51,55 +82,31 @@ function App() {
               <Route path="/messages" element={<MessagesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/search" element={<SearchPage />} />
             </Route>
           </Route>
 
-          {/* Admin area */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route
-              index
-              element={
-                <PlaceholderPage
-                  title="Admin Overview"
-                  description="KPIs, client activity feed, budget/theme charts, upcoming consultations."
-                  sprintNumber={13}
-                />
-              }
-            />
-            <Route
-              path="clients"
-              element={
-                <PlaceholderPage
-                  title="Client Management"
-                  description="Create, extend, and revoke temporary client accounts."
-                  sprintNumber={13}
-                />
-              }
-            />
-            <Route
-              path="inquiries"
-              element={<PlaceholderPage title="Inquiries" description="Public consultation-form submissions to convert." sprintNumber={14} />}
-            />
-            <Route
-              path="analytics"
-              element={<PlaceholderPage title="Analytics" description="Popular themes, budget ranges, consultation trends." sprintNumber={14} />}
-            />
-            <Route
-              path="inventory"
-              element={<PlaceholderPage title="Inventory Catalogue" description="CMS for the inventory used by recommendations." sprintNumber={14} />}
-            />
-            <Route
-              path="inspirations"
-              element={<PlaceholderPage title="Inspiration Concepts" description="CMS for the inspiration gallery." sprintNumber={14} />}
-            />
-            <Route
-              path="settings"
-              element={<PlaceholderPage title="Admin Settings" description="Team, roles, branding, email templates." sprintNumber={14} />}
-            />
+          {/* Admin area — staff only */}
+          <Route element={<ProtectedRoute roles={['consultant', 'admin']} />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<OverviewPage />} />
+              <Route path="clients" element={<ClientsPage />} />
+              <Route path="clients/:id" element={<ClientDetailPage />} />
+              <Route path="messages" element={<MessagesPage className="h-[calc(100vh-57px)] md:h-screen" />} />
+              <Route path="quotes" element={<QuotesPage />} />
+              <Route path="inquiries" element={<InquiriesPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="inventory" element={<InventoryAdminPage />} />
+              <Route path="inspirations" element={<InspirationsAdminPage />} />
+              <Route path="ar" element={<ArSetsAdminPage />} />
+              <Route path="team" element={<AdminOnly><TeamPage /></AdminOnly>} />
+              <Route path="settings" element={<AdminOnly><SettingsAdminPage /></AdminOnly>} />
+            </Route>
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </Guarded>
 
         <Toaster />
       </BrowserRouter>

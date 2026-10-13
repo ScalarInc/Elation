@@ -153,9 +153,19 @@ Behind the same endpoint; enabled per environment with `MOODBOARD_LLM=on`.
 
 ## Definition of done
 
-- [ ] Regenerate on any event returns concepts built only from active inventory, respecting every Yes/No gate in the questionnaire.
-- [ ] Every tile shows a real inventory item and at least one reason.
-- [ ] Saved concepts, likes, order, locks persist across devices.
-- [ ] "Add to budget" from a tile adds a priced line to the event's budget plan.
-- [ ] `inventory[idx % len]`, `makeVariants`, and the fixture `moodboards` import are gone from the frontend.
-- [ ] Elation has reviewed sample boards and signed off on weights (or given tuning notes).
+- [x] Regenerate on any event returns concepts built only from active inventory, respecting every Yes/No gate in the questionnaire.
+- [x] Every tile shows a real inventory item and at least one reason.
+- [x] Saved concepts, likes, order, locks persist across devices.
+- [ ] "Add to budget" from a tile adds a priced line to the event's budget plan. *(Step 8)*
+- [x] `inventory[idx % len]` and `makeVariants` are gone; fixture boards remain only for `VITE_API_MODE=mock`.
+- [ ] Elation has reviewed sample boards and signed off on weights (or given tuning notes). *(❓ Needs Elation)*
+
+## As built (2026-10-13)
+
+- **Engine** (`server/src/modules/moodboards/engine/`): pure functions, no DB access. `buildSlots` (Q9 areas + Yes/No gates; filler areas never re-add a gated "No"; 6–12 tiles), `excludedBy` (florals, no ceiling décor, colours to avoid by ΔE76, absolute-no keywords, items reserved for other event types), `scoreItem` with `WEIGHTS` (area 3, mood 2, palette 2, style 1.5, material 1, metallic 1, budget 0.7, density 0.8, event type 0.5, venue 0.3) and human-readable reasons, a seeded RNG that picks inside a near-tie band whose width follows the creativity answers (Q130/Q131), and variants A/B/C that rotate the mood/style/palette emphasis with a reuse penalty. 12 unit tests including a golden test over the seeded questionnaires.
+- **Service/routes** (`server/src/modules/moodboards/`): every endpoint in the table above except `POST /moodboards/:id/tiles` (client reference images → Step 11, needs file storage) and `POST /moodboards/:id/apply-to-budget` (→ Step 8). Generate is rate-limited 20/hour/event and de-duplicated by `Idempotency-Key` (in-memory per instance, 10 min). Q132 "One Mood Board" → 1 concept, otherwise 3. The first saved concept becomes primary; primary uniqueness is also enforced by the partial unique index. Swapping a tile from alternatives locks it with reason "your choice"; locked tiles carry into every concept of the next generation (`keepLockedFrom`). Clients never see `stockQty`/`notes`.
+- **Review fixes** ([review](reviews/step-07-review.md)): pins follow their area (P24) and are re-checked against the hard filters; swaps must be like-for-like and on-brief (422 `SWAP_NOT_ALLOWED`); primary changes lock the event row; removing the lead promotes the newest saved concept (P25); a new generation archives earlier unsaved drafts; tile scores are staff-only; consult is rate-limited 30/hour.
+- **Questionnaire submit** generates the first concepts automatically (from the route, after the submit commits; a failure is logged, never returned).
+- **Shared** (`packages/shared/src/moodboard/`): `deriveMoodboardDefaults` and helpers moved out of the webapp; `@elation/shared/api` gains the moodboard contracts.
+- **Frontend**: `MoodboardViewer` rewritten on `webapp/src/data/moodboards.ts` (TanStack Query) — concept strip (crown = primary, star = saved, NEW = latest generation, ordered A→B→C), dnd-kit reorder, pin/lock, tile drawer with "why Elation chose this", alternatives with "Use this", "Ask my consultant". `MoodboardsPage`, `RecentMoodboards` and the event overview read the API. Mock mode keeps the fixture boards read-only.
+- **Not yet**: LLM re-rank (v2, after launch), "Add to budget" (Step 8), Elation's sign-off on sample boards (❓ **Needs Elation**).

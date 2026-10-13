@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Sparkles } from 'lucide-react'
+import { EVENT_TYPES, VENUE_SETTINGS } from '@elation/shared/domain'
 import {
   Dialog,
   DialogContent,
@@ -16,31 +17,33 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toast'
-import { events, currentUser } from '@/mocks/fixtures'
-import img_11 from '@/assets/from-docx/img_11.jpg'
-import type { EventType } from '@/mocks/types'
-
-const EVENT_TYPES: EventType[] = [
-  'Mehndi', 'Mayoun', 'Baraat', 'Walima', 'Nikkah', 'Engagement',
-  'Birthday', 'Corporate Event', 'Milad', 'Qawwali', 'Dinner',
-  'Bridal Shower', 'Baby Shower', 'Anniversary', 'Other',
-]
+import { useCreateEvent } from '@/data/events'
 
 const schema = z.object({
-  type: z.enum(EVENT_TYPES as [EventType, ...EventType[]]),
-  concept: z.string().min(2, 'Give this event a name'),
+  type: z.enum(EVENT_TYPES),
+  concept: z.string().trim().min(2, 'Give this event a name'),
   date: z.string().min(1, 'Pick a date'),
   guests: z.coerce.number().int().min(1, 'At least one guest'),
-  venueName: z.string().min(2, 'Venue name required'),
-  city: z.string().min(2, 'City required'),
+  venueName: z.string().trim().min(2, 'Venue name required'),
+  city: z.string().trim().min(2, 'City required'),
+  venueSetting: z.enum(VENUE_SETTINGS),
+  // Optional: blank = "not set yet"; the questionnaire's budget question can fill it later.
+  budget: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || /^\d+$/.test(v.replace(/,/g, '')), 'Numbers only, e.g. 2500000'),
 })
 
 type FormInput = z.input<typeof schema>
 type FormOutput = z.output<typeof schema>
 
+const selectClass =
+  'border-border/15 bg-surface text-text focus:border-accent flex h-11 w-full rounded-xl border px-4 text-sm outline-none transition'
+
 export function NewEventDialog() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
+  const create = useCreateEvent()
   const {
     register,
     handleSubmit,
@@ -48,34 +51,30 @@ export function NewEventDialog() {
     formState: { errors, isSubmitting },
   } = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
-    defaultValues: { type: 'Mehndi', guests: 200, city: 'Islamabad' },
+    defaultValues: { type: 'Mehndi', guests: 200, city: 'Islamabad', venueSetting: 'Indoor', budget: '' },
   })
 
   async function onSubmit(values: FormOutput) {
-    await new Promise((r) => setTimeout(r, 400))
-
-    const id = `e_new_${Date.now()}`
-    events.push({
-      id,
-      clientId: currentUser.id,
-      name: values.concept,
-      type: values.type,
-      concept: values.concept,
-      date: new Date(values.date).toISOString(),
-      venue: { name: values.venueName, city: values.city, indoor: 'Both' },
-      guests: values.guests,
-      budgetPKR: 2_000_000,
-      coverImage: img_11,
-      progress: { questionnaire: 'pending', moodboard: 'pending', budget: 'pending', ar: 'pending' },
-      status: 'draft',
-    })
-
-    toast.success(`${values.concept} created`, {
-      description: 'Start with the questionnaire to shape your concept.',
-    })
-    reset()
-    setOpen(false)
-    navigate(`/events/${id}`)
+    try {
+      const event = await create.mutateAsync({
+        type: values.type,
+        concept: values.concept,
+        date: values.date,
+        guests: values.guests,
+        venueName: values.venueName,
+        city: values.city,
+        venueSetting: values.venueSetting,
+        budgetPkr: values.budget === '' ? null : Number(values.budget.replace(/,/g, '')),
+      })
+      toast.success(`${event.concept ?? event.name} created`, {
+        description: 'Start with the questionnaire to shape your concept.',
+      })
+      reset()
+      setOpen(false)
+      navigate(`/events/${event.id}/questionnaire`)
+    } catch (err) {
+      toast.error('Could not create the event', { description: (err as Error).message })
+    }
   }
 
   return (
@@ -106,11 +105,7 @@ export function NewEventDialog() {
 
           <div className="space-y-1.5">
             <Label htmlFor="type">Event type</Label>
-            <select
-              id="type"
-              className="border-border/15 bg-surface text-text focus:border-accent flex h-11 w-full rounded-xl border px-4 text-sm outline-none transition"
-              {...register('type')}
-            >
+            <select id="type" className={selectClass} {...register('type')}>
               {EVENT_TYPES.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
@@ -135,10 +130,29 @@ export function NewEventDialog() {
             {errors.city && <p className="text-xs text-red-500">{errors.city.message}</p>}
           </div>
 
-          <div className="col-span-2 space-y-1.5">
+          <div className="space-y-1.5">
+            <Label htmlFor="venueSetting">Indoor or outdoor?</Label>
+            <select id="venueSetting" className={selectClass} {...register('venueSetting')}>
+              {VENUE_SETTINGS.map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="guests">Guest count</Label>
             <Input id="guests" type="number" min={1} {...register('guests')} />
             {errors.guests && <p className="text-xs text-red-500">{errors.guests.message}</p>}
+          </div>
+
+          <div className="col-span-2 space-y-1.5">
+            <Label htmlFor="budget">Décor budget (PKR, optional)</Label>
+            <Input id="budget" inputMode="numeric" placeholder="e.g. 2500000" {...register('budget')} />
+            {errors.budget ? (
+              <p className="text-xs text-red-500">{errors.budget.message}</p>
+            ) : (
+              <p className="text-muted/70 text-[11px]">Not sure yet? Leave it blank — Elation will help you set one.</p>
+            )}
           </div>
 
           <div className="col-span-2 flex justify-end gap-2 pt-2">

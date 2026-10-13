@@ -24,6 +24,7 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 
 ### D2. Hosting — Railway (or Render) + Neon (or Railway Postgres) + Cloudflare R2
 - Why: a long-lived Node process (needed for websockets) at low cost, managed Postgres with branching/backups, and R2 object storage with no egress fees for images and 3D assets.
+- Update (A4): everything runs on **Railway** — API service, static web service, Railway Postgres. R2 stays for files.
 
 ### D3. Moodboard curation — rules-based scoring in v1, LLM re-rank in v2
 - Why: v1 ships quickly, is explainable to consultants ("picked because: blush palette, romantic mood, stage area"), and costs nothing per generation. v2 adds a Claude-powered re-rank and concept narrative behind the same endpoint.
@@ -79,7 +80,7 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
   - **red**: total > target × 1.02 (over)
   - **green**: target × 0.85 ≤ total ≤ target × 1.02 (on budget)
   - **yellow**: total < target × 0.85 (under — room to add)
-- ❓ **Needs Elation**: confirm the 2% tolerance and 85% floor.
+- Confirmed by owner (A2); thresholds are an admin setting.
 - Vote: P ✅ (spec), F ✅ (one function), others ✅.
 
 ### P9. Realtime — `@fastify/websocket`, Postgres LISTEN/NOTIFY when we scale out
@@ -126,15 +127,107 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 
 ---
 
+## Owner answers (2026-10-12)
+
+| # | Question | Answer |
+| --- | --- | --- |
+| A1 | Default access period for client accounts | **90 days**, stored as setting `DEFAULT_CLIENT_ACCESS_DAYS` so it can be shortened later without code changes |
+| A2 | Traffic-light thresholds (P8) | **Option B** — green from 15 % under to 2 % over; yellow below that; red above. Stored in admin settings so Elation can tune |
+| A3 | Inventory data source | **Build on the 18 placeholder items now; transcribe the scanned sheets in `Inventory/` in parallel** and have Elation confirm prices/tags. Placeholder rows are flagged `notes = "placeholder"` and must be gone before launch ([step-06](step-06-inventory.md)) |
+| A4 | Domain | Not needed yet. Everything deploys on **Railway** using Railway-provided URLs ([step-14](step-14-deploy-ops.md)) |
+| A5 | Data retention for expired clients | **7 days** after access expiry, then anonymised/deleted. Stored as setting `EXPIRED_DATA_RETENTION_DAYS`. Known trade-off: a client who returns after a week to extend starts from scratch |
+
 ## Open questions for Elation (❓)
 
-1. Default access period for new client accounts (panel assumption: **90 days**, extendable).
-2. Traffic-light thresholds (P8).
-3. Who supplies the inventory spreadsheet, and with which columns (see [step-06](step-06-inventory.md)). The `Inventory/` folder only has scanned PDFs.
-4. Can a client have more than one consultant? (Assumption: one assigned consultant, admins see all.)
-5. Should a client be able to delete their account themselves, or only request deletion? (Assumption: request → admin confirms.)
-6. Is the public "Book consultation" form in scope for launch? (Assumption: yes, it feeds `/admin/inquiries`.)
+1. Can a client have more than one consultant? (Assumption: one assigned consultant, admins see all.)
+2. Should a client be able to delete their account themselves, or only request deletion? (Assumption: request → admin confirms.)
+3. Is the public "Book consultation" form in scope for launch? (Assumption: yes, it feeds `/admin/inquiries`.)
+4. Confirm prices, names and quantities of the 162 items transcribed from the inventory photos (`server/prisma/seed/inventory-draft.csv`; workflow in step-06).
+
+## Working agreement
+
+- All backend work happens on the **`feature/backend`** branch; it is merged into `main` when the backend is done.
+- Commit and push to `feature/backend` at the end of every step in [README](README.md#steps).
 
 ## Deviation log
 
 `YYYY-MM-DD — step — decision — why`
+
+- 2026-10-12 — D2 — Hosting simplified to Railway for API, web and Postgres (Neon dropped); R2 kept for files — owner wants one platform.
+- 2026-10-12 — Step 1 — Node **24** LTS instead of 22 — current LTS, already installed on dev machines.
+- 2026-10-12 — Step 1 — **Prisma 7**: connection URL lives in `server/prisma.config.ts`, generator is `prisma-client` (output `src/generated/prisma`, git-ignored), client uses the `@prisma/adapter-pg` driver adapter.
+- 2026-10-12 — Step 1 — Local Docker Postgres on host port **55432** — dev machines already run native Postgres on 5432/5433.
+- 2026-10-12 — Step 1 — Server dev uses `node --watch --import tsx` — `tsx watch` hangs when `concurrently` gives it a piped stdin.
+- 2026-10-12 — Step 1 — `@fastify/cors` and `@fastify/sensible` not installed — same-origin deploy needs no CORS; errors use our own `AppError`.
+- 2026-10-12 — Step 1 — `npm audit` reports high-severity issues in `mysql2` / `deepmerge-ts`, pulled in by the Prisma 7 CLI's tooling (unused for Postgres, not in the request path). Not gated in CI until Prisma ships a fix; re-check on Prisma upgrades.
+- 2026-10-12 — Step 2 — Demo images moved to `webapp/public/media` and referenced by URL — lets mock fixtures load in Node for seeding and gives DB rows stable URLs that work in dev and production.
+- 2026-10-12 — Step 2 — Seed owns a JSON snapshot of the mocks (`server/prisma/seed/fixtures.json`) instead of importing webapp code — the mocks get deleted in Step 13.
+- 2026-10-12 — Step 2 — Seed rows use deterministic UUIDv7 ids — idempotent upserts without natural keys on every table.
+- 2026-10-12 — Step 2 — ER diagram in Mermaid (`docs/assets/erd.md`) instead of a generated SVG — no headless-browser toolchain needed; GitHub renders it.
+- 2026-10-12 — Step 2 — Inventory references from tiles, budget lines and inspiration items are real foreign keys.
+- 2026-10-12 — Step 3 — In-house fixed-window rate limiter instead of `@fastify/rate-limit` — the plugin runs only one limiter per request, so per-IP + per-email limits on login couldn't stack. In-memory: fine for one Railway instance; move the counters to Postgres when the API scales out.
+- 2026-10-12 — Step 3 — Auth checks run in `onRequest` hooks, before body validation — signed-out callers get 401/403, never validation details.
+- 2026-10-12 — Step 3 — "Remember me" off = browser-session cookie + 12 h server-side session (`Session.persistent`, migration `session_persistent`).
+- 2026-10-12 — Step 3 — The GIN index on questionnaire answers is declared in `schema.prisma` (`ops: JsonbPathOps`) so Prisma doesn't try to drop it.
+- 2026-10-12 — Step 3 — Social sign-in buttons (Google/Apple) removed from `/auth` — accounts are invite-only (P1/P2).
+- 2026-10-12 — Step 3 — Account deletion from Settings is a **request** recorded in the audit log; an admin confirms (open question 2 stays open).
+- 2026-10-12 — Step 3 — Data export is a synchronous `GET /me/export` JSON download.
+- 2026-10-12 — Step 3 — TanStack Query and the HTTP API client (Step 13 setup) pulled forward — auth needed them. Other pages still read mocks until their step lands.
+- 2026-10-12 — Step 4 — Event date, venue, city, setting and guests are required on create; the API never returns a null date.
+- 2026-10-12 — Step 4 — Webapp mock fixtures re-keyed to the seed's deterministic event UUIDs so not-yet-migrated pages line up with API events.
+- 2026-10-12 — Step 4 — Interim client-side questionnaire overlay kept on top of API events until Step 5's server write-through.
+- 2026-10-12 — Step 4 — "Past" status computed in Asia/Karachi time.
+- 2026-10-13 — Step 5 — P19: question ids follow the docx numbering; five v1 ids renamed with a data migration.
+- 2026-10-13 — Step 5 — P20: questionnaire store is a server-synced write-behind buffer (debounced PATCH, version check, local-wins merge on conflict).
+- 2026-10-13 — Step 5 — P21: hidden (branched-away) answers are kept in storage and excluded everywhere via `visibleAnswers()`.
+- 2026-10-13 — Step 5 — Vitest added to the webapp for pure client logic.
+- 2026-10-13 — Step 6 — P22: the scanned "inventory sheets" are item photos with quantities and no prices; real items imported as curatable but unpriced (`pricePkr` nullable).
+- 2026-10-13 — Step 6 — P23: draft SKUs `S<set>-P<page>` trace each row to its photo.
+- 2026-10-13 — Step 6 — Inventory images under `webapp/public/media/inventory/` until R2 (Step 11).
+- 2026-10-13 — Step 7 — P24: moodboard pins carried into a new generation by area, not by grid position; re-checked against the hard filters.
+- 2026-10-13 — Step 7 — P25: removing the lead concept promotes the newest saved concept.
+- 2026-10-13 — Step 7 — P26: Q132 "2–3 concepts" and "recommended + alternatives" both produce 3 concepts; unanswered produces 3.
+- 2026-10-13 — Step 7 — P27: "no ceiling décor" excludes items whose first area tag is ceiling, and chandeliers.
+- 2026-10-13 — Step 7 — Tile scores are staff-only (they fold in stock levels).
+- 2026-10-13 — Step 7 — A new generation archives the event's earlier unsaved drafts .
+- 2026-10-13 — Step 7 — `POST /moodboards/:id/tiles` (client reference images) moves to Step 11 (needs file storage); "Add to budget"/`apply-to-budget` land in Step 8.
+- 2026-10-13 — Step 8 — P28: starter budgets switch off the priciest optional lines to land on target (seating/tables stay on).
+- 2026-10-13 — Step 8 — P29: per-foot quantities — Fabric 2 ft/guest; other per-foot pieces one 40 ft run.
+- 2026-10-13 — Step 8 — P30: send-to-consultant and quote both mark the plan submitted; later edits flagged "changed since your request".
+- 2026-10-13 — Step 8 — P31: unpriced pieces never enter a budget; seeds report them as "priced on request".
+- 2026-10-13 — Step 8 — Mock mode has no budget store; the estimator needs the server.
+- 2026-10-13 — Step 8 — Changing the event budget bumps the plan version (stale estimator tabs get 409).
+- 2026-10-13 — Step 9 — P32: adopting a concept = lead moodboard + priced pieces into the budget (add/replace) + pre-fill of empty, non-delegated Q10/Q16.
+- 2026-10-13 — Step 9 — P33: AR list = own sets, then a showcase set per uncovered event type.
+- 2026-10-13 — Step 9 — P34: "Send to headset" waits for the Quest app; ready sets offer "Book a headset session".
+- 2026-10-13 — Step 9 — P35: the inspiration gallery filters in the browser over the full published list; the API supports the same filters.
+- 2026-10-13 — Step 9 — New table `ARNotifyRequest` (migration `ar_notify_requests`); 3 showcase AR sets seeded.
+- 2026-10-13 — Step 9 — AR model downloads return `downloadUrl: null` until file storage (Step 11).
+- 2026-10-13 — Step 10 — P36: one general thread per client + one per live event (client + consultant); created at invite acceptance / event creation, back-filled by migration; admins join on first reply; archived events' threads leave the inbox.
+- 2026-10-13 — Step 10 — P37: realtime events travel through Postgres (NOTIFY triggers on Message/ActivityEntry, `pg_notify` for typing/read); each instance LISTENs and fans out; `resync` after a lost LISTEN link.
+- 2026-10-13 — Step 10 — P38: unread-message emails from an in-process 1-minute sweep (no job queue yet); people's messages only; any open tab counts as online; presence is per instance until we scale out.
+- 2026-10-13 — Step 10 — P39: system notes don't raise the unread badge or email; for clients they link to the event's budget / moodboards / AR page (the note text carries totals and status).
+- 2026-10-13 — Step 10 — P40: a consultant inbox at `/admin/messages` ships now (same page as the client's) so both sides can talk before Step 12; admins see every thread by design.
+- 2026-10-13 — Step 10 — P41: deferred — `moodboard.ready` / `budget.updated` socket events (HTTP responses and budget version conflicts cover them), chat attachments (Step 11), access-extended note, consultant-note activity and consultant reassignment (Step 12 — the old consultant must lose write access).
+- 2026-10-13 — Step 10 — Migrations `chat_realtime` (Message.clientMessageId, ThreadParticipant.lastEmailedMessageId, NOTIFY triggers) and `chat_backfill`.
+- 2026-10-13 — Step 11 — P42: storage driver — R2 (S3 API) whenever credentials are set, required in production; local disk with HMAC-signed API links for development and tests.
+- 2026-10-13 — Step 11 — P43: uploads are checked twice — the signed PUT fixes type, size and "no overwrite"; completion re-checks size, type and the file's first bytes; photos are re-encoded without metadata (≤ 40 MP).
+- 2026-10-13 — Step 11 — P44: no HEIC (can't be processed here; iPhones give browsers JPEG copies). Videos and PDFs are stored as uploaded — the UI promises location removal for photos only.
+- 2026-10-13 — Step 11 — P45: deferred — multipart uploads (single signed PUT up to 300 MB for now), a job queue for processing (done inline on completion), malware scanning, moodboard reference tiles, avatar / cover upload UI; admin uploads in Step 12.
+- 2026-10-13 — Step 11 — P46: originals always private; public bucket holds only processed catalogue copies under unrelated keys. Clients never list catalogue media; consultants see their clients' files and the catalogue.
+- 2026-10-13 — Step 11 — Migration `file_variants` (File.thumbKey / previewKey, pending-sweep index); upload budget 2 GB/person/day, 500 files/event.
+- 2026-10-13 — Step 12 — P47: admin settings live in a `Setting` key/value table: default access days, consultant extension cap, invite intro line.
+- 2026-10-13 — Step 12 — P48: consultants extend their own clients by up to 30 days at a time (setting); larger extensions, revoke, restore and reassignment are admin-only.
+- 2026-10-13 — Step 12 — P49: reassigning a client moves their threads to the new consultant; the previous consultant leaves them and loses access (history stays).
+- 2026-10-13 — Step 12 — P50: consultant notes are internal — clients never see them, and they make no client activity entry.
+- 2026-10-13 — Step 12 — P51: analytics are computed live from the tables with a 5-minute cache and a Refresh; the funnel counts clients who joined in the period; themes/budgets count events created in it.
+- 2026-10-13 — Step 12 — P52: analytics bars are plain CSS (no chart library in the bundle yet).
+- 2026-10-13 — Step 12 — P53: consultants draft and edit inspirations; publishing, unpublishing and deleting are admin-only. Showcase AR sets are admin-only too.
+- 2026-10-13 — Step 12 — P54: settings are readable by all staff (forms need the limits) and editable by admins; the budget traffic light stays as decided in P8, not a setting.
+- 2026-10-13 — Step 12 — P55: inquiries are unassigned leads, visible to every consultant.
+- 2026-10-13 — Step 12 — P56: deferred — Turnstile on the public form (honeypot + rate limit for now), editable email templates beyond the invite intro, staff notifications for new inquiries, a chart library.
+- 2026-10-13 — Step 12 — Migration `settings` (Setting table, AuditLog/Inquiry indexes).
+- 2026-10-13 — Step 13 — P57: production builds can't ship demo data — fixtures aliased to empty stubs on every build, `API_MODE` forced to http, CI bundle check (also on a mock-mode build).
+- 2026-10-13 — Step 13 — P58: `/terms` is a factual privacy summary of how the studio works today; Elation's legal terms (and the data-retention period they promise) replace or join it before launch. ❓ Needs Elation.
+- 2026-10-13 — Step 13 — P59: search filters the client's already-loaded lists in the browser; a server search endpoint when the catalogue or history grows.
+- 2026-10-13 — Step 13 — P60: failed loads show an inline retry only when nothing is cached; one shared toast for server/network trouble on loads; mutations own their error messages.

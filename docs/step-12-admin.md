@@ -78,7 +78,22 @@ Build in this order (matches `PLAN.md` §6): Clients table + invite modal → Cl
 
 ## Definition of done
 
-- [ ] Admin can invite, extend, revoke and restore a client end-to-end, with emails and audit entries.
-- [ ] Consultant sees only their clients everywhere in admin, verified by the policy test matrix.
-- [ ] Analytics numbers reconcile with a hand count on seeded data.
-- [ ] Every placeholder admin route renders real data.
+- [x] Admin can invite, extend, revoke and restore a client end-to-end, with emails and audit entries.
+- [x] Consultant sees only their clients everywhere in admin, verified by the policy test matrix.
+- [x] Analytics numbers reconcile with a hand count on seeded data.
+- [x] Every placeholder admin route renders real data.
+
+## As built (2026-10-13)
+
+- **Clients** (`server/src/modules/admin/clients.ts`): list (status / consultant / search / sort, paged), detail (events with progress, quotes, notes, threads, access history), resend invite, extend (row-locked; consultants up to `consultantMaxExtendDays`, default 30 — P48), revoke (admin; sessions, sockets and open invites end), restore (admin), contact edits, reassignment (admin; P49), bulk extend / revoke (revoke needs a reason). Extending posts "Your access has been extended to …" in the client's thread and emails them.
+- **Notes & follow-ups** (`notes.ts`): internal only (P50), audited; `/admin/follow-ups?due=` feeds the overview.
+- **Quotes** (`quotes.ts`): queue + status changes; QUOTED marks the plan quoted and tells the client (message, activity, email); a sent quote can only be closed.
+- **Inquiries** (`inquiries.ts`): `POST /public/inquiries` (3/hour/IP, honeypot), inbox, convert = invite (+ a draft event when a type was given), claimed so it can't run twice. Visible to all staff (P55).
+- **Overview & analytics** (`analytics.ts`): KPIs, upcoming events, follow-ups, activity; themes, budgets, event types, client funnel (per joining cohort), inventory use; CSV export (formula-safe). 5-minute cache with a Refresh that bypasses it (P51).
+- **CMS** (`cms.ts`): inspirations (create/edit with tiles and pieces; publish/unpublish and delete admin-only — P53); AR sets (create, edit, status/progress/ETA — READY emails "notify me" subscribers once — and 3D model assets; showcase sets admin-only).
+- **Team & settings** (`team.ts`, `settings.ts`, migration `settings`): invite staff (no access expiry), roles, deactivate (clients must be moved first; never the last admin), move clients in bulk; settings `defaultAccessDays`, `consultantMaxExtendDays`, `inviteIntro` (P47, P54).
+- **Audit**: every mutation above writes `AuditLog`; `GET /admin/audit?targetId=` (admin).
+- **Security**: consultants are scoped to their clients on every route (test matrix in `admin.test.ts`); a consultant can't take over another's pending invite; revoked accounts can't use an old invite; `trustProxy` trusts only Railway's hop.
+- **Webapp**: `pages/admin/*` — Overview, Clients (+ invite dialog, bulk), Client detail, Messages, Quotes, Inquiries, Analytics, Inventory (edit, photo upload, CSV import with preview, export), Inspirations CMS, AR sets, Team, Settings; `AdminLayout` role-aware with a mobile drawer; destructive actions confirm; public `/book-consultation` form. `PlaceholderPage` is gone.
+- Not built here (P56): Cloudflare Turnstile on the public form, editable email templates beyond the invite intro, inquiry notifications to staff, charts library.
+- Review: [step-12-review.md](reviews/step-12-review.md).

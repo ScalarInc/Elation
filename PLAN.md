@@ -18,28 +18,33 @@ build features in isolation and leave integration gaps.
 - `deriveMoodboardDefaults(answers)` — extract mood/style/palette/density/venue from questionnaire, used as initial state in `MoodboardViewer`.
 - `florallyAverse(answers)`, `noCeilingDecor(answers)` — tile filters for the moodboard.
 
-**Which page consumes what**
+**Which page consumes what** (after Step 13 — every page reads the API through `src/data/*` hooks; `src/mocks` only backs `VITE_API_MODE=mock` in development and never ships, see docs/step-13-frontend-integration.md)
 
-| Page / component | fixtures | questionnaire | derived |
-| --- | --- | --- | --- |
-| DashboardPage · YourEventCard | — | via derived | ✅ useResolvedEvent |
-| DashboardPage · ProgressOverview | events[0] | ✅ via progress calc | — |
-| DashboardPage · RecentMoodboards | moodboards | — | — |
-| DashboardPage · QuickActions | — | — | — |
-| MyEventsPage · EventCard | — | via derived | ✅ useResolvedEvents |
-| EventDetailPage (hero, tabs, module cards) | moodboards, budgets, messages | ✅ QuestionnaireSummary | ✅ useResolvedEvent |
-| EventDetailPage · MoodboardViewer | moodboards, inventory | ✅ answers → defaults & tile filters | ✅ deriveMoodboardDefaults |
-| QuestionnairePage | — | ✅ read/write | ✅ useResolvedEvent (title only) |
-| MoodboardsPage | moodboards (local mut), events | — | — |
+| Page / component | Hooks (`src/data/*`) | API (step) |
+| --- | --- | --- |
+| Auth, ConsentGate, Profile, Settings | `useMe`, login/logout, profile, notifications, password, sessions, consent | `/auth/*`, `/me/*` (3) |
+| Dashboard (event card, countdown, progress, quick actions), MyEvents, EventCard, NewEventDialog | `useEvents`, `useCreateEvent`, duplicate/archive/delete | `/events` (4) |
+| EventDetailPage (overview, tabs) | `useEvent`, `useQuestionnaireBrief`, `useEventBudget`, `useEventAr`, `useThreads`, `useActivity`, `useEventFiles` | 4, 5, 8, 9, 10, 11 |
+| QuestionnairePage, QuestionField (uploads) | `useQuestionnaireSync` (buffered PATCH), `useSubmitQuestionnaire`, `useUpload` | `/events/:id/questionnaire` (5), `/files` (11) |
+| MoodboardViewer, MoodboardsPage, RecentMoodboards | `useEventMoodboards`, `useMoodboardLibrary`, generate/save/like/pin/swap/consult | `/moodboards` (7) |
+| BudgetListPage, BudgetPage | `useBudgets`, `useEventBudget`, save/reset/reprice/send/quote | `/budgets`, `/events/:id/budget` (8) |
+| Inspirations, InspirationDetail, AdoptInspiration | `useInspirations`, `useInspiration`, `useAdoptInspiration` | `/inspirations` (9) |
+| ARPage, EventARPage, ARSetCard, ARAssetList, ARHero | `useArSets`, `useEventAr`, `useArAssets`, notify / session request | `/ar-sets`, `/events/:id/ar` (9) |
+| MessagesPage, ActivityFeed, unread badges | `useThreads`, `useMessages`, `useSendMessage`, `useUnreadCount`, `useActivity`, realtime | `/threads`, `/activity`, `/ws` (10) |
+| Files tab, chat attachments | `useEventFiles`, `useUpload` | `/files` (11) |
+| SearchPage (top-bar search) | `useEvents`, `useMoodboardLibrary`, `useInspirations`, `useInventory` | 4, 7, 9, 6 |
+| Admin console (`pages/admin/*`), BookConsultationPage | `src/data/admin.ts` | `/admin/*`, `/public/inquiries` (12) |
 
 **Rules going forward**
-1. **Never import `events` directly** from a page/component that renders event meta. Use `useResolvedEvent` / `useResolvedEvents`.
-2. Every new sprint must add a row to the table above.
-3. If a sprint introduces a new store, add it to "Stores / sources of truth" and to the affected pages' rows.
+1. Pages and components read data **only through `src/data/*` hooks** — never `src/mocks` (production builds stub it out; CI fails if fixtures reach the bundle).
+2. Every query shows a loading state, an inline error with retry, and an empty state; no toast claims success unless the server confirmed it.
+3. A new page adds a row to the table above.
 
 ---
 
 ## Scope for this build
+
+> **Superseded (2026-10-13):** the backend is built — see [`docs/`](docs/README.md) Steps 1–13. The paragraph below describes the original frontend-only phase.
 
 **Frontend only. Mock data. No backend.** Every page must look and behave
 production-ready but is wired to `src/mocks/*` through `src/lib/api.ts`.

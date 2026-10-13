@@ -5,78 +5,49 @@ import { Check, Lock, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from '@/components/ui/toast'
+import { useCurrentUser, useLogout, useRecordConsent } from '@/data/auth'
 import { cn } from '@/lib/utils'
 
-const CONSENT_KEY = 'elation.consent-v1'
-const CONSENT_VERSION = 1
-
-type StoredConsent = {
-  version: number
-  acceptedAt: string
-  terms: boolean
-  dataUse: boolean
-  studioShare: boolean
-  marketing: boolean
-}
-
-function hasConsented(): boolean {
-  if (typeof window === 'undefined') return true
-  try {
-    const raw = window.localStorage.getItem(CONSENT_KEY)
-    if (!raw) return false
-    const parsed = JSON.parse(raw) as StoredConsent
-    return parsed.version === CONSENT_VERSION && parsed.terms && parsed.dataUse && parsed.studioShare
-  } catch {
-    return false
-  }
-}
-
 /**
- * First-run consent gate. Renders nothing if the client already accepted the
- * current terms version. Otherwise blocks the page with a warm, editorial
- * dialog that captures required agreements and an optional marketing opt-in.
+ * First-run consent gate. Shown until the signed-in user has accepted the
+ * current terms version on the server (`me.consent`). Bumping CONSENT_VERSION
+ * in @elation/shared asks everyone again.
  */
 export function ConsentGate() {
   const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
+  const me = useCurrentUser()
+  const record = useRecordConsent()
+  const logout = useLogout()
+  const [revealed, setRevealed] = useState(false)
   const [terms, setTerms] = useState(false)
   const [dataUse, setDataUse] = useState(false)
   const [studioShare, setStudioShare] = useState(false)
   const [marketing, setMarketing] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     // Delay one tick so the layout renders behind, then reveal.
-    const t = setTimeout(() => setOpen(!hasConsented()), 250)
+    const t = setTimeout(() => setRevealed(true), 250)
     return () => clearTimeout(t)
   }, [])
 
+  const open = revealed && !me.consent
+  const submitting = record.isPending
   const allRequiredChecked = terms && dataUse && studioShare
 
   function accept() {
     if (!allRequiredChecked) return
-    setSubmitting(true)
-    const record: StoredConsent = {
-      version: CONSENT_VERSION,
-      acceptedAt: new Date().toISOString(),
-      terms,
-      dataUse,
-      studioShare,
-      marketing,
-    }
-    window.localStorage.setItem(CONSENT_KEY, JSON.stringify(record))
-    setTimeout(() => {
-      setOpen(false)
-      setSubmitting(false)
-      toast.success('Welcome to Elation X. Your studio is ready.')
-    }, 400)
+    record.mutate(
+      { terms: true, dataUse: true, studioShare: true, marketing },
+      {
+        onSuccess: () => toast.success('Welcome to Elation X. Your studio is ready.'),
+        onError: (err) => toast.error('Could not save your agreement', { description: err.message }),
+      },
+    )
   }
 
   function decline() {
-    window.localStorage.setItem('elation-auth', 'off')
-    setOpen(false)
     toast('You can accept later to continue. See you soon.', { duration: 3000 })
-    navigate('/auth?mode=signin', { replace: true })
+    logout.mutate(undefined, { onSettled: () => navigate('/auth?mode=signin', { replace: true }) })
   }
 
   return (

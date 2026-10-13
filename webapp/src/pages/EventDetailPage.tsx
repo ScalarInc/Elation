@@ -1,4 +1,6 @@
 import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom'
+import { Skeleton } from '@/components/ui/skeleton'
+import { LoadError } from '@/components/ui/load-error'
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,14 +12,20 @@ import {
   Palette,
   Calculator,
   Boxes,
-  Sparkles,
   Check,
   Clock,
   Loader2,
 } from 'lucide-react'
-import { moodboards, budgets, messages } from '@/mocks/fixtures'
+import { ActivityFeed } from '@/components/ActivityFeed'
+import { EventFiles } from '@/components/EventFiles'
+import { useThreads } from '@/data/chat'
+import { useCurrentUser } from '@/data/auth'
+import { useEventBudget } from '@/data/budget'
+import { BUDGET_TONE } from '@/components/budget/tone'
+import { useEventMoodboards } from '@/data/moodboards'
 import { MoodboardViewer } from '@/components/MoodboardViewer'
-import { useResolvedEvent } from '@/questionnaire/derived'
+import { useEvent } from '@/data/events'
+import { useQuestionnaireSync } from '@/data/questionnaire'
 import {
   computeCategoryProgress,
   computeOverallPercent,
@@ -30,8 +38,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { formatDate, formatPKRCompact, daysUntil } from '@/lib/format'
+import { formatDate, daysUntil, formatBudget, formatPKR, formatPKRCompact } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { isApiError } from '@/lib/api/client'
 import type { ClientEvent, ModuleStatus } from '@/mocks/types'
 
 const weight: Record<ModuleStatus, number> = { complete: 1, in_progress: 0.5, pending: 0 }
@@ -60,7 +69,7 @@ const moduleMeta: Record<
   budget: {
     label: 'Budget Estimator',
     body: 'Live pricing with a traffic-light indicator vs. your budget.',
-    href: (id) => `/events/${id}?tab=budget`,
+    href: (id) => `/events/${id}/budget?from=event`,
   },
   ar: {
     label: 'AR Visualization',
@@ -138,7 +147,7 @@ function Hero({ event }: { event: ClientEvent }) {
             </span>
             <span className="flex items-center gap-1.5">
               <Wallet className="h-3.5 w-3.5" />
-              {formatPKRCompact(event.budgetPKR)}
+              {formatBudget(event.budgetPKR)}
             </span>
           </div>
         </div>
@@ -199,8 +208,12 @@ function OverviewTab({ event }: { event: ClientEvent }) {
       4) *
       100,
   )
-  const boards = moodboards.filter((m) => m.eventId === event.id)
-  const budgetSnap = budgets.find((b) => b.eventId === event.id)
+  const boardsQuery = useEventMoodboards(event.id)
+  const eventBoards = boardsQuery.data ?? []
+  // Lead concept first, then the newest.
+  const boards = [...eventBoards].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
+  const { data: budget } = useEventBudget(event.id)
+  const plan = budget?.plan
 
   return (
     <div className="mt-4 space-y-6">
@@ -248,7 +261,9 @@ function OverviewTab({ event }: { event: ClientEvent }) {
                 </Link>
               )}
             </div>
-            {boards[0] ? (
+            {boardsQuery.isError && !boardsQuery.data ? (
+              <LoadError what="your moodboards" onRetry={() => void boardsQuery.refetch()} className="py-6" />
+            ) : boards[0] ? (
               <>
                 <div className="mt-4 grid grid-cols-4 gap-2">
                   {boards[0].tiles.slice(0, 4).map((src, i) => (
@@ -289,12 +304,12 @@ function OverviewTab({ event }: { event: ClientEvent }) {
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted">Budget</dt>
-                <dd className="text-text font-semibold">{formatPKRCompact(event.budgetPKR)}</dd>
+                <dd className="text-text font-semibold">{formatBudget(event.budgetPKR)}</dd>
               </div>
-              {budgetSnap && (
+              {plan && (
                 <div className="flex justify-between">
-                  <dt className="text-muted">Line items</dt>
-                  <dd className="text-text font-semibold">{budgetSnap.lines.length}</dd>
+                  <dt className="text-muted">Estimate</dt>
+                  <dd className="text-text font-semibold">{formatPKRCompact(plan.totals.includedPkr)} · {plan.lines.length} pieces</dd>
                 </div>
               )}
               <div className="flex justify-between">
@@ -312,38 +327,7 @@ function OverviewTab({ event }: { event: ClientEvent }) {
         </Card>
       </div>
 
-      {/* Recent activity — from messages fixture */}
-      <Card>
-        <CardContent className="p-6">
-          <h2 className="font-display text-text text-lg">Recent activity</h2>
-          <ul className="mt-4 space-y-3">
-            {messages.slice(0, 3).map((m) => (
-              <li key={m.id} className="flex items-start gap-3 text-sm">
-                <span
-                  className={cn(
-                    'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                    m.authorRole === 'system'
-                      ? 'bg-accent/20 text-accent'
-                      : m.authorRole === 'consultant'
-                      ? 'bg-sage/25 text-sage-deep'
-                      : 'bg-blush/40 text-ink',
-                  )}
-                >
-                  {m.authorRole === 'system' ? <Sparkles className="h-4 w-4" /> : m.authorName[0]}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-muted text-[11px]">
-                    <span className="text-text font-semibold">{m.authorName}</span>
-                    {' · '}
-                    {formatDate(m.createdAt)}
-                  </p>
-                  <p className="text-text mt-0.5 text-sm">{m.body}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+      <EventActivity eventId={event.id} />
     </div>
   )
 }
@@ -418,15 +402,61 @@ function QuestionnaireSummary({ eventId }: { eventId: string }) {
   )
 }
 
-function TabPlaceholder({ title, body }: { title: string; body: string }) {
+/** Budget tab: the live numbers, one click from the estimator (docs/step-08-budget.md, J2). */
+function BudgetSummary({ eventId }: { eventId: string }) {
+  const { data, isPending, isError, refetch } = useEventBudget(eventId)
+  const href = `/events/${eventId}/budget?from=event`
+  if (isPending) return <Skeleton className="mt-4 h-56 w-full rounded-3xl" />
+  if (isError && !data) return <LoadError what="your budget" onRetry={() => void refetch()} />
+  const plan = data?.plan
+  if (!plan) {
+    return (
+      <ModuleHandoff
+        title="Smart Budget Estimator"
+        body="Start from your moodboard or Elation's recommendation — live pricing and a traffic light against your target."
+        href={href}
+        cta="Start your budget"
+      />
+    )
+  }
+  const tone = BUDGET_TONE[plan.classification.state]
+  const Icon = tone.Icon
   return (
     <Card className="mt-4">
-      <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
-        <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">
-          Coming next
-        </p>
-        <p className="font-display text-text text-xl">{title}</p>
-        <p className="text-muted max-w-md text-sm">{body}</p>
+      <CardContent className="grid gap-6 p-6 md:grid-cols-[1fr_1fr]">
+        <div className="space-y-4">
+          <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold', tone.pill)}>
+            <Icon className="h-3.5 w-3.5" />
+            {tone.label}
+          </span>
+          <div>
+            <p className="font-display text-text text-3xl tabular-nums">{formatPKR(plan.totals.includedPkr)}</p>
+            <p className="text-muted mt-1 text-sm">
+              of {formatPKR(plan.targetPkr)} ·{' '}
+              {plan.classification.deltaPkr > 0
+                ? `${formatPKRCompact(plan.classification.deltaPkr)} over`
+                : `${formatPKRCompact(-plan.classification.deltaPkr)} to spare`}
+            </p>
+          </div>
+          <Button asChild>
+            <Link to={href}>
+              Open the estimator
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+        <div>
+          <p className="text-muted/70 text-[10px] font-bold uppercase tracking-widest">Top categories</p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {plan.totals.byCategory.slice(0, 3).map((c) => (
+              <li key={c.category} className="flex justify-between">
+                <span className="text-text font-semibold">{c.category}</span>
+                <span className="text-muted tabular-nums">{formatPKRCompact(c.totalPkr)}</span>
+              </li>
+            ))}
+            {plan.totals.byCategory.length === 0 && <li className="text-muted">Nothing included yet.</li>}
+          </ul>
+        </div>
       </CardContent>
     </Card>
   )
@@ -462,13 +492,74 @@ function ModuleHandoff({
   )
 }
 
+function EventActivity({ eventId }: { eventId: string }) {
+  const { data: threads } = useThreads()
+  const thread = threads?.find((t) => t.eventId === eventId)
+  return (
+    <ActivityFeed
+      eventId={eventId}
+      title="Recent activity"
+      subtitle="Everything that happened on this event."
+      limit={5}
+      messagesHref={thread ? `/messages?thread=${thread.id}` : '/messages'}
+    />
+  )
+}
+
+/** The event's own conversation with the consultant, opened in Messages. */
+function EventThreadHandoff({ eventId }: { eventId: string }) {
+  const me = useCurrentUser()
+  const { data: threads } = useThreads()
+  const thread = threads?.find((t) => t.eventId === eventId)
+  const consultant = me.consultant?.name ?? 'your consultant'
+  const last = thread?.lastMessage
+  return (
+    <ModuleHandoff
+      title="Event thread"
+      body={
+        last
+          ? `Latest: “${last.body.length > 120 ? `${last.body.slice(0, 117)}…` : last.body}”`
+          : `A direct line to ${consultant} about this event — moodboard notes, questions, follow-ups.`
+      }
+      href={thread ? `/messages?thread=${thread.id}` : '/messages'}
+      cta={thread?.unread ? `Open messages (${thread.unread} new)` : 'Open messages'}
+    />
+  )
+}
+
+function PageSkeleton() {
+  return (
+    <div className="space-y-6 px-10 pb-12 pt-8">
+      <Skeleton className="h-10 w-72" />
+      <Skeleton className="h-56 w-full rounded-3xl" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Skeleton className="h-48 w-full rounded-3xl lg:col-span-2" />
+        <Skeleton className="h-48 w-full rounded-3xl" />
+      </div>
+    </div>
+  )
+}
+
 export function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
-  const event = useResolvedEvent(id)
+  const query = useEvent(id)
+  const event = query.data
+  const sync = useQuestionnaireSync(event ? id : undefined)
 
-  if (!event) return <EventNotFound />
+  if (query.isPending && id) return <PageSkeleton />
+  if (!event) {
+    // A 404 means the event is gone; anything else is worth a retry.
+    if (query.isError && !(isApiError(query.error) && query.error.status === 404)) {
+      return (
+        <div className="px-10 pb-12 pt-8">
+          <LoadError what="this event" onRetry={() => void query.refetch()} className="py-16" />
+        </div>
+      )
+    }
+    return <EventNotFound />
+  }
 
   const rawTab = params.get('tab') as TabKey | null
   const tab: TabKey = rawTab && TAB_KEYS.includes(rawTab) ? rawTab : 'overview'
@@ -507,18 +598,17 @@ export function EventDetailPage() {
         </TabsContent>
 
         <TabsContent value="questionnaire">
-          <QuestionnaireSummary eventId={event.id} />
+          {sync.isError ? (
+            <LoadError what="your questionnaire" onRetry={() => void sync.refetch()} />
+          ) : (
+            <QuestionnaireSummary eventId={event.id} />
+          )}
         </TabsContent>
         <TabsContent value="moodboard">
           <MoodboardViewer eventId={event.id} />
         </TabsContent>
         <TabsContent value="budget">
-          <ModuleHandoff
-            title="Smart Budget Estimator"
-            body="Live line items, real inventory pricing, and a traffic-light indicator against your target."
-            href={`/events/${event.id}/budget`}
-            cta="Open the estimator"
-          />
+          <BudgetSummary eventId={event.id} />
         </TabsContent>
         <TabsContent value="ar">
           <ModuleHandoff
@@ -529,18 +619,10 @@ export function EventDetailPage() {
           />
         </TabsContent>
         <TabsContent value="files">
-          <TabPlaceholder
-            title="Files & references"
-            body="Venue photos, floor plans, inspiration boards. Sprint 12."
-          />
+          <EventFiles eventId={event.id} />
         </TabsContent>
         <TabsContent value="messages">
-          <ModuleHandoff
-            title="Consultant thread"
-            body="A direct line to Ayesha and the Elation studio — moodboard notes, quick calls, follow-ups."
-            href="/messages"
-            cta="Open messages"
-          />
+          <EventThreadHandoff eventId={event.id} />
         </TabsContent>
       </Tabs>
     </div>

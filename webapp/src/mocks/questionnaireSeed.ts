@@ -23,16 +23,16 @@ const whispersOfNoor: Seed = {
       'A garden of cherry blossoms after dusk — warm candles under a canopy of pastel florals.',
 
     // Colour palette
-    q13_colours: {
+    q16_colours: {
       desc: 'Blush and sage with warm ivory. Soft peach highlights, rose-gold detail.',
       hex: ['#E3BFB9', '#9AB1AE', '#E1CBAD'],
     },
-    q14_direction: 'Pastel',
-    q15_metallic: 'Rose Gold',
+    q20_direction: 'Pastel',
+    q21_metallic: 'Rose Gold',
 
     // Entrance
-    q16_entrance: 'Yes',
-    q17_entrance_style: ['Floral Arch', 'Candlelit'],
+    q22_entrance: 'Yes',
+    q23_entrance_style: ['Floral Arch', 'Candlelit'],
 
     // Stage
     q29_stage: 'Yes',
@@ -130,15 +130,15 @@ const gildedEvening: Seed = {
     q10_aesthetic: ['Regal', 'Dramatic', 'Luxury'],
     q11_atmosphere: ['Luxurious', 'Dramatic', 'Sophisticated'],
 
-    q13_colours: {
+    q16_colours: {
       desc: 'Deep gold, ivory, and near-black with candlelight warmth.',
       hex: ['#CFAE96', '#E1CBAD', '#3B3A3F'],
     },
-    q14_direction: 'Warm',
-    q15_metallic: 'Gold',
+    q20_direction: 'Warm',
+    q21_metallic: 'Gold',
 
-    q16_entrance: 'Yes',
-    q17_entrance_style: ['Grand Installation', 'Candlelit'],
+    q22_entrance: 'Yes',
+    q23_entrance_style: ['Grand Installation', 'Candlelit'],
 
     q29_stage: 'Yes',
     q31_stage_type: ['Full Scenic Stage', 'Architectural Stage'],
@@ -161,15 +161,15 @@ const blushAndBloom: Seed = {
     q11_atmosphere: ['Romantic', 'Warm & Intimate'],
     q12_theme: 'A soft-lit blush evening with cherry blossoms and champagne detail.',
 
-    q13_colours: {
+    q16_colours: {
       desc: 'Blush, ivory, sage',
       hex: ['#E3BFB9', '#FAF3EF', '#9AB1AE'],
     },
-    q14_direction: 'Pastel',
-    q15_metallic: 'Champagne',
+    q20_direction: 'Pastel',
+    q21_metallic: 'Champagne',
 
-    q16_entrance: 'Yes',
-    q17_entrance_style: ['Floral Arch'],
+    q22_entrance: 'Yes',
+    q23_entrance_style: ['Floral Arch'],
     q29_stage: 'Yes',
     q31_stage_type: ['Floral Stage'],
     q40_dance: 'No',
@@ -211,7 +211,7 @@ const blushAndBloom: Seed = {
 /** Only seed the events that have curated data. Others (like Garden of Dreams)
  *  stay empty so the "not started" state remains visible in the UI. */
 export const questionnaireSeeds: Record<string, Seed> = {
-  e_mehndi: whispersOfNoor,
-  e_baraat: gildedEvening,
-  e_engagement: blushAndBloom,
+  '01a04ff7-4400-7bc8-b4b3-32cb59579564': whispersOfNoor, // Whispers of Noor (Mehndi)
+  '01a04ff7-4400-7b82-ba36-45f309e454c0': gildedEvening, // Gilded Evening (Baraat)
+  '01a04ff7-4400-73aa-9491-6e9426576aea': blushAndBloom, // Blush & Bloom (Engagement)
 }

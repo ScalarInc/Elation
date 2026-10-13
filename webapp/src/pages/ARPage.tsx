@@ -1,30 +1,23 @@
-import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import img_04 from '@/assets/from-docx/img_04.jpg'
-import { api } from '@/lib/api'
-import type { ARSet } from '@/mocks/types'
+import { img_04 } from '@/lib/media'
+import { useArSets } from '@/data/ar'
+import { pickPrimaryEvent, useEvents } from '@/data/events'
 import { ARHero } from '@/components/ARHero'
 import { ARSetCard } from '@/components/ARSetCard'
 import { ARFloorPlanGallery } from '@/components/ARFloorPlanGallery'
 import { ARAssetList } from '@/components/ARAssetList'
 import { Spinner } from '@/components/ui/spinner'
+import { LoadError } from '@/components/ui/load-error'
 
 export function ARPage() {
-  const [sets, setSets] = useState<ARSet[] | null>(null)
-
-  useEffect(() => {
-    let mounted = true
-    api.ar.list().then((data) => {
-      if (mounted) setSets(data)
-    })
-    return () => {
-      mounted = false
-    }
-  }, [])
+  const { data, isError, refetch } = useArSets()
+  const sets = data ?? null
+  const { data: events } = useEvents()
+  const primary = pickPrimaryEvent(events)
 
   return (
     <div className="space-y-8 px-10 pb-16 pt-8">
-      <ARHero image={img_04} />
+      <ARHero image={img_04} eventId={primary?.id} />
 
       <section>
         <motion.div
@@ -44,7 +37,9 @@ export function ARPage() {
           </div>
         </motion.div>
 
-        {sets === null ? (
+        {isError && sets === null ? (
+          <LoadError what="your AR sets" onRetry={() => void refetch()} className="py-16" />
+        ) : sets === null ? (
           <div className="flex items-center justify-center py-16">
             <Spinner size="lg" />
           </div>
@@ -59,7 +54,7 @@ export function ARPage() {
 
       {sets && sets.length > 0 && <ARFloorPlanGallery sets={sets} />}
 
-      <ARAssetList />
+      <ARAssetList setId={sets?.find((s) => s.status === 'ready')?.id ?? sets?.[0]?.id} />
     </div>
   )
 }

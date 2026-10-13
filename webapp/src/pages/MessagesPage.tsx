@@ -1,41 +1,33 @@
 import type * as React from 'react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  Paperclip,
-  Phone,
-  Search,
-  Send,
-  Smile,
-  Sparkles,
-  Video,
-  MoreHorizontal,
-  MessageCircle,
-  FileText,
-} from 'lucide-react'
+import { AlertCircle, ArrowLeft, FileText, MessageCircle, Paperclip, RotateCw, Search, Send, Sparkles, X } from 'lucide-react'
+import { MESSAGE_MAX, type AttachmentDto, type ThreadDto } from '@elation/shared/api'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { toast } from '@/components/ui/toast'
-import { api } from '@/lib/api'
+import { useCurrentUser } from '@/data/auth'
+import {
+  newClientMessageId,
+  useMarkRead,
+  useMessages,
+  useSendMessage,
+  useThreads,
+  type ChatMessage,
+} from '@/data/chat'
+import { openFile } from '@/data/files'
+import { isApiError } from '@/lib/api/client'
+import { acceptFor, useUpload } from '@/lib/upload'
+import { sendRealtime, useRealtime } from '@/lib/realtime'
 import { cn } from '@/lib/utils'
-import { currentUser } from '@/mocks/fixtures'
-import type { Message, MessageThread } from '@/mocks/types'
-
-const AUTO_REPLIES = [
-  'Got it — I\'ll take a look and get back to you shortly.',
-  'Love the direction! Let me put together two options for you.',
-  'Noted. I\'ll sync with the design team and revert by tomorrow.',
-  'Absolutely — I\'ll pull references and share this evening.',
-  'Perfect. Let\'s discuss more on our next call — shall I book something in?',
-]
 
 function relativeTime(iso: string) {
   const then = new Date(iso).getTime()
-  const now = Date.now()
-  const diff = Math.max(0, now - then)
+  const diff = Math.max(0, Date.now() - then)
   const min = Math.floor(diff / 60_000)
   if (min < 1) return 'just now'
   if (min < 60) return `${min}m ago`
@@ -52,29 +44,27 @@ function dateKey(iso: string) {
 }
 
 function dividerLabel(iso: string) {
-  const d = new Date(iso)
   const today = new Date()
-  const y = new Date()
-  y.setDate(today.getDate() - 1)
-  if (dateKey(d.toISOString()) === dateKey(today.toISOString())) return 'Today'
-  if (dateKey(d.toISOString()) === dateKey(y.toISOString())) return 'Yesterday'
-  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(d)
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+  if (dateKey(iso) === dateKey(today.toISOString())) return 'Today'
+  if (dateKey(iso) === dateKey(yesterday.toISOString())) return 'Yesterday'
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso))
 }
 
 function bubbleTime(iso: string) {
-  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(
-    new Date(iso),
-  )
+  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
 }
 
-type Grouped = { key: string; label: string; items: Message[] }
+type Grouped = { key: string; label: string; items: ChatMessage[] }
 
-function groupByDay(list: Message[]): Grouped[] {
+/** Oldest-first list → day groups. */
+function groupByDay(list: ChatMessage[]): Grouped[] {
   const out: Grouped[] = []
   for (const m of list) {
     const key = dateKey(m.createdAt)
-    let bucket = out.find((g) => g.key === key)
-    if (!bucket) {
+    let bucket = out.at(-1)
+    if (!bucket || bucket.key !== key) {
       bucket = { key, label: dividerLabel(m.createdAt), items: [] }
       out.push(bucket)
     }
@@ -83,18 +73,46 @@ function groupByDay(list: Message[]): Grouped[] {
   return out
 }
 
-function ThreadRow({
-  thread,
-  isActive,
-  onClick,
-}: {
-  thread: MessageThread
+const URL_RE = /(https?:\/\/[^\s<>"']+)/g
+
+/** Plain text with line breaks and clickable links — never HTML. */
+function Linkified({ text }: { text: string }) {
+  const parts = text.split(URL_RE)
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="break-all underline underline-offset-2">
+            {part}
+          </a>
+        ) : (
+          <Fragment key={i}>{part}</Fragment>
+        ),
+      )}
+    </>
+  )
+}
+
+/** The person on the other side of a thread, from the viewer's point of view. */
+function counterpart(thread: ThreadDto, viewerIsClient: boolean, meId: string) {
+  if (!viewerIsClient) return { name: thread.clientName, initials: initialsOf(thread.clientName), label: thread.title }
+  const staff = thread.participants.find((p) => p.role === 'consultant' && p.id !== meId)
+  return { name: staff?.name ?? 'Elation', initials: staff?.avatarInitials ?? 'EX', label: thread.title }
+}
+
+function initialsOf(name: string) {
+  const parts = name.trim().split(/\s+/)
+  return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : name.slice(0, 2)).toUpperCase()
+}
+
+function ThreadRow({ thread, isActive, onClick, viewerIsClient, meId }: {
+  thread: ThreadDto
   isActive: boolean
   onClick: () => void
+  viewerIsClient: boolean
+  meId: string
 }) {
-  const consultant =
-    thread.participants.find((p) => p.role === 'consultant') ?? thread.participants[0]
-
+  const who = counterpart(thread, viewerIsClient, meId)
   return (
     <button
       type="button"
@@ -105,16 +123,22 @@ function ThreadRow({
       )}
     >
       <Avatar className="h-11 w-11">
-        <AvatarFallback>{consultant.avatarInitials}</AvatarFallback>
+        <AvatarFallback>{who.initials}</AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-text truncate text-sm font-semibold">{consultant.name}</p>
-          <span className="text-muted/70 shrink-0 text-[10px]">
-            {relativeTime(thread.lastMessageAt)}
-          </span>
+          <p className="text-text truncate text-sm font-semibold">{who.label}</p>
+          {thread.lastMessage && (
+            <span className="text-muted/70 shrink-0 text-[10px]">{relativeTime(thread.lastMessage.createdAt)}</span>
+          )}
         </div>
-        <p className="text-muted mt-0.5 truncate text-xs">{thread.title}</p>
+        <p className="text-muted mt-0.5 truncate text-xs">
+          {thread.lastMessage
+            ? `${thread.lastMessage.author?.id === meId ? 'You: ' : ''}${thread.lastMessage.body || attachmentLabel(thread.lastMessage.attachments)}`
+            : viewerIsClient
+              ? `With ${who.name}`
+              : who.name}
+        </p>
       </div>
       {thread.unread > 0 && (
         <span className="bg-accent text-accent-fg mt-1 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold">
@@ -125,21 +149,31 @@ function ThreadRow({
   )
 }
 
-function Bubble({ m, showAvatar }: { m: Message; showAvatar: boolean }) {
-  const isClient = m.authorRole === 'client'
-  const isSystem = m.authorRole === 'system'
-
-  if (isSystem) {
+function Bubble({ m, mine, showAvatar, onRetry, linkable }: {
+  m: ChatMessage
+  mine: boolean
+  showAvatar: boolean
+  onRetry: () => void
+  /** Client pages exist only for clients; staff see the note alone. */
+  linkable: boolean
+}) {
+  if (m.kind === 'system') {
+    const link = linkable ? systemLink(m.meta) : null
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.25 }}
-        className="flex justify-center"
-      >
-        <span className="bg-surface-2 text-muted inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px]">
-          <Sparkles className="text-accent h-3 w-3" />
-          {m.body}
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="flex justify-center">
+        <span className="bg-surface-2 text-muted inline-flex max-w-[85%] items-center gap-1.5 rounded-2xl px-3 py-1 text-center text-[11px]">
+          <Sparkles className="text-accent h-3 w-3 shrink-0" />
+          <span className="whitespace-pre-wrap">
+            <Linkified text={m.body} />
+            {link && (
+              <>
+                {' '}
+                <Link to={link.to} className="text-accent font-semibold whitespace-nowrap hover:underline">
+                  {link.label} →
+                </Link>
+              </>
+            )}
+          </span>
         </span>
       </motion.div>
     )
@@ -150,163 +184,269 @@ function Bubble({ m, showAvatar }: { m: Message; showAvatar: boolean }) {
       initial={{ opacity: 0, scale: 0.97, y: 4 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ duration: 0.22 }}
-      className={cn('flex items-end gap-2', isClient ? 'justify-end' : 'justify-start')}
+      className={cn('flex items-end gap-2', mine ? 'justify-end' : 'justify-start')}
     >
-      {!isClient && showAvatar ? (
-        <Avatar className="h-8 w-8">
-          <AvatarFallback className="text-[10px]">
-            {m.authorName
-              .split(' ')
-              .map((s) => s[0])
-              .join('')
-              .slice(0, 2)}
-          </AvatarFallback>
-        </Avatar>
-      ) : (
-        !isClient && <span className="w-8 shrink-0" aria-hidden />
-      )}
+      {!mine &&
+        (showAvatar ? (
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="text-[10px]">{m.author?.avatarInitials ?? 'EX'}</AvatarFallback>
+          </Avatar>
+        ) : (
+          <span className="w-8 shrink-0" aria-hidden />
+        ))}
 
       <div
         className={cn(
           'max-w-[70%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm',
-          isClient ? 'bg-blush/70 text-ink rounded-br-md' : 'bg-surface-2 text-text rounded-bl-md',
+          mine ? 'bg-blush/70 text-ink rounded-br-md' : 'bg-surface-2 text-text rounded-bl-md',
+          m.status === 'sending' && 'opacity-70',
         )}
       >
-        <p className="whitespace-pre-wrap">{m.body}</p>
-        {m.attachments && m.attachments.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {m.attachments.map((a) => (
-              <span
-                key={a.url}
-                className="border-border/15 bg-surface text-text inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px]"
-              >
-                <FileText className="h-3 w-3" />
-                {a.name}
-              </span>
-            ))}
-          </div>
+        {!mine && showAvatar && m.author && <p className="text-muted mb-0.5 text-[10px] font-semibold">{m.author.name}</p>}
+        {m.body && (
+          <p className="whitespace-pre-wrap break-words">
+            <Linkified text={m.body} />
+          </p>
         )}
-        <p
-          className={cn(
-            'mt-1 text-[10px]',
-            isClient ? 'text-ink/60 text-right' : 'text-muted/70',
-          )}
-        >
-          {bubbleTime(m.createdAt)}
+        {m.attachments.length > 0 && <Attachments list={m.attachments} pending={Boolean(m.status)} />}
+        <p className={cn('mt-1 text-[10px]', mine ? 'text-ink/60 text-right' : 'text-muted/70')}>
+          {m.status === 'sending' ? 'Sending…' : bubbleTime(m.createdAt)}
         </p>
+        {m.status === 'failed' && (
+          <button type="button" onClick={onRetry} className="text-danger mt-1 flex items-center gap-1 text-[11px] font-semibold">
+            <AlertCircle className="h-3 w-3" /> Not sent — tap to retry
+          </button>
+        )}
       </div>
     </motion.div>
   )
 }
 
-export function MessagesPage() {
-  const [threads, setThreads] = useState<MessageThread[]>([])
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [loading, setLoading] = useState(true)
+function attachmentLabel(list: AttachmentDto[]) {
+  if (list.length === 0) return ''
+  const photos = list.filter((a) => a.mime.startsWith('image/')).length
+  if (photos === list.length) return photos === 1 ? 'Sent a photo' : `Sent ${photos} photos`
+  return list.length === 1 ? `Sent ${list[0].filename}` : `Sent ${list.length} files`
+}
+
+function formatSize(bytes: number) {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
+function Attachments({ list, pending }: { list: AttachmentDto[]; pending: boolean }) {
+  const open = (a: AttachmentDto) => {
+    if (pending) return
+    openFile(a.id).catch(() => toast.error('Couldn’t open that file', { description: 'Please try again.' }))
+  }
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {list.map((a) =>
+        a.thumbUrl ? (
+          <button key={a.id} type="button" onClick={() => open(a)} className="overflow-hidden rounded-xl" aria-label={`Open ${a.filename}`}>
+            <img src={a.thumbUrl} alt={a.filename} className="h-32 w-32 object-cover" />
+          </button>
+        ) : (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => open(a)}
+            className="border-border/15 bg-surface text-text inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px]"
+          >
+            <FileText className="h-3 w-3" />
+            <span className="max-w-[12rem] truncate">{a.filename}</span>
+            <span className="text-muted">{formatSize(a.sizeBytes)}</span>
+          </button>
+        ),
+      )}
+    </div>
+  )
+}
+
+const TYPING_SHOWN_MS = 4000
+/** Matches the server's throttle. */
+const TYPING_SEND_EVERY_MS = 3000
+
+function usePageVisible() {
+  const [visible, setVisible] = useState(() => document.visibilityState !== 'hidden')
+  useEffect(() => {
+    const on = () => setVisible(document.visibilityState !== 'hidden')
+    document.addEventListener('visibilitychange', on)
+    return () => document.removeEventListener('visibilitychange', on)
+  }, [])
+  return visible
+}
+
+/** Where a system note points: its event's budget, moodboards or AR page. */
+function systemLink(meta: Record<string, unknown> | null): { to: string; label: string } | null {
+  const type = typeof meta?.type === 'string' ? meta.type : ''
+  const eventId = typeof meta?.eventId === 'string' ? meta.eventId : null
+  if (!eventId) return null
+  if (type.startsWith('budget.')) return { to: `/events/${eventId}/budget`, label: 'Open budget' }
+  if (type.startsWith('moodboard.') || type === 'inspiration.adopted') return { to: `/events/${eventId}?tab=moodboard`, label: 'See moodboards' }
+  if (type.startsWith('ar.')) return { to: `/events/${eventId}/ar`, label: 'Open AR' }
+  return null
+}
+
+export function MessagesPage({ className }: { className?: string }) {
+  const me = useCurrentUser()
+  const viewerIsClient = me.role === 'client'
+  const [params, setParams] = useSearchParams()
+  const threadsQuery = useThreads()
+  const threads = useMemo(() => threadsQuery.data ?? [], [threadsQuery.data])
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
+  const [attached, setAttached] = useState<AttachmentDto[]>([])
+  const attachments = useUpload({
+    purpose: 'attachment',
+    onDone: (f) => setAttached((list) => [...list, { id: f.id, filename: f.filename, mime: f.mime, sizeBytes: f.sizeBytes, thumbUrl: f.thumbUrl }]),
+  })
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [typing, setTyping] = useState<{ threadId: string; name: string; until: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      const [t, m] = await Promise.all([api.messages.threads(), api.messages.thread()])
-      if (cancelled) return
-      setThreads(t)
-      setActiveThreadId(t[0]?.id ?? null)
-      setMessages(m)
-      setLoading(false)
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  // ?thread= deep links (emails, event page); else the most recent conversation.
+  const requested = params.get('thread')
+  const activeThreadId = threads.find((t) => t.id === requested)?.id ?? threads[0]?.id ?? null
+  const activeThread = threads.find((t) => t.id === activeThreadId) ?? null
+  // Attachments belong to the conversation they were picked in.
+  const { clearDone: clearUploads } = attachments
+  const [attachedFor, setAttachedFor] = useState<string | null>(null)
+  if (attachedFor !== activeThreadId) {
+    setAttachedFor(activeThreadId)
+    setAttached([])
+    clearUploads()
+  }
+  const selectThread = (id: string) => setParams((p) => {
+    p.set('thread', id)
+    return p
+  }, { replace: true })
+  const showConversationOnMobile = Boolean(requested && activeThread)
 
-  // Auto-scroll to bottom on new message or typing indicator.
+  const messagesQuery = useMessages(activeThreadId)
+  const send = useSendMessage(activeThreadId, me)
+  const markRead = useMarkRead()
+
+  // Pages are newest-first; the list renders oldest-first.
+  const messages = useMemo(() => (messagesQuery.data?.pages.flatMap((p) => p.messages as ChatMessage[]) ?? []).slice().reverse(), [messagesQuery.data])
+  const grouped = useMemo(() => groupByDay(messages), [messages])
+
+  useRealtime((msg) => {
+    if (msg.type === 'typing' && msg.threadId === activeThreadId) {
+      setTyping({ threadId: msg.threadId, name: msg.name, until: Date.now() + TYPING_SHOWN_MS })
+    }
+    // A message from them ends their typing indicator.
+    if (msg.type === 'message.created' && msg.message.author?.id !== me.id) setTyping(null)
+  })
+  useEffect(() => {
+    if (!typing) return
+    const t = window.setTimeout(() => setTyping(null), Math.max(0, typing.until - Date.now()))
+    return () => window.clearTimeout(t)
+  }, [typing])
+  const isTyping = typing?.threadId === activeThreadId
+
+  // Mark the newest message from others as read while the conversation is open.
+  const newestFromOthers = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (!m.status && m.author?.id !== me.id) return m.id
+    }
+    return null
+  }, [messages, me.id])
+  const myLastRead = activeThread?.participants.find((p) => p.id === me.id)?.lastReadMessageId ?? null
+  const { mutate: markReadMutate } = markRead
+  const visible = usePageVisible()
+  // Sent once per message: the thread list refetch that confirms it can lag behind.
+  const markedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!activeThreadId || !newestFromOthers || !visible) return
+    if ((myLastRead && myLastRead >= newestFromOthers) || markedRef.current === newestFromOthers) return
+    markedRef.current = newestFromOthers
+    markReadMutate({ threadId: activeThreadId, messageId: newestFromOthers })
+  }, [activeThreadId, newestFromOthers, myLastRead, markReadMutate, visible])
+
+  // Read receipt: under my latest message, once someone else has read it.
+  const lastMine = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) if (messages[i].author?.id === me.id && !messages[i].status) return messages[i]
+    return null
+  }, [messages, me.id])
+  const seenBy = useMemo(() => {
+    if (!lastMine || !activeThread) return null
+    const readers = activeThread.participants.filter((p) => p.id !== me.id && p.lastReadMessageId && p.lastReadMessageId >= lastMine.id)
+    return readers.length ? readers.map((r) => r.name.split(' ')[0]).join(', ') : null
+  }, [lastMine, activeThread, me.id])
+
+  // Stick to the bottom for new messages; keep position when older history loads above.
+  const prevHeight = useRef(0)
+  const loadingOlder = useRef(false)
+  const nearBottom = useRef(true)
+  const forceBottom = useRef(true)
+  useEffect(() => {
+    forceBottom.current = true // a newly opened conversation starts at its latest message
+  }, [activeThreadId])
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    el.scrollTop = el.scrollHeight
+    if (loadingOlder.current) {
+      el.scrollTop = el.scrollHeight - prevHeight.current
+      loadingOlder.current = false
+    } else if (nearBottom.current || forceBottom.current) {
+      // Someone reading older history isn't yanked down by a new message.
+      el.scrollTop = el.scrollHeight
+      if (messages.length > 0) forceBottom.current = false
+    }
   }, [messages, isTyping])
+  const onScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    if (el.scrollTop > 80 || !messagesQuery.hasNextPage || messagesQuery.isFetchingNextPage) return
+    prevHeight.current = el.scrollHeight
+    loadingOlder.current = true
+    void messagesQuery.fetchNextPage()
+  }
 
   // Auto-resize textarea (cap at 6 lines).
   useEffect(() => {
     const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
-    const lineHeight = 20
-    const max = lineHeight * 6 + 24
-    el.style.height = `${Math.min(el.scrollHeight, max)}px`
+    el.style.height = `${Math.min(el.scrollHeight, 20 * 6 + 24)}px`
   }, [draft])
 
-  const activeThread = useMemo(
-    () => threads.find((t) => t.id === activeThreadId) ?? null,
-    [threads, activeThreadId],
-  )
-  const consultant =
-    activeThread?.participants.find((p) => p.role === 'consultant') ?? null
-
   const filteredThreads = useMemo(() => {
-    if (!query.trim()) return threads
-    const q = query.toLowerCase()
+    const q = query.trim().toLowerCase()
+    if (!q) return threads
     return threads.filter(
       (t) =>
         t.title.toLowerCase().includes(q) ||
+        t.clientName.toLowerCase().includes(q) ||
         t.participants.some((p) => p.name.toLowerCase().includes(q)),
     )
   }, [threads, query])
 
-  const grouped = useMemo(() => groupByDay(messages), [messages])
+  function deliver(body: string, clientMessageId: string, files: AttachmentDto[] = []) {
+    send.mutate(
+      { body, clientMessageId, attachments: files },
+      {
+        onError: (err) => {
+          const description = isApiError(err, 'RATE_LIMITED') ? 'You’re sending quickly — wait a moment and retry.' : 'Tap the message to retry.'
+          toast.error('Message not sent', { description })
+        },
+      },
+    )
+  }
 
-  // Determine last client message index for read receipt.
-  const lastClientMessageId = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].authorRole === 'client') return messages[i].id
-    }
-    return null
-  }, [messages])
+  const canSend = Boolean(activeThreadId) && (draft.trim().length > 0 || attached.length > 0) && !attachments.busy
 
-  async function handleSend() {
+  function handleSend() {
     const body = draft.trim()
-    if (!body) return
-    const optimistic: Message = {
-      id: `msg_local_${Date.now()}`,
-      authorId: currentUser.id,
-      authorName: currentUser.name,
-      authorRole: 'client',
-      body,
-      createdAt: new Date().toISOString(),
-      read: true,
-    }
-    setMessages((prev) => [...prev, optimistic])
+    if (!canSend) return
     setDraft('')
-
-    try {
-      await api.messages.send(body)
-    } catch {
-      toast.error('Message failed to send', { description: 'Please try again.' })
-      return
-    }
-
-    // Mock typing indicator + auto-reply.
-    setIsTyping(true)
-    window.setTimeout(() => {
-      setIsTyping(false)
-      const reply: Message = {
-        id: `msg_reply_${Date.now()}`,
-        authorId: currentUser.consultant.id,
-        authorName: currentUser.consultant.name,
-        authorRole: 'consultant',
-        body: AUTO_REPLIES[Math.floor(Math.random() * AUTO_REPLIES.length)],
-        createdAt: new Date().toISOString(),
-        read: false,
-      }
-      setMessages((prev) => [...prev, reply])
-    }, 2000)
+    setAttached([])
+    attachments.clearDone()
+    forceBottom.current = true
+    deliver(body, newClientMessageId(), attached)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -316,10 +456,23 @@ export function MessagesPage() {
     }
   }
 
+  const lastTypingSent = useRef(0)
+  function handleDraft(value: string) {
+    setDraft(value)
+    const now = Date.now()
+    if (activeThreadId && value.trim() && now - lastTypingSent.current > TYPING_SEND_EVERY_MS) {
+      lastTypingSent.current = now
+      sendRealtime({ type: 'typing', threadId: activeThreadId })
+    }
+  }
+
+  const who = activeThread ? counterpart(activeThread, viewerIsClient, me.id) : null
+  const loading = threadsQuery.isPending
+
   return (
-    <div className="flex h-[calc(100vh-73px)] overflow-hidden">
+    <div className={cn('flex h-[calc(100vh-73px)] overflow-hidden', className)}>
       {/* Left pane: threads */}
-      <aside className="border-border/10 flex w-80 shrink-0 flex-col border-r">
+      <aside className={cn('border-border/10 w-full shrink-0 flex-col border-r md:flex md:w-80', showConversationOnMobile ? 'hidden' : 'flex')}>
         <div className="border-border/10 border-b p-5">
           <h1 className="font-display text-text text-2xl">Messages</h1>
           <div className="mt-3 flex items-center gap-2">
@@ -328,7 +481,8 @@ export function MessagesPage() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search threads…"
+                placeholder={viewerIsClient ? 'Search threads…' : 'Search clients or events…'}
+                aria-label="Search threads"
                 className="h-9 border-0 bg-transparent px-0 focus:border-0"
               />
             </div>
@@ -340,8 +494,17 @@ export function MessagesPage() {
             <div className="flex justify-center p-6">
               <Spinner />
             </div>
+          ) : threadsQuery.isError ? (
+            <div className="p-6 text-center">
+              <p className="text-muted text-xs">Couldn’t load your conversations.</p>
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => void threadsQuery.refetch()}>
+                <RotateCw className="h-3.5 w-3.5" /> Try again
+              </Button>
+            </div>
           ) : filteredThreads.length === 0 ? (
-            <p className="text-muted p-6 text-center text-xs">No threads match your search.</p>
+            <p className="text-muted p-6 text-center text-xs">
+              {threads.length === 0 ? 'No conversations yet.' : 'No threads match your search.'}
+            </p>
           ) : (
             <div className="space-y-1">
               {filteredThreads.map((t) => (
@@ -349,7 +512,9 @@ export function MessagesPage() {
                   key={t.id}
                   thread={t}
                   isActive={t.id === activeThreadId}
-                  onClick={() => setActiveThreadId(t.id)}
+                  onClick={() => selectThread(t.id)}
+                  viewerIsClient={viewerIsClient}
+                  meId={me.id}
                 />
               ))}
             </div>
@@ -358,50 +523,47 @@ export function MessagesPage() {
       </aside>
 
       {/* Right pane: conversation */}
-      <section className="flex min-w-0 flex-1 flex-col">
-        {/* Conversation header */}
-        <header className="border-border/10 flex items-center justify-between border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            {consultant ? (
-              <>
-                <Avatar className="h-11 w-11">
-                  <AvatarFallback>{consultant.avatarInitials}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-text text-sm font-semibold">{consultant.name}</p>
-                  <div className="mt-0.5 flex items-center gap-2">
-                    <span className="text-muted/70 text-[11px]">Your consultant</span>
-                    <span className="text-muted/40">·</span>
-                    <span className="text-success flex items-center gap-1 text-[11px]">
-                      <span className="bg-success h-1.5 w-1.5 rounded-full" />
-                      Active now
-                    </span>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="text-muted text-sm">No thread selected</p>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" aria-label="Video call">
-              <Video className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="Voice call">
-              <Phone className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="More">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </div>
+      <section className={cn('min-w-0 flex-1 flex-col md:flex', showConversationOnMobile ? 'flex' : 'hidden')}>
+        <header className="border-border/10 flex items-center gap-3 border-b px-4 py-4 md:px-6">
+          <button
+            type="button"
+            aria-label="Back to conversations"
+            onClick={() => setParams((p) => {
+              p.delete('thread')
+              return p
+            })}
+            className="text-muted hover:text-text rounded-lg p-1 md:hidden"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          {who && activeThread ? (
+            <>
+              <Avatar className="h-11 w-11">
+                <AvatarFallback>{who.initials}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="text-text truncate text-sm font-semibold">{activeThread.title}</p>
+                <p className="text-muted/70 mt-0.5 truncate text-[11px]">
+                  {viewerIsClient ? `With ${who.name}, your consultant` : `${who.name} · client`}
+                </p>
+              </div>
+            </>
+          ) : (
+            <p className="text-muted text-sm">{loading ? 'Loading…' : 'No conversation selected'}</p>
+          )}
         </header>
 
-        {/* Message list */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6">
-          {loading ? (
+        <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-6 md:px-6">
+          {messagesQuery.isPending && activeThreadId ? (
             <div className="flex justify-center py-10">
               <Spinner />
+            </div>
+          ) : messagesQuery.isError ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3">
+              <p className="text-muted text-sm">Couldn’t load this conversation.</p>
+              <Button variant="outline" size="sm" onClick={() => void messagesQuery.refetch()}>
+                <RotateCw className="h-3.5 w-3.5" /> Try again
+              </Button>
             </div>
           ) : messages.length === 0 ? (
             <div className="flex h-full items-center justify-center">
@@ -411,17 +573,23 @@ export function MessagesPage() {
                     <MessageCircle className="h-5 w-5" />
                   </span>
                   <p className="font-display text-text text-lg">
-                    Welcome, {currentUser.name.split(' ')[0]}
+                    {viewerIsClient ? `Welcome, ${me.name.split(' ')[0]}` : 'No messages yet'}
                   </p>
                   <p className="text-muted text-sm">
-                    {consultant?.name ?? 'Your consultant'} is here to guide you through every
-                    detail. Send a message any time.
+                    {viewerIsClient
+                      ? `${who?.name ?? 'Your consultant'} is here to guide you through every detail. Send a message any time.`
+                      : `Say hello to ${who?.name ?? 'your client'}.`}
                   </p>
                 </CardContent>
               </Card>
             </div>
           ) : (
             <div className="mx-auto max-w-3xl space-y-5">
+              {messagesQuery.isFetchingNextPage && (
+                <div className="flex justify-center">
+                  <Spinner />
+                </div>
+              )}
               <AnimatePresence initial={false}>
                 {grouped.map((group) => (
                   <div key={group.key} className="space-y-3">
@@ -432,15 +600,18 @@ export function MessagesPage() {
                     </div>
                     {group.items.map((m, idx) => {
                       const prev = group.items[idx - 1]
-                      const showAvatar =
-                        !prev || prev.authorRole !== m.authorRole || prev.authorId !== m.authorId
+                      const showAvatar = !prev || prev.kind !== m.kind || prev.author?.id !== m.author?.id
                       return (
-                        <div key={m.id} className="space-y-1">
-                          <Bubble m={m} showAvatar={showAvatar} />
-                          {m.id === lastClientMessageId && m.authorRole === 'client' && (
-                            <p className="text-muted/70 pr-1 text-right text-[10px]">
-                              Seen {relativeTime(m.createdAt)}
-                            </p>
+                        <div key={m.clientMessageId && m.author?.id === me.id ? `c-${m.clientMessageId}` : m.id} className="space-y-1">
+                          <Bubble
+                            m={m}
+                            mine={m.author?.id === me.id}
+                            showAvatar={showAvatar}
+                            onRetry={() => deliver(m.body, m.clientMessageId!, m.attachments)}
+                            linkable={viewerIsClient}
+                          />
+                          {m.id === lastMine?.id && seenBy && (
+                            <p className="text-muted/70 pr-1 text-right text-[10px]">Seen by {seenBy}</p>
                           )}
                         </div>
                       )
@@ -449,29 +620,15 @@ export function MessagesPage() {
                 ))}
               </AnimatePresence>
 
-              {isTyping && consultant && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex items-center gap-2"
-                >
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="text-[10px]">
-                      {consultant.avatarInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="bg-surface-2 text-muted flex items-center gap-1 rounded-2xl rounded-bl-md px-4 py-2.5 text-xs">
-                    <span>{consultant.name.split(' ')[0]} is typing</span>
+              {isTyping && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2">
+                  <span className="w-8 shrink-0" aria-hidden />
+                  <div className="bg-surface-2 text-muted flex items-center gap-1 rounded-2xl rounded-bl-md px-4 py-2.5 text-xs" aria-live="polite">
+                    <span>{typing?.name} is typing</span>
                     <span className="flex gap-0.5">
                       <span className="bg-muted/60 h-1 w-1 animate-bounce rounded-full" />
-                      <span
-                        className="bg-muted/60 h-1 w-1 animate-bounce rounded-full"
-                        style={{ animationDelay: '0.15s' }}
-                      />
-                      <span
-                        className="bg-muted/60 h-1 w-1 animate-bounce rounded-full"
-                        style={{ animationDelay: '0.3s' }}
-                      />
+                      <span className="bg-muted/60 h-1 w-1 animate-bounce rounded-full" style={{ animationDelay: '0.15s' }} />
+                      <span className="bg-muted/60 h-1 w-1 animate-bounce rounded-full" style={{ animationDelay: '0.3s' }} />
                     </span>
                   </div>
                 </motion.div>
@@ -481,33 +638,81 @@ export function MessagesPage() {
         </div>
 
         {/* Composer */}
-        <div className="border-border/10 sticky bottom-0 border-t bg-surface px-6 py-4">
+        <div className="border-border/10 sticky bottom-0 border-t bg-surface px-4 py-4 md:px-6">
+          {(attached.length > 0 || attachments.items.some((i) => i.status !== 'done')) && (
+            <ul className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-2">
+              {attached.map((a) => (
+                <li key={a.id} className="bg-surface-2 text-text flex items-center gap-2 rounded-lg px-2 py-1 text-[11px]">
+                  {a.thumbUrl ? <img src={a.thumbUrl} alt="" className="h-6 w-6 rounded object-cover" /> : <FileText className="h-3 w-3" />}
+                  <span className="max-w-[10rem] truncate">{a.filename}</span>
+                  <button type="button" aria-label={`Remove ${a.filename}`} onClick={() => setAttached((l) => l.filter((x) => x.id !== a.id))}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </li>
+              ))}
+              {attachments.items
+                .filter((i) => i.status !== 'done')
+                .map((i) => (
+                  <li key={i.localId} className="bg-surface-2 text-muted flex items-center gap-2 rounded-lg px-2 py-1 text-[11px]">
+                    <span className="max-w-[10rem] truncate">{i.name}</span>
+                    {i.status === 'uploading' ? (
+                      <span>{Math.round(i.progress * 100)}%</span>
+                    ) : (
+                      <>
+                        <span className="text-danger">{i.error}</span>
+                        <button type="button" onClick={() => attachments.retry(i.localId)} className="text-accent font-semibold">
+                          Retry
+                        </button>
+                        <button type="button" aria-label={`Dismiss ${i.name}`} onClick={() => attachments.dismiss(i.localId)}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </>
+                    )}
+                  </li>
+                ))}
+            </ul>
+          )}
           <div className="border-border/15 bg-surface mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border p-2">
-            <Button variant="ghost" size="icon" aria-label="Attach file" type="button">
+            <input
+              ref={fileInput}
+              type="file"
+              multiple
+              accept={acceptFor('attachment')}
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden
+              onChange={(e) => {
+                if (e.target.files?.length) void attachments.upload(e.target.files)
+                e.target.value = ''
+              }}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Attach photos or PDFs"
+              type="button"
+              disabled={!activeThreadId}
+              onClick={() => fileInput.current?.click()}
+            >
               <Paperclip className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="Emoji" type="button">
-              <Smile className="h-4 w-4" />
             </Button>
             <textarea
               ref={textareaRef}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => handleDraft(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={1}
+              maxLength={MESSAGE_MAX}
+              disabled={!activeThreadId}
+              aria-label="Message"
               placeholder="Write a message…"
               className="text-text placeholder:text-muted/60 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-5 outline-none"
             />
-            <Button
-              onClick={handleSend}
-              disabled={!draft.trim()}
-              size="icon"
-              aria-label="Send message"
-            >
+            <Button onClick={handleSend} disabled={!canSend} size="icon" aria-label="Send message">
               <Send className="h-4 w-4" />
             </Button>
           </div>
-          <p className="text-muted/60 mx-auto mt-2 max-w-3xl text-[10px]">
+          <p className="text-muted/60 mx-auto mt-2 hidden max-w-3xl text-[10px] md:block">
             <kbd className="border-border/15 rounded border px-1">Enter</kbd> to send ·{' '}
             <kbd className="border-border/15 rounded border px-1">Shift + Enter</kbd> for a new line
           </p>
@@ -516,4 +721,3 @@ export function MessagesPage() {
     </div>
   )
 }
-

@@ -12,10 +12,11 @@ Elation's real inventory in the database, tagged well enough for the moodboard e
 
 `Inventory/` contains four CamScanner PDFs — photos of handwritten/printed sheets, not structured data. The 18 items in `fixtures.ts` are placeholders.
 
-**Plan:**
-1. Agree an import template with Elation (below) — ❓ **Needs Elation**: who fills it, by when.
-2. Until it arrives, transcribe the scanned sheets into the template ourselves (one afternoon; flag unclear rows for Elation to confirm).
-3. Import via the admin CSV importer; re-imports upsert by `sku`.
+**Plan (decided — A3 in [00-decisions](00-decisions.md#owner-answers-2026-10-12)):**
+1. **Now:** build and test everything on the 18 placeholder items (seeded in Step 2 with `notes = "placeholder"`), enriched with area/mood/style tags so the moodboard engine has something meaningful to score.
+2. **In parallel:** transcribe the scanned sheets in `Inventory/` into the template below; mark uncertain cells; send the sheet to Elation to confirm prices and tags.
+3. Import the confirmed sheet via the admin CSV importer (re-imports upsert by `sku`), then archive the placeholders.
+4. **Launch gate:** zero active items with `notes = "placeholder"`.
 
 ### Import template (`docs/assets/inventory-template.csv`)
 
@@ -65,7 +66,44 @@ The client-facing list is small (hundreds of rows) and read-heavy: `GET /invento
 
 ## Definition of done
 
-- [ ] Real Elation inventory imported (or transcribed placeholder flagged "unconfirmed").
-- [ ] Every active item has a category, price, unit, at least one area tag, and an image.
-- [ ] Re-importing the same CSV produces `0 created, 0 updated`.
-- [ ] Price change on an item shows the "prices updated" banner on affected draft budgets.
+- [x] Real Elation inventory imported as a **draft**: 162 items transcribed from the 176 scanned photos (reference photos, duplicates and the scanner watermark page skipped).
+- [x] Every active item has a category, unit, at least one area tag and an image. **Price** is present on the 18 placeholders only — the real items are "price on request" until Elation confirms prices (decision P22).
+- [x] Re-importing the same CSV produces `0 created, 0 updated` (tested, including export → import round trip).
+- [ ] "Prices updated" banner on draft budgets — computed in Step 8 by comparing line snapshots with current prices; price changes are already audit-logged.
+
+## As built (2026-10-13)
+
+Review: [reviews/step-06-review.md](reviews/step-06-review.md).
+
+### What the scans turned out to be
+
+`Inventory/*.pdf` are 176 phone photos of physical items, each with a white label giving **available/total quantity** (e.g. `2/3` = 2 of 3 usable) and sometimes Urdu size notes (`لمبائی 12 پیس 5` = 12 ft long, 5 pieces). There are no names or prices. So each photo became a draft row with a descriptive name, category, colour + hex, material, quantity (the available number), area/mood/style tags and the photo itself as the item image; uncertain points are written into `notes` for Elation.
+
+| | Count |
+| --- | --- |
+| Draft items from the scans | 162 (72 florals, 47 props, 26 backdrops/structures, 9 lighting, 1 chandelier, 1 fabric, 6 furniture) |
+| Items whose quantity Elation must confirm (no label / catalogue render) | 13 |
+| Suspected duplicates flagged | 1 pair (S1-P06 / S3-P77) |
+| Priced placeholders kept for the demo budgets | 18 (`notes = placeholder`) |
+
+Files: `server/prisma/seed/inventory-draft.csv` (the draft, also loaded by the seed) and `webapp/public/media/inventory/*.jpg` (162 × 480 px, 5 MB — moves to the R2 public bucket in Step 11). SKUs are `S<scan set>-P<page>` so every row traces back to its photo.
+
+### How Elation confirms the catalogue
+
+1. Admin downloads `GET /api/v1/admin/inventory/export.csv` (or opens `inventory-draft.csv`).
+2. Elation fills in `price_pkr`, corrects names / quantities, and deletes nothing (archive instead).
+3. Admin uploads the sheet to `POST /api/v1/admin/inventory/import` — first as a dry run (`?commit=false`) to see `created / updated / unchanged / errors`, then with `?commit=true`. A file with any error applies nothing.
+4. Once the real items are priced, archive the 18 placeholders. **Launch gate:** no active item with `notes = placeholder`.
+
+### API
+
+| Method | Path | Who |
+| --- | --- | --- |
+| `GET` | `/inventory?category=&area=&q=&priced=` | any signed-in user — clients get active items without `stockQty`/`notes`; ETag + 60 s private cache |
+| `GET` | `/inventory/:id` | any signed-in user |
+| `POST` / `PATCH` | `/admin/inventory`, `/admin/inventory/:id` | admin |
+| `POST` | `/admin/inventory/:id/archive` · `/restore` | admin |
+| `POST` | `/admin/inventory/import?commit=` (body: `text/csv`) | admin |
+| `GET` | `/admin/inventory/export.csv` | admin |
+
+Differences from the plan: image ZIP upload waits for Step 11 (images are referenced by filename under `/media/inventory/`); `pricePkr` is nullable (P22).

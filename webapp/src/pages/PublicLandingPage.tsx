@@ -16,17 +16,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import heroImg from '@/assets/from-docx/img_04.jpg'
-import approach1 from '@/assets/from-docx/img_07.jpg'
-import approach2 from '@/assets/from-docx/img_11.jpg'
-import approach3 from '@/assets/from-docx/img_13.jpg'
-import gallery1 from '@/assets/from-docx/img_04.jpg'
-import gallery2 from '@/assets/from-docx/img_07.jpg'
-import gallery3 from '@/assets/from-docx/img_11.jpg'
-import gallery4 from '@/assets/from-docx/img_13.jpg'
-import gallery5 from '@/assets/from-docx/img_16.jpg'
-import gallery6 from '@/assets/from-docx/img_18.jpg'
-import ctaImg from '@/assets/from-docx/img_18.jpg'
+import { img_04 as heroImg, img_07 as approach1, img_11 as approach2, img_13 as approach3, img_04 as gallery1, img_07 as gallery2, img_11 as gallery3, img_13 as gallery4, img_16 as gallery5, img_18 as gallery6, img_18 as ctaImg } from '@/lib/media'
 
 const steps = [
   {

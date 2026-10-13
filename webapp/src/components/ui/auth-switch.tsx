@@ -1,24 +1,20 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Eye, EyeOff, Check, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, Check, ArrowRight, AlertCircle, Sparkles } from 'lucide-react'
+import { PASSWORD_MIN_LENGTH, type InviteLookup } from '@elation/shared/api'
 import { cn } from '@/lib/utils'
 
-type Mode = 'signin' | 'signup'
+export type AuthMode = 'signin' | 'activate'
 
-type AuthSwitchProps = {
-  mode: Mode
-  onModeChange: (m: Mode) => void
-  onSubmit?: (data: Record<string, string>) => void
-  className?: string
-}
-
-function TextField({
+export function TextField({
   label,
   value,
   onChange,
   type = 'text',
   autoComplete,
   required,
+  readOnly,
 }: {
   label: string
   value: string
@@ -26,6 +22,7 @@ function TextField({
   type?: string
   autoComplete?: string
   required?: boolean
+  readOnly?: boolean
 }) {
   const filled = value.length > 0
   return (
@@ -36,8 +33,12 @@ function TextField({
         onChange={(e) => onChange(e.target.value)}
         autoComplete={autoComplete}
         required={required}
+        readOnly={readOnly}
         placeholder=" "
-        className="border-ink/15 focus:border-blush-deep peer w-full rounded-xl border bg-white/80 px-4 pb-2.5 pt-5 text-sm text-ink outline-none transition"
+        className={cn(
+          'border-ink/15 focus:border-blush-deep peer w-full rounded-xl border bg-white/80 px-4 pb-2.5 pt-5 text-sm text-ink outline-none transition',
+          readOnly && 'bg-ink/[0.03] text-ink/70',
+        )}
       />
       <span
         className={cn(
@@ -53,7 +54,7 @@ function TextField({
   )
 }
 
-function PasswordField({
+export function PasswordField({
   label,
   value,
   onChange,
@@ -106,7 +107,7 @@ function Checkbox({
 }: {
   checked: boolean
   onChange: (v: boolean) => void
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2.5 text-xs text-ink/70">
@@ -117,9 +118,7 @@ function Checkbox({
         onClick={() => onChange(!checked)}
         className={cn(
           'flex h-4 w-4 items-center justify-center rounded border transition',
-          checked
-            ? 'bg-blush-deep border-blush-deep'
-            : 'border-ink/25 bg-white hover:border-ink/40',
+          checked ? 'bg-blush-deep border-blush-deep' : 'border-ink/25 bg-white hover:border-ink/40',
         )}
       >
         {checked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
@@ -129,97 +128,162 @@ function Checkbox({
   )
 }
 
-function SocialButton({
-  provider,
-  onClick,
-}: {
-  provider: 'google' | 'apple'
-  onClick?: () => void
-}) {
+export function FormError({ message }: { message: string | null | undefined }) {
+  return (
+    <AnimatePresence initial={false}>
+      {message && (
+        <motion.p
+          role="alert"
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className="flex items-start gap-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-xs leading-relaxed text-red-700"
+        >
+          <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+          {message}
+        </motion.p>
+      )}
+    </AnimatePresence>
+  )
+}
+
+export function SubmitButton({ pending, children }: { pending: boolean; children: ReactNode }) {
   return (
     <button
-      type="button"
-      onClick={onClick}
-      className="border-ink/15 bg-white hover:border-ink/30 flex flex-1 items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-semibold text-ink transition"
+      type="submit"
+      disabled={pending}
+      className="bg-blush-deep hover:bg-blush-deep/95 mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold tracking-wide text-white shadow-sm transition disabled:cursor-wait disabled:opacity-70"
     >
-      {provider === 'google' ? (
-        <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
-          <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.4-1.6 4-5.5 4-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.9 1.5L18.7 4.8C16.9 3.1 14.6 2 12 2 6.5 2 2 6.5 2 12s4.5 10 10 10c5.8 0 9.6-4.1 9.6-9.8 0-.7-.1-1.2-.2-2H12z" />
-        </svg>
+      {pending ? (
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-transparent" />
       ) : (
-        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-ink" aria-hidden>
-          <path d="M16.4 12.7c0-2.4 2-3.6 2.1-3.6-1.2-1.7-2.9-2-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.1 2.5-1.7 3-.5 7.4 1.2 9.9.9 1.2 2 2.6 3.4 2.5 1.4-.1 1.9-.9 3.5-.9s2.1.9 3.5.9c1.5 0 2.4-1.2 3.2-2.4.9-1.4 1.3-2.7 1.3-2.7 0-.1-2.5-.9-2.5-3.7zM13.5 5.4c.7-.9 1.2-2.1 1.1-3.4-1.1 0-2.4.7-3.1 1.6-.7.7-1.3 2-1.1 3.2 1.2.1 2.4-.6 3.1-1.4z" />
-        </svg>
+        <>
+          {children}
+          <ArrowRight className="h-4 w-4" />
+        </>
       )}
-      {provider === 'google' ? 'Google' : 'Apple'}
     </button>
   )
 }
 
+type AuthSwitchProps = {
+  mode: AuthMode
+  onModeChange: (m: AuthMode) => void
+  initialCode: string
+  /** Invitation found for the code (prefills the activation form). */
+  invite: InviteLookup | undefined
+  onCodeChange: (code: string) => void
+  onSignIn: (data: { email: string; password: string; remember: boolean }) => void
+  onActivate: (data: { code: string; name: string; password: string }) => void
+  pending: boolean
+  error: string | null
+  className?: string
+}
+
+/** Sign-in and invitation-activation forms. Accounts are invite-only — no open sign-up. */
 export function AuthSwitch({
   mode,
   onModeChange,
-  onSubmit,
+  initialCode,
+  invite,
+  onCodeChange,
+  onSignIn,
+  onActivate,
+  pending,
+  error,
   className,
 }: AuthSwitchProps) {
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [invitation, setInvitation] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [invitation, setInvitation] = useState(initialCode)
   const [remember, setRemember] = useState(true)
   const [terms, setTerms] = useState(false)
+  const [localError, setLocalError] = useState<string | null>(null)
+
+  // Prefill from the invitation once it's found.
+  useEffect(() => {
+    if (invite) {
+      setName((n) => n || invite.name)
+      setEmail(invite.email)
+    }
+  }, [invite])
+
+  const isActivate = mode === 'activate'
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    onSubmit?.({ firstName, lastName, email, password, invitation })
+    setLocalError(null)
+    if (!isActivate) {
+      onSignIn({ email, password, remember })
+      return
+    }
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setLocalError(`Use at least ${PASSWORD_MIN_LENGTH} characters for your password.`)
+      return
+    }
+    if (password !== confirm) {
+      setLocalError('The two passwords don’t match.')
+      return
+    }
+    if (!terms) {
+      setLocalError('Please accept the Terms & Conditions to continue.')
+      return
+    }
+    onActivate({ code: invitation.trim(), name: name.trim(), password })
   }
-
-  const isSignup = mode === 'signup'
 
   return (
     <div className={cn('w-full max-w-md', className)}>
       <div className="mb-8">
         <h1 className="font-display text-[42px] leading-none text-ink">
-          {isSignup ? 'Create an account' : 'Welcome back'}
+          {isActivate ? 'Activate your studio' : 'Welcome back'}
         </h1>
         <p className="mt-3 text-sm text-ink/60">
-          {isSignup ? 'Already have an account?' : 'New to Elation?'}{' '}
+          {isActivate ? 'Already activated?' : 'Received an invitation from Elation?'}{' '}
           <button
             type="button"
-            onClick={() => onModeChange(isSignup ? 'signin' : 'signup')}
+            onClick={() => {
+              setLocalError(null)
+              onModeChange(isActivate ? 'signin' : 'activate')
+            }}
             className="text-blush-deep font-semibold underline underline-offset-4"
           >
-            {isSignup ? 'Log in' : 'Create an account'}
+            {isActivate ? 'Sign in' : 'Activate it'}
           </button>
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <AnimatePresence mode="popLayout" initial={false}>
-          {isSignup && (
+          {isActivate && (
             <motion.div
-              key="names"
+              key="invite"
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
-              className="grid grid-cols-2 gap-3"
+              className="space-y-3"
             >
               <TextField
-                label="First name"
-                value={firstName}
-                onChange={setFirstName}
-                autoComplete="given-name"
+                label="Invitation code"
+                value={invitation}
+                onChange={(v) => {
+                  setInvitation(v)
+                  onCodeChange(v.trim())
+                }}
                 required
               />
-              <TextField
-                label="Last name"
-                value={lastName}
-                onChange={setLastName}
-                autoComplete="family-name"
-                required
-              />
+              {invite && (
+                <p className="bg-sage/15 text-ink/80 flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs">
+                  <Sparkles className="text-sage-deep h-3.5 w-3.5 shrink-0" />
+                  {invite.consultantName
+                    ? `${invite.consultantName} has prepared your private studio.`
+                    : 'Your private Elation studio is ready.'}
+                </p>
+              )}
+              <TextField label="Full name" value={name} onChange={setName} autoComplete="name" required />
             </motion.div>
           )}
         </AnimatePresence>
@@ -231,40 +295,26 @@ export function AuthSwitch({
           onChange={setEmail}
           autoComplete="email"
           required
+          readOnly={isActivate}
         />
-
-        <AnimatePresence mode="popLayout" initial={false}>
-          {isSignup && (
-            <motion.div
-              key="invite"
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-            >
-              <TextField
-                label="Invitation code"
-                value={invitation}
-                onChange={setInvitation}
-                required
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <PasswordField
-          label={isSignup ? 'Create a password' : 'Password'}
+          label={isActivate ? 'Create a password' : 'Password'}
           value={password}
           onChange={setPassword}
-          autoComplete={isSignup ? 'new-password' : 'current-password'}
+          autoComplete={isActivate ? 'new-password' : 'current-password'}
         />
 
-        {isSignup ? (
+        {isActivate && (
+          <PasswordField label="Confirm password" value={confirm} onChange={setConfirm} autoComplete="new-password" />
+        )}
+
+        {isActivate ? (
           <div className="pt-1">
             <Checkbox checked={terms} onChange={setTerms}>
-              I agree to the{' '}
-              <a href="#" className="text-ink font-semibold underline underline-offset-2">
-                Terms & Conditions
+              I’ve read the{' '}
+              <a href="/terms" target="_blank" rel="noopener" className="text-ink font-semibold underline underline-offset-2">
+                privacy summary
               </a>
             </Checkbox>
           </div>
@@ -273,35 +323,19 @@ export function AuthSwitch({
             <Checkbox checked={remember} onChange={setRemember}>
               Remember me
             </Checkbox>
-            <a
-              href="#"
-              className="text-blush-deep text-xs font-semibold hover:underline"
-            >
+            <Link to="/forgot-password" className="text-blush-deep text-xs font-semibold hover:underline">
               Forgot password?
-            </a>
+            </Link>
           </div>
         )}
 
-        <button
-          type="submit"
-          className="bg-blush-deep hover:bg-blush-deep/95 mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold tracking-wide text-white shadow-sm transition"
-        >
-          {isSignup ? 'Create account' : 'Sign in'}
-          <ArrowRight className="h-4 w-4" />
-        </button>
+        <FormError message={localError ?? error} />
 
-        <div className="mt-5 flex items-center gap-3">
-          <span className="bg-ink/10 h-px flex-1" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-ink/50">
-            Or {isSignup ? 'register' : 'sign in'} with
-          </span>
-          <span className="bg-ink/10 h-px flex-1" />
-        </div>
+        <SubmitButton pending={pending}>{isActivate ? 'Activate my studio' : 'Sign in'}</SubmitButton>
 
-        <div className="flex gap-3 pt-2">
-          <SocialButton provider="google" />
-          <SocialButton provider="apple" />
-        </div>
+        <p className="pt-4 text-center text-[11px] leading-relaxed text-ink/45">
+          Elation X is private. Accounts are created by the Elation team during your consultation.
+        </p>
       </form>
     </div>
   )

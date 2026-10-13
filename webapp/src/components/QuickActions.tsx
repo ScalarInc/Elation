@@ -2,10 +2,9 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ClipboardList, Palette, Calculator, Boxes } from 'lucide-react'
-import { events } from '@/mocks/fixtures'
+import type { ClientEvent } from '@/mocks/types'
 
-export function QuickActions() {
-  const e = events[0]
+export function QuickActions({ event: e }: { event: ClientEvent }) {
   const actions: { title: string; body: string; icon: ReactNode; to: string }[] = [
     {
       title: 'Continue questionnaire',
@@ -23,7 +22,7 @@ export function QuickActions() {
       title: 'Tune the budget',
       body: 'Line items, live totals and a traffic-light indicator.',
       icon: <Calculator className="h-5 w-5" />,
-      to: `/events/${e.id}/budget`,
+      to: `/events/${e.id}/budget?from=dashboard`,
     },
     {
       title: 'Preview in AR',

@@ -6,6 +6,7 @@ This folder is the plan for building the Elation X backend and wiring the existi
 
 | File | What it covers |
 | --- | --- |
+| [HANDOFF.md](HANDOFF.md) | **Start here** — what's built, how to run it, decisions and what's left |
 | [00-decisions.md](00-decisions.md) | The decision panel, and every architecture decision with its reasoning (ADR log) |
 | [01-architecture.md](01-architecture.md) | System overview, folder layout, API conventions, auth model, realtime, jobs |
 
@@ -70,7 +71,13 @@ This folder is the plan for building the Elation X backend and wiring the existi
 | 5 | Step 12 | Admin pages |
 | 6 | Step 14, hardening | QA, dark-mode/empty-state pass |
 
+## Reviews
+
+Each step is validated by the five-persona technical panel before it is pushed: [reviews/](reviews/).
+
 ## How to use these docs
+
+- All work happens on the **`feature/backend`** branch, committed and pushed after every step; merged into `main` when done.
 
 - Each step ends with a **Definition of done** checklist. Tick it in the PR description that closes the step.
 - If implementation deviates from a doc, update the doc in the same PR and add a line to the deviation log in [00-decisions.md](00-decisions.md).

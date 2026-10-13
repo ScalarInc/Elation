@@ -34,3 +34,6 @@ Thumbs.db
 
 # Local Claude Code settings (per-developer)
 .claude/settings.local.json
+
+# Local file storage (dev/test, docs/step-11-files.md)
+.storage/

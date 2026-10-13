@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feature/backend]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: elation
+          POSTGRES_PASSWORD: elation
+          POSTGRES_DB: elation_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U elation"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://elation:elation@localhost:5432/elation_test
+      DATABASE_URL_TEST: postgresql://elation:elation@localhost:5432/elation_test
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Enable Postgres extensions
+        run: psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS citext;"
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Migrate
+        run: npm run db:deploy --workspace server
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: No demo data in the bundle
+        run: npm run check:bundle --workspace webapp
+
+      # Even a build asking for mock mode must not ship demo data (P57).
+      - name: No demo data in a mock-mode build either
+        run: |
+          VITE_API_MODE=mock npm run build --workspace webapp
+          npm run check:bundle --workspace webapp

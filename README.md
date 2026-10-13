@@ -12,12 +12,12 @@ The platform is **never public**: client accounts are created by the Elation tea
 
 | Area | State |
 | --- | --- |
-| Client-facing frontend (`webapp/`) | Built — every page runs on mock data |
+| Client-facing frontend (`webapp/`) | Built — every page runs on the API (client studio + admin console) |
 | Admin area (`/admin/*`) | Routes + layout only, pages are placeholders |
-| Backend | **Planned** — see [`docs/`](docs/README.md) |
+| Backend | **In progress** on `feature/backend` — Steps 1–13 (foundation, database, auth, events, questionnaire, inventory, moodboard, budget, inspirations & AR, chat & activity, files, admin console, frontend integration) done; plan in [`docs/`](docs/README.md) |
 | AR sets (Meta Quest 3) | Separate track; web app shows status + assets |
 
-Today every page reads from `webapp/src/mocks/*` through `webapp/src/lib/api.ts` (a `setTimeout` wrapper), and questionnaire answers live in a Zustand store persisted to `localStorage`. Nothing survives a browser change, and events created in the UI are lost on refresh. The backend plan replaces this layer step by step.
+Every page reads the API through `webapp/src/data/*` (TanStack Query); questionnaire edits are buffered locally and synced to the server. `webapp/src/mocks/*` only backs `VITE_API_MODE=mock` in `npm run dev` — production builds stub it out and CI fails if demo data reaches the bundle.
 
 ---
 
@@ -53,6 +53,8 @@ Overview KPIs · Client management (invite / extend / revoke access) · Inquirie
 
 ```
 .
+├── server/                         Fastify + Prisma API (serves the webapp in production)
+├── packages/shared/                @elation/shared — questionnaire, enums, budget math used by both apps
 ├── webapp/                         Vite + React 19 + TypeScript + Tailwind frontend
 │   └── src/
 │       ├── pages/                  One file per route
@@ -72,17 +74,27 @@ Overview KPIs · Client management (invite / extend / revoke access) · Inquirie
 
 ---
 
-## Run the frontend
+## Run locally
+
+Picking the project up? Read [`docs/HANDOFF.md`](docs/HANDOFF.md) first.
+
+Requires Node 24 (`.nvmrc`) and Docker.
 
 ```bash
-cd webapp
-npm install
-npm run dev
+npm install                          # all workspaces (webapp, server, packages/shared)
+npm run db:up                        # Postgres 16 in Docker on localhost:55432
+cp server/.env.example server/.env
+npm run db:deploy -w server          # create tables
+npm run db:seed -w server            # demo data
+npm run dev                          # API on :4000 + webapp on :5173
 ```
 
-Open <http://localhost:5173/>. Useful scripts: `npm run build` (type-check + build), `npm run lint` (oxlint).
+Open <http://localhost:5173/> and sign in with a demo account (password `elation-dev`): client `malaika.khan@example.com`, consultant `ayesha@elationbyfmh.com`, admin `admin@elationx.local`. Everything runs against the real API — events, questionnaire, moodboards, budgets, inspirations, AR, live chat, files and the admin console (`/admin`). Server details: [`server/README.md`](server/README.md).
 
-To test the auth redirect in the mock phase, run `localStorage.setItem('elation-auth', 'off')` in the browser console.
+Without `RESEND_API_KEY`, invitation and password-reset emails are printed to the server log, links included. To work on the frontend without the server, run `npm run dev` with `VITE_API_MODE=mock` (see `webapp/.env.example`); builds always use the API.
+
+Root scripts: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` — each runs across all workspaces.
+
 
 ---
 
