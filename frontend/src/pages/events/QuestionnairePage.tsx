@@ -24,6 +24,7 @@ import { CategoryRail } from '@/components/questionnaire/CategoryRail'
 import { QuestionField } from '@/components/questionnaire/QuestionField'
 import { CATEGORY_TIPS } from '@/lib/questionnaire/categoryTips'
 import { Button } from '@/components/ui/button'
+import { PageLoader } from '@/components/ui/page-loader'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { toast } from '@/components/ui/toast'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
@@ -105,6 +106,8 @@ export function QuestionnairePage() {
   const answers = useQuestionnaire((s) => s.byEvent[id ?? '']?.answers ?? EMPTY_ANSWERS)
   const decides = useQuestionnaire((s) => s.byEvent[id ?? '']?.elationDecides ?? EMPTY_DECIDES)
   const lastSavedAt = useQuestionnaire((s) => s.lastSavedAt[id ?? ''])
+  const saveFailed = useQuestionnaire((s) => s.saveState[id ?? ''] === 'error')
+  const loadFailed = useQuestionnaire((s) => s.loadState[id ?? ''] === 'error')
 
   const progress = useMemo(
     () => computeCategoryProgress(answers, decides),
@@ -130,6 +133,13 @@ export function QuestionnairePage() {
     setLastToastAt(lastSavedAt)
     toast.success('Progress saved', { duration: 1400 })
   }, [lastSavedAt, lastToastAt])
+
+  useEffect(() => {
+    if (saveFailed) toast.error("Couldn't save your answers", { description: 'Check your connection; your next change will retry.' })
+  }, [saveFailed])
+  useEffect(() => {
+    if (loadFailed) toast.error("Couldn't load saved answers", { description: 'Reload the page before editing.' })
+  }, [loadFailed])
 
   const idx = categories.findIndex((c) => c.slug === activeSlug)
   const prev = idx > 0 ? categories[idx - 1] : null
@@ -162,6 +172,7 @@ export function QuestionnairePage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [next, prev]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (event === undefined) return <PageLoader fullScreen />
   if (!event) {
     return (
       <div className="bg-bg text-text flex min-h-screen items-center justify-center p-8">

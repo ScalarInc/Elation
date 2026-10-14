@@ -11,6 +11,7 @@ import { ARHero } from '@/components/ar/ARHero'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
+import { PageLoader } from '@/components/ui/page-loader'
 import { formatDate } from '@/lib/format'
 
 const WEDDING_SET_TYPES: EventType[] = ['Baraat', 'Walima', 'Mehndi']
@@ -55,6 +56,7 @@ export function EventARPage() {
     }
   }, [id])
 
+  if (event === undefined) return <PageLoader />
   if (!event) return <ARNotFound />
 
   return (

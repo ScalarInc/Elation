@@ -115,7 +115,7 @@ export function BudgetListPage() {
         const ev = eventById.get(snap.eventId)
         if (!ev) return null
         const total = includedTotal(snap, invById)
-        const budget = ev.budgetPKR || snap.budgetPKR
+        const budget = ev.budgetPkr ?? snap.budgetPKR
         const tone = classify(total, budget)
         return { event: ev, snapshot: snap, total, budget, tone }
       })

@@ -3,7 +3,7 @@ import { ArrowUpRight, Calendar, MapPin, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
-import { formatDate, formatPKRCompact, daysUntil } from '@/lib/format'
+import { formatDate, formatBudget, daysUntil } from '@/lib/format'
 import type { ClientEvent, ModuleStatus } from '@/types'
 
 const weight: Record<ModuleStatus, number> = { complete: 1, in_progress: 0.5, pending: 0 }
@@ -78,7 +78,7 @@ export function EventCard({ event, className }: Props) {
           </li>
           <li className="flex items-center gap-2">
             <Users className="h-3.5 w-3.5" />
-            {event.guests} guests · {formatPKRCompact(event.budgetPKR)}
+            {event.guests} guests · {formatBudget(event.budgetPkr)}
           </li>
         </ul>
 

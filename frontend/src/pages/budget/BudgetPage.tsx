@@ -703,7 +703,7 @@ export function BudgetPage() {
 
   if (!id) return <EventNotFound />
 
-  if (loading) {
+  if (loading || event === undefined) {
     return (
       <div className="px-10 pb-12 pt-8">
         <Skeleton className="h-10 w-64" />

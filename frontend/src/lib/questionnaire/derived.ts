@@ -49,10 +49,10 @@ export function resolveEvent(base: ClientEvent, answers: Answers): ClientEvent {
         ? indoor
         : base.venue.indoor,
     },
-    budgetPKR:
+    budgetPkr:
       typeof budgetBand === 'string' && BUDGET_MIDPOINTS[budgetBand] != null
         ? BUDGET_MIDPOINTS[budgetBand]
-        : base.budgetPKR,
+        : base.budgetPkr,
   }
 }
 

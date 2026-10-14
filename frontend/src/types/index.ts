@@ -71,14 +71,34 @@ export type ClientEvent = {
   clientId: UUID
   name: string
   type: EventType
-  concept?: string
+  concept: string | null
   date: string // ISO
   venue: { name: string; city: string; indoor: 'Indoor' | 'Outdoor' | 'Both' }
   guests: number
-  budgetPKR: number
+  /** Target budget; null until the client sets one (questionnaire or budget page). */
+  budgetPkr: number | null
+  /** Always set: the API layer falls back to a brand image when the event has no cover. */
   coverImage: string
   progress: EventProgress
   status: 'draft' | 'active' | 'past'
+}
+
+/** Body of POST /api/events. */
+export type EventCreateInput = {
+  name: string
+  type: EventType
+  date: string // yyyy-mm-dd
+  venueName: string
+  city: string
+  guests: number
+}
+
+/** Saved questionnaire state for one event (GET/PUT /api/events/:id/questionnaire). */
+export type QuestionnaireData = {
+  answers: Record<string, unknown>
+  elationDecides: Record<string, boolean>
+  percent: number
+  updatedAt: string | null
 }
 
 export type Moodboard = {

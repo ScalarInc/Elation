@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Sparkles } from 'lucide-react'
 import {
   Dialog,
@@ -14,6 +15,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { toast } from '@/components/ui/toast'
+import { api } from '@/api'
 import type { EventType } from '@/types'
 
 const EVENT_TYPES: EventType[] = [
@@ -36,17 +39,36 @@ type FormOutput = z.output<typeof schema>
 
 export function NewEventDialog() {
   const [open, setOpen] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
+  const navigate = useNavigate()
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
     defaultValues: { type: EVENT_TYPES[0] },
   })
 
-  function onSubmit(_values: FormOutput) {
-    // TODO(backend): create the event via the API, then close the dialog and open the new event.
+  async function onSubmit(values: FormOutput) {
+    setServerError(null)
+    try {
+      const event = await api.events.create({
+        name: values.concept.trim(),
+        type: values.type,
+        date: values.date,
+        venueName: values.venueName.trim(),
+        city: values.city.trim(),
+        guests: values.guests,
+      })
+      reset()
+      setOpen(false)
+      toast.success(`${event.name} created`, { description: 'Start with the questionnaire to shape your concept.' })
+      navigate(`/events/${event.id}`)
+    } catch (err) {
+      setServerError((err as Error).message)
+    }
   }
 
   return (
@@ -69,6 +91,7 @@ export function NewEventDialog() {
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4 pt-2">
+          {serverError && <p className="col-span-2 text-xs text-red-500">{serverError}</p>}
           <div className="col-span-2 space-y-1.5">
             <Label htmlFor="concept">Concept name</Label>
             <Input id="concept" placeholder="e.g. Whispers of Noor" {...register('concept')} />

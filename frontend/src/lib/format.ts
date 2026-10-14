@@ -20,6 +20,11 @@ export function formatDate(iso: string) {
   return dateFmt.format(new Date(iso))
 }
 
+/** Event target budget, or a prompt when none is set yet. */
+export function formatBudget(n: number | null) {
+  return n == null ? 'Budget not set' : formatPKRCompact(n)
+}
+
 export function daysUntil(iso: string) {
   const diff = new Date(iso).getTime() - Date.now()
   return Math.max(0, Math.round(diff / 86_400_000))

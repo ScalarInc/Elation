@@ -1,6 +1,15 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { api } from '@/api'
 import { categories, questions, questionsInCategory, visibleQuestions } from '@/lib/questionnaire/schema'
+
+/**
+ * Questionnaire answers per event, synced with the backend.
+ *
+ * - `load(eventId)` fetches saved answers once per event (call before showing answers).
+ * - Every edit updates local state immediately and schedules a debounced save.
+ * - Saves only happen after a successful load, so an empty local state never
+ *   overwrites what is stored on the server.
+ */
 
 /** Question answers keyed by question id. */
 export type Answers = Record<string, unknown>
@@ -16,16 +25,21 @@ type EventState = {
   elationDecides: Record<string, boolean>
 }
 
+type LoadState = 'loading' | 'loaded' | 'error'
+type SaveState = 'saving' | 'saved' | 'error'
+
 type QState = {
   /** State per event. Keyed by eventId. */
   byEvent: Record<string, EventState>
+  loadState: Record<string, LoadState>
+  saveState: Record<string, SaveState>
+  /** When the server last confirmed a save (ms timestamp). */
   lastSavedAt: Record<string, number>
 
-  // reads
+  load: (eventId: string) => Promise<void>
   getAnswers: (eventId: string) => Answers
   getDecides: (eventId: string) => Record<string, boolean>
 
-  // writes
   setAnswer: (eventId: string, qid: string, value: unknown) => void
   toggleAnswer: (eventId: string, qid: string, value: string) => void
   setElationDecides: (eventId: string, qid: string, on: boolean) => void
@@ -34,95 +48,92 @@ type QState = {
 }
 
 const initial: EventState = { answers: {}, elationDecides: {} }
+const SAVE_DELAY_MS = 800
+const saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
-export const useQuestionnaire = create<QState>()(
-  persist(
-    (set, get) => ({
-      byEvent: {},
-      lastSavedAt: {},
+export const useQuestionnaire = create<QState>()((set, get) => {
+  async function save(eventId: string) {
+    const state = get().byEvent[eventId] ?? initial
+    const percent = computeOverallPercent(computeCategoryProgress(state.answers, state.elationDecides))
+    set((s) => ({ saveState: { ...s.saveState, [eventId]: 'saving' } }))
+    try {
+      await api.questionnaire.save(eventId, { answers: state.answers, elationDecides: state.elationDecides, percent })
+      set((s) => ({
+        saveState: { ...s.saveState, [eventId]: 'saved' },
+        lastSavedAt: { ...s.lastSavedAt, [eventId]: Date.now() },
+      }))
+    } catch {
+      set((s) => ({ saveState: { ...s.saveState, [eventId]: 'error' } }))
+    }
+  }
 
-      getAnswers: (eventId) => get().byEvent[eventId]?.answers ?? EMPTY_ANSWERS,
-      getDecides: (eventId) => get().byEvent[eventId]?.elationDecides ?? EMPTY_DECIDES,
+  function scheduleSave(eventId: string) {
+    if (get().loadState[eventId] !== 'loaded') return
+    clearTimeout(saveTimers.get(eventId))
+    saveTimers.set(eventId, setTimeout(() => void save(eventId), SAVE_DELAY_MS))
+  }
 
-      setAnswer: (eventId, qid, value) =>
-        set((s) => {
-          const prev = s.byEvent[eventId] ?? initial
-          return {
-            byEvent: {
-              ...s.byEvent,
-              [eventId]: {
-                ...prev,
-                answers: { ...prev.answers, [qid]: value },
-                // Setting an explicit value cancels "Elation decides"
-                elationDecides: { ...prev.elationDecides, [qid]: false },
-              },
-            },
-            lastSavedAt: { ...s.lastSavedAt, [eventId]: Date.now() },
-          }
-        }),
+  /** Apply a change to one event's state, then queue a save. */
+  function update(eventId: string, change: (prev: EventState) => EventState) {
+    set((s) => ({ byEvent: { ...s.byEvent, [eventId]: change(s.byEvent[eventId] ?? initial) } }))
+    scheduleSave(eventId)
+  }
 
-      toggleAnswer: (eventId, qid, value) =>
-        set((s) => {
-          const prev = s.byEvent[eventId] ?? initial
-          const current = (prev.answers[qid] as string[] | undefined) ?? []
-          const next = current.includes(value)
-            ? current.filter((v) => v !== value)
-            : [...current, value]
-          return {
-            byEvent: {
-              ...s.byEvent,
-              [eventId]: {
-                ...prev,
-                answers: { ...prev.answers, [qid]: next },
-                elationDecides: { ...prev.elationDecides, [qid]: false },
-              },
-            },
-            lastSavedAt: { ...s.lastSavedAt, [eventId]: Date.now() },
-          }
-        }),
+  return {
+    byEvent: {},
+    loadState: {},
+    saveState: {},
+    lastSavedAt: {},
 
-      setElationDecides: (eventId, qid, on) =>
-        set((s) => {
-          const prev = s.byEvent[eventId] ?? initial
-          const nextAnswers = { ...prev.answers }
-          if (on) delete nextAnswers[qid]
-          return {
-            byEvent: {
-              ...s.byEvent,
-              [eventId]: {
-                ...prev,
-                answers: nextAnswers,
-                elationDecides: { ...prev.elationDecides, [qid]: on },
-              },
-            },
-            lastSavedAt: { ...s.lastSavedAt, [eventId]: Date.now() },
-          }
-        }),
-
-      clearAnswer: (eventId, qid) =>
-        set((s) => {
-          const prev = s.byEvent[eventId] ?? initial
-          const nextAnswers = { ...prev.answers }
-          delete nextAnswers[qid]
-          return {
-            byEvent: {
-              ...s.byEvent,
-              [eventId]: { ...prev, answers: nextAnswers },
-            },
-            lastSavedAt: { ...s.lastSavedAt, [eventId]: Date.now() },
-          }
-        }),
-
-      resetEvent: (eventId) =>
+    load: async (eventId) => {
+      const current = get().loadState[eventId]
+      if (current === 'loading' || current === 'loaded') return
+      set((s) => ({ loadState: { ...s.loadState, [eventId]: 'loading' } }))
+      try {
+        const saved = await api.questionnaire.get(eventId)
         set((s) => ({
-          byEvent: { ...s.byEvent, [eventId]: initial },
-          lastSavedAt: { ...s.lastSavedAt, [eventId]: Date.now() },
-        })),
-    }),
-    { name: 'elation.questionnaire' },
-  ),
-)
+          byEvent: { ...s.byEvent, [eventId]: { answers: saved.answers, elationDecides: saved.elationDecides } },
+          loadState: { ...s.loadState, [eventId]: 'loaded' },
+        }))
+      } catch {
+        set((s) => ({ loadState: { ...s.loadState, [eventId]: 'error' } }))
+      }
+    },
 
+    getAnswers: (eventId) => get().byEvent[eventId]?.answers ?? EMPTY_ANSWERS,
+    getDecides: (eventId) => get().byEvent[eventId]?.elationDecides ?? EMPTY_DECIDES,
+
+    setAnswer: (eventId, qid, value) =>
+      update(eventId, (prev) => ({
+        answers: { ...prev.answers, [qid]: value },
+        // Setting an explicit value cancels "Elation decides"
+        elationDecides: { ...prev.elationDecides, [qid]: false },
+      })),
+
+    toggleAnswer: (eventId, qid, value) =>
+      update(eventId, (prev) => {
+        const current = (prev.answers[qid] as string[] | undefined) ?? []
+        const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value]
+        return { answers: { ...prev.answers, [qid]: next }, elationDecides: { ...prev.elationDecides, [qid]: false } }
+      }),
+
+    setElationDecides: (eventId, qid, on) =>
+      update(eventId, (prev) => {
+        const answers = { ...prev.answers }
+        if (on) delete answers[qid]
+        return { answers, elationDecides: { ...prev.elationDecides, [qid]: on } }
+      }),
+
+    clearAnswer: (eventId, qid) =>
+      update(eventId, (prev) => {
+        const answers = { ...prev.answers }
+        delete answers[qid]
+        return { ...prev, answers }
+      }),
+
+    resetEvent: (eventId) => update(eventId, () => initial),
+  }
+})
 /** True if the answer is meaningful (non-empty string, non-empty array, defined number). */
 export function isAnswered(value: unknown): boolean {
   if (value == null || value === '') return false

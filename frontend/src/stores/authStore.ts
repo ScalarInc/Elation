@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { ApiRequestError } from '@/api/client'
 import { api } from '@/api'
 import { supabase } from '@/lib/supabase'
+import { useQuestionnaire } from '@/stores/questionnaireStore'
 import type { ClientUser } from '@/types'
 
 /**
@@ -47,6 +48,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   signOut: async () => {
     await supabase.auth.signOut()
+    // Drop any cached answers so the next person on this browser starts clean.
+    useQuestionnaire.setState({ byEvent: {}, loadState: {}, saveState: {}, lastSavedAt: {} })
     set({ status: 'signedOut', user: null, blockedCode: null, loadError: null })
   },
 
