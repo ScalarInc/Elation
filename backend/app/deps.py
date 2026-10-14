@@ -70,5 +70,12 @@ def require_admin(user: Annotated[Profile, Depends(get_current_user)]) -> Profil
     return user
 
 
+def require_client(user: Annotated[Profile, Depends(get_current_user)]) -> Profile:
+    if user.role != "client":
+        raise ApiError(403, "FORBIDDEN", "This area is for clients.")
+    return user
+
+
 CurrentUser = Annotated[Profile, Depends(get_current_user)]
 CurrentAdmin = Annotated[Profile, Depends(require_admin)]
+CurrentClient = Annotated[Profile, Depends(require_client)]

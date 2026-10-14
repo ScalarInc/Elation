@@ -1,0 +1,116 @@
+"""Events and questionnaire persistence. Clients only ever see their own events."""
+
+import json
+from datetime import UTC, date, datetime, time
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import exists, select
+from sqlalchemy.orm import Session
+
+from app.constants import EVENT_TYPES, VENUE_SETTINGS
+from app.errors import ApiError
+from app.models import BudgetLine, Event, Moodboard, QuestionnaireResponse, QuoteRequest
+
+# Questionnaire answers that also update the event's own columns, so server-side features
+# (budget, recommendations) see the same values the client entered. Mirrors the frontend's
+# `resolveEvent` in lib/questionnaire/derived.ts.
+BUDGET_BAND_MIDPOINTS_PKR = {
+    "Under PKR 250,000": 200_000,
+    "PKR 250,000–500,000": 375_000,
+    "PKR 500,000–1M": 750_000,
+    "PKR 1M–2M": 1_500_000,
+    "PKR 2M–5M": 3_500_000,
+    "PKR 5M+": 7_500_000,
+}
+
+MAX_ANSWERS_BYTES = 200_000
+
+
+def get_own_event(db: Session, client_id: UUID, event_id: UUID) -> Event:
+    event = db.get(Event, event_id)
+    if event is None or event.client_id != client_id:
+        raise ApiError(404, "NOT_FOUND", "Event not found.")  # same answer for "not yours"
+    return event
+
+
+def event_status(event: Event, today: date | None = None) -> str:
+    today = today or datetime.now(UTC).date()
+    return "past" if event.event_date.date() < today else event.status
+
+
+def module_progress(db: Session, event: Event) -> dict[str, str]:
+    """Derived per request; nothing extra is stored."""
+
+    def any_row(model, *conditions) -> bool:
+        return bool(db.scalar(select(exists().where(*conditions))))
+
+    percent = event.questionnaire_percent
+    questionnaire = "pending" if percent == 0 else "complete" if percent >= 100 else "in_progress"
+
+    if any_row(Moodboard, Moodboard.event_id == event.id, Moodboard.liked.is_(True)):
+        moodboard = "complete"
+    elif any_row(Moodboard, Moodboard.event_id == event.id):
+        moodboard = "in_progress"
+    else:
+        moodboard = "pending"
+
+    if any_row(QuoteRequest, QuoteRequest.event_id == event.id):
+        budget = "complete"
+    elif any_row(BudgetLine, BudgetLine.event_id == event.id):
+        budget = "in_progress"
+    else:
+        budget = "pending"
+
+    return {"questionnaire": questionnaire, "moodboard": moodboard, "budget": budget, "ar": "pending"}
+
+
+def to_event_datetime(day: date) -> datetime:
+    return datetime.combine(day, time(12, 0), tzinfo=UTC)  # midday UTC: same calendar day everywhere
+
+
+def apply_answers_to_event(event: Event, answers: dict[str, Any]) -> None:
+    def text(key: str) -> str | None:
+        value = answers.get(key)
+        return value.strip() if isinstance(value, str) and value.strip() else None
+
+    if (value := text("q2_name")) is not None:
+        event.concept = value
+    if (value := text("q1_type")) in EVENT_TYPES:
+        event.type = value
+    if (value := text("q3_date")) is not None:
+        try:
+            event.event_date = to_event_datetime(date.fromisoformat(value[:10]))
+        except ValueError:
+            pass
+    guests = answers.get("q4_guests")
+    if isinstance(guests, int) and not isinstance(guests, bool) and guests > 0:
+        event.guest_count = guests
+    if (value := text("q5_venue")) is not None:
+        event.venue_name = value
+    if (value := text("q6_indoor")) in VENUE_SETTINGS:
+        event.venue_setting = value
+    if (value := text("q121_budget")) in BUDGET_BAND_MIDPOINTS_PKR:
+        event.target_budget_pkr = BUDGET_BAND_MIDPOINTS_PKR[value]
+
+
+def save_questionnaire(
+    db: Session, event: Event, answers: dict[str, Any], elation_decides: dict[str, bool], percent: int
+) -> QuestionnaireResponse:
+    if len(json.dumps(answers)) > MAX_ANSWERS_BYTES:
+        raise ApiError(400, "VALIDATION_FAILED", "Questionnaire answers are too large.")
+
+    response = db.get(QuestionnaireResponse, event.id)
+    if response is None:
+        response = QuestionnaireResponse(event_id=event.id)
+        db.add(response)
+    response.answers = answers
+    response.elation_decides = {k: bool(v) for k, v in elation_decides.items()}
+    response.updated_at = datetime.now(UTC)
+
+    event.questionnaire_percent = percent
+    if percent > 0 and event.status == "draft":
+        event.status = "active"
+    apply_answers_to_event(event, answers)
+    db.commit()
+    return response
