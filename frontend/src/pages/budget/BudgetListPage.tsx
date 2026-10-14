@@ -14,83 +14,30 @@ import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/api'
-import { formatPKRCompact } from '@/lib/format'
+import { formatBudget, formatPKRCompact } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type {
-  BudgetSnapshot,
-  InventoryItem,
-} from '@/types'
+import type { BudgetSnapshot, BudgetStatus } from '@/types'
+import { BUDGET_STATUS_LABEL } from '@/lib/budget'
 import { useResolvedEvents } from '@/hooks/useResolvedEvent'
 
-type Tone = 'green' | 'yellow-over' | 'yellow-under' | 'red'
-
-function classify(total: number, budget: number): Tone {
-  if (budget <= 0) return 'yellow-under'
-  const r = total / budget
-  if (r > 1.15) return 'red'
-  if (r > 1.0) return 'yellow-over'
-  if (r < 0.7) return 'yellow-under'
-  return 'green'
-}
-
-function toneStyles(tone: Tone) {
-  switch (tone) {
-    case 'green':
-      return {
-        pill: 'bg-success/15 border-success/40 text-success',
-        label: 'On target',
-        Icon: CheckCircle2,
-      }
-    case 'yellow-over':
-      return {
-        pill: 'bg-warning/15 border-warning/40 text-warning',
-        label: 'Slightly over',
-        Icon: AlertTriangle,
-      }
-    case 'yellow-under':
-      return {
-        pill: 'bg-warning/15 border-warning/40 text-warning',
-        label: 'Under-investing',
-        Icon: AlertTriangle,
-      }
-    case 'red':
-      return {
-        pill: 'bg-danger/15 border-danger/40 text-danger',
-        label: 'Significantly over',
-        Icon: AlertOctagon,
-      }
-  }
-}
-
-function includedTotal(
-  snap: BudgetSnapshot,
-  invById: Map<string, InventoryItem>,
-) {
-  return snap.lines.reduce((sum, l) => {
-    if (!l.included) return sum
-    const item = invById.get(l.itemId)
-    return item ? sum + item.pricePkr * l.qty : sum
-  }, 0)
+const TONE_STYLES: Record<BudgetStatus, { pill: string; Icon: typeof CheckCircle2 }> = {
+  green: { pill: 'bg-success/15 border-success/40 text-success', Icon: CheckCircle2 },
+  yellow: { pill: 'bg-warning/15 border-warning/40 text-warning', Icon: AlertTriangle },
+  red: { pill: 'bg-danger/15 border-danger/40 text-danger', Icon: AlertOctagon },
+  noTarget: { pill: 'bg-surface-2 border-border/20 text-muted', Icon: AlertTriangle },
 }
 
 export function BudgetListPage() {
   const events = useResolvedEvents()
   const [loading, setLoading] = useState(true)
   const [snapshots, setSnapshots] = useState<BudgetSnapshot[]>([])
-  const [inventoryList, setInventoryList] = useState<InventoryItem[]>([])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    Promise.all([
-      Promise.all(events.map((e) => api.budget.forEvent(e.id))),
-      api.inventory.list(),
-    ])
-      .then(([snaps, inv]) => {
-        if (cancelled) return
-        setSnapshots(snaps.filter((s): s is BudgetSnapshot => Boolean(s)))
-        setInventoryList(inv)
-      })
+    Promise.all(events.map((e) => api.budget.forEvent(e.id)))
+      .then((snaps) => !cancelled && setSnapshots(snaps))
+      .catch(() => !cancelled && setSnapshots([]))
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -99,39 +46,18 @@ export function BudgetListPage() {
     }
   }, [events])
 
-  const invById = useMemo(
-    () => new Map(inventoryList.map((i) => [i.id, i])),
-    [inventoryList],
+  const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
+
+  // One card per event that has started a budget. Totals come from the server (live prices).
+  const rows = useMemo(
+    () =>
+      snapshots.flatMap((snap) => {
+        const event = eventById.get(snap.eventId)
+        if (!event || snap.lines.length === 0) return []
+        return [{ event, total: snap.totals.totalPkr, budget: snap.budgetPkr, tone: snap.totals.status }]
+      }),
+    [snapshots, eventById],
   )
-
-  const eventById = useMemo(
-    () => new Map(events.map((e) => [e.id, e])),
-    [events],
-  )
-
-  const rows = useMemo(() => {
-    return snapshots
-      .map((snap) => {
-        const ev = eventById.get(snap.eventId)
-        if (!ev) return null
-        const total = includedTotal(snap, invById)
-        const budget = ev.budgetPkr ?? snap.budgetPKR
-        const tone = classify(total, budget)
-        return { event: ev, snapshot: snap, total, budget, tone }
-      })
-      .filter(
-        (
-          r,
-        ): r is {
-          event: NonNullable<ReturnType<typeof eventById.get>>
-          snapshot: BudgetSnapshot
-          total: number
-          budget: number
-          tone: Tone
-        } => Boolean(r),
-      )
-  }, [snapshots, eventById, invById])
-
   return (
     <div className="px-10 pb-12 pt-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -163,7 +89,7 @@ export function BudgetListPage() {
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map(({ event, total, budget, tone }, idx) => {
-            const styles = toneStyles(tone)
+            const styles = TONE_STYLES[tone]
             const Icon = styles.Icon
             return (
               <motion.div
@@ -191,7 +117,7 @@ export function BudgetListPage() {
                         )}
                       >
                         <Icon className="h-3 w-3" />
-                        {styles.label}
+                        {BUDGET_STATUS_LABEL[tone]}
                       </span>
                     </div>
                   </div>
@@ -216,7 +142,7 @@ export function BudgetListPage() {
                       <div className="mt-1 flex justify-between">
                         <dt className="text-muted">Budget</dt>
                         <dd className="text-text font-semibold tabular-nums">
-                          {formatPKRCompact(budget)}
+                          {formatBudget(budget)}
                         </dd>
                       </div>
                     </dl>

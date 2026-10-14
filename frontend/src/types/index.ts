@@ -132,17 +132,39 @@ export type InventoryItem = {
 }
 
 export type BudgetLine = {
+  /** Client-generated UUID; stays stable across saves. */
   id: UUID
+  /** Budget bucket, e.g. "Stage" or "Seating". */
   category: string
   itemId: UUID
   qty: number
   included: boolean
 }
 
+export type BudgetStatus = 'green' | 'yellow' | 'red' | 'noTarget'
+
+/** GET/PUT /api/events/:id/budget, mapped by the API layer. */
 export type BudgetSnapshot = {
   eventId: UUID
-  budgetPKR: number
+  /** Target budget; null when not set. */
+  budgetPkr: number | null
   lines: BudgetLine[]
+  /** Every item the lines reference, including archived ones (not in the public catalogue). */
+  items: InventoryItem[]
+  /** Server-computed totals using the latest saved prices. */
+  totals: { totalPkr: number; deltaPkr: number | null; status: BudgetStatus }
+}
+
+/** A frozen quote: prices, quantities and totals as they were when requested. */
+export type QuoteRequest = {
+  id: UUID
+  eventId: UUID
+  status: 'new' | 'contacted' | 'closed'
+  totalPkr: number
+  targetBudgetPkr: number | null
+  budgetStatus: BudgetStatus
+  clientNote: string | null
+  createdAt: string
 }
 
 export type Inspiration = {

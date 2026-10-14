@@ -1,6 +1,7 @@
 import type {
   ActivityEntry,
   ARSet,
+  BudgetLine,
   BudgetSnapshot,
   ClientEvent,
   ClientUser,
@@ -12,6 +13,7 @@ import type {
   Moodboard,
   ProfileUpdate,
   QuestionnaireData,
+  QuoteRequest,
   UUID,
 } from '@/types'
 import defaultCover from '@/assets/images/img_11.jpg'
@@ -22,6 +24,24 @@ type ApiEvent = Omit<ClientEvent, 'coverImage'> & { coverImage: string | null }
 /** Events without an uploaded cover use a brand image so cards always have a picture. */
 function withCover(event: ApiEvent): ClientEvent {
   return { ...event, coverImage: event.coverImage ?? defaultCover }
+}
+
+type ApiBudget = {
+  eventId: UUID
+  targetBudgetPkr: number | null
+  lines: { id: UUID; category: string; inventoryItemId: UUID; quantity: number; included: boolean }[]
+  items: InventoryItem[]
+  totals: BudgetSnapshot['totals']
+}
+
+function toSnapshot(b: ApiBudget): BudgetSnapshot {
+  return {
+    eventId: b.eventId,
+    budgetPkr: b.targetBudgetPkr,
+    lines: b.lines.map((l) => ({ id: l.id, category: l.category, itemId: l.inventoryItemId, qty: l.quantity, included: l.included })),
+    items: b.items,
+    totals: b.totals,
+  }
 }
 
 /**
@@ -71,7 +91,22 @@ export const api = {
   },
 
   budget: {
-    forEvent: async (_eventId: UUID): Promise<BudgetSnapshot | undefined> => undefined,
+    forEvent: async (eventId: UUID): Promise<BudgetSnapshot> =>
+      toSnapshot(await apiRequest<ApiBudget>(`/api/events/${eventId}/budget`)),
+    save: async (eventId: UUID, budgetPkr: number | null, lines: BudgetLine[]): Promise<BudgetSnapshot> =>
+      toSnapshot(
+        await apiRequest<ApiBudget>(`/api/events/${eventId}/budget`, {
+          method: 'PUT',
+          body: {
+            targetBudgetPkr: budgetPkr,
+            lines: lines.map((l) => ({
+              id: l.id, category: l.category, inventoryItemId: l.itemId, quantity: l.qty, included: l.included,
+            })),
+          },
+        }),
+      ),
+    requestQuote: (eventId: UUID, note?: string): Promise<QuoteRequest> =>
+      apiRequest(`/api/events/${eventId}/quote-requests`, { method: 'POST', body: { note } }),
   },
 
   messages: {

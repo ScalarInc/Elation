@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -35,9 +35,10 @@ import { toast } from '@/components/ui/toast'
 import { api } from '@/api'
 import { formatPKR, formatPKRCompact } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { BUDGET_STATUS_LABEL, classifyBudget } from '@/lib/budget'
 import type {
   BudgetLine,
-  BudgetSnapshot,
+  BudgetStatus,
   InventoryItem,
 } from '@/types'
 import { useResolvedEvent } from '@/hooks/useResolvedEvent'
@@ -77,12 +78,12 @@ const CATEGORY_ORDER = [
 // Rough hint of which InventoryItem.category values map into which budget
 // "bucket" — used by the Add-from-inventory sheet to pre-filter.
 const CATEGORY_TO_INVENTORY: Record<string, InventoryItem['category'][]> = {
-  Stage: ['Backdrop', 'Sofa', 'Prop', 'Signage'],
+  Stage: ['Backdrop', 'Structure', 'Sofa', 'Prop', 'Signage'],
   Florals: ['Floral'],
   Ceiling: ['Chandelier', 'Fabric'],
   Seating: ['Chair', 'Sofa'],
   Dining: ['Table', 'Chair', 'Floral'],
-  Entrance: ['Prop', 'Signage', 'Lighting'],
+  Entrance: ['Structure', 'Prop', 'Signage', 'Lighting', 'Floral'],
   Lighting: ['Lighting', 'Chandelier'],
   Fabric: ['Fabric'],
 }
@@ -92,27 +93,18 @@ const CATEGORY_TO_INVENTORY: Record<string, InventoryItem['category'][]> = {
 // -----------------------------------------------------------------------------
 
 function makeLineId() {
-  return `bl_${Math.random().toString(36).slice(2, 9)}_${Date.now().toString(36)}`
+  return crypto.randomUUID()
 }
 
 type Ratio = {
   total: number
   budget: number
-  ratio: number
   delta: number // total - budget (positive = over)
-  state: 'green' | 'yellow-over' | 'yellow-under' | 'red'
+  state: BudgetStatus
 }
 
-function classifyBudget(total: number, budget: number): Ratio {
-  const safeBudget = budget > 0 ? budget : 1
-  const ratio = total / safeBudget
-  const delta = total - budget
-  let state: Ratio['state']
-  if (ratio > 1.15) state = 'red'
-  else if (ratio > 1.0) state = 'yellow-over'
-  else if (ratio < 0.7) state = 'yellow-under'
-  else state = 'green'
-  return { total, budget, ratio, delta, state }
+function buildRatio(total: number, budget: number): Ratio {
+  return { total, budget, delta: total - budget, state: classifyBudget(total, budget || null) }
 }
 
 type CategoryTotal = { category: string; total: number; count: number }
@@ -201,30 +193,25 @@ function TrafficLightCard({ ratio }: { ratio: Ratio }) {
     ? 'bg-success/15 border-success/40 text-success'
     : isRed
     ? 'bg-danger/15 border-danger/40 text-danger'
+    : tone === 'noTarget'
+    ? 'bg-surface-2 border-border/20 text-muted'
     : 'bg-warning/15 border-warning/40 text-warning'
 
   const Icon = isGreen ? CheckCircle2 : isRed ? AlertOctagon : AlertTriangle
 
-  const heading =
-    tone === 'green'
-      ? "You're on target"
-      : tone === 'yellow-over'
-      ? 'Slightly over budget'
-      : tone === 'yellow-under'
-      ? 'Under-investing'
-      : 'Significantly over'
+  const heading = BUDGET_STATUS_LABEL[tone]
 
   const absDelta = Math.abs(ratio.delta)
   const body =
-    tone === 'green'
+    tone === 'noTarget'
+      ? 'Set your target budget above to see how this setup compares.'
+      : tone === 'green'
       ? ratio.delta === 0
         ? 'Right at budget.'
-        : `You have ${formatPKR(-ratio.delta)} to spare.`
-      : tone === 'yellow-over'
-      ? `${formatPKR(absDelta)} over — a small nudge from Elation could rebalance.`
-      : tone === 'yellow-under'
-      ? `${formatPKR(absDelta)} below budget — you may be under-serving your event.`
-      : `${formatPKR(absDelta)} over budget — let's re-scope some categories with your consultant.`
+        : `Within 10% of your target, with ${formatPKR(absDelta)} to spare.`
+      : tone === 'yellow'
+      ? `${formatPKR(absDelta)} below budget (under 90% of your target). There's room to add more.`
+      : `${formatPKR(absDelta)} over budget. Remove or swap items, or talk to your consultant.`
 
   return (
     <AnimatePresence mode="wait">
@@ -581,15 +568,16 @@ export function BudgetPage() {
   const event = useResolvedEvent(id)
 
   const [loading, setLoading] = useState(true)
-  const [snapshot, setSnapshot] = useState<BudgetSnapshot | undefined>(undefined)
-  const [snapshotMissing, setSnapshotMissing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [started, setStarted] = useState(false)
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([])
   const [lines, setLines] = useState<BudgetLine[]>([])
   const [budget, setBudget] = useState<number>(0)
-  const [initial, setInitial] = useState<{
-    budget: number
-    lines: BudgetLine[]
-  } | null>(null)
+  const [initial, setInitial] = useState<{ budget: number; lines: BudgetLine[] } | null>(null)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [requesting, setRequesting] = useState(false)
+  // Edits made after loading; autosave only runs once the user changes something.
+  const dirty = useRef(false)
 
   useEffect(() => {
     if (!id) return
@@ -598,21 +586,16 @@ export function BudgetPage() {
     Promise.all([api.budget.forEvent(id), api.inventory.list()])
       .then(([snap, inv]) => {
         if (cancelled) return
-        setInventoryList(inv)
-        if (snap) {
-          setSnapshot(snap)
-          setLines(snap.lines.map((l) => ({ ...l })))
-          setBudget(snap.budgetPKR)
-          setInitial({
-            budget: snap.budgetPKR,
-            lines: snap.lines.map((l) => ({ ...l })),
-          })
-          setSnapshotMissing(false)
-        } else {
-          setSnapshot(undefined)
-          setSnapshotMissing(true)
-        }
+        // Lines may reference archived items, which aren't in the public catalogue.
+        const known = new Set(inv.map((i) => i.id))
+        setInventoryList([...inv, ...snap.items.filter((i) => !known.has(i.id))])
+        setLines(snap.lines)
+        setBudget(snap.budgetPkr ?? 0)
+        setInitial({ budget: snap.budgetPkr ?? 0, lines: snap.lines })
+        setStarted(snap.lines.length > 0)
+        setLoadError(null)
       })
+      .catch((err: Error) => !cancelled && setLoadError(err.message))
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -620,6 +603,34 @@ export function BudgetPage() {
       cancelled = true
     }
   }, [id])
+
+  const save = useCallback(async () => {
+    if (!id) return
+    setSaveState('saving')
+    try {
+      await api.budget.save(id, budget || null, lines)
+      setSaveState('saved')
+    } catch (err) {
+      setSaveState('error')
+      toast.error("Couldn't save your budget", { description: (err as Error).message })
+    }
+  }, [id, budget, lines])
+
+  // Debounced autosave after edits.
+  useEffect(() => {
+    if (!dirty.current) return
+    const timer = setTimeout(() => void save(), 800)
+    return () => clearTimeout(timer)
+  }, [save])
+
+  function edit<T>(setter: (value: T) => void) {
+    return (value: T) => {
+      dirty.current = true
+      setter(value)
+    }
+  }
+  const editLines = edit<(prev: BudgetLine[]) => BudgetLine[]>(setLines)
+  const editBudget = edit<number>(setBudget)
 
   const invById = useMemo(
     () => new Map(inventoryList.map((i) => [i.id, i])),
@@ -637,7 +648,7 @@ export function BudgetPage() {
   )
 
   const ratio = useMemo(
-    () => classifyBudget(includedTotal, budget),
+    () => buildRatio(includedTotal, budget),
     [includedTotal, budget],
   )
 
@@ -654,13 +665,13 @@ export function BudgetPage() {
   // ---------------- Handlers ----------------
 
   function updateLine(lineId: string, patch: Partial<BudgetLine>) {
-    setLines((prev) =>
+    editLines((prev) =>
       prev.map((l) => (l.id === lineId ? { ...l, ...patch } : l)),
     )
   }
 
   function removeLine(lineId: string) {
-    setLines((prev) => prev.filter((l) => l.id !== lineId))
+    editLines((prev) => prev.filter((l) => l.id !== lineId))
   }
 
   function addLine(category: string, item: InventoryItem) {
@@ -671,32 +682,45 @@ export function BudgetPage() {
       qty: 1,
       included: true,
     }
-    setLines((prev) => [...prev, line])
+    editLines((prev) => [...prev, line])
     toast.success(`${item.name} added to ${category}`)
   }
 
   function resetToDefaults() {
-    if (initial) {
-      setLines(initial.lines.map((l) => ({ ...l })))
-      setBudget(initial.budget)
-      toast.success('Reset to Elation defaults')
-    } else if (snapshot) {
-      setLines(snapshot.lines.map((l) => ({ ...l })))
-      setBudget(snapshot.budgetPKR)
+    if (!initial) return
+    editLines(() => initial.lines)
+    editBudget(initial.budget)
+    toast.success('Changes since opening this page were undone')
+  }
+
+  async function submitQuote(note: string) {
+    if (!id) return
+    setRequesting(true)
+    try {
+      await save() // the quote freezes what is saved, so save pending edits first
+      await api.budget.requestQuote(id, note)
+      dirty.current = false
+      toast.success('Sent to Elation', {
+        description: 'Prices are locked in for this request. Your consultant will follow up.',
+      })
+    } catch (err) {
+      toast.error("Couldn't send the request", { description: (err as Error).message })
+    } finally {
+      setRequesting(false)
     }
   }
 
   function sendToConsultant() {
-    // TODO(backend): share the current budget with the assigned consultant.
+    void submitQuote('Shared for review with my consultant.')
   }
 
   function requestQuote() {
-    // TODO(backend): submit a quote request for the current budget.
+    void submitQuote('Quote requested.')
   }
 
-  function seedFromQuestionnaire() {
-    // TODO(backend): request a starter budget generated from the questionnaire and
-    // inventory, then load it like a regular snapshot.
+  function startPlanning() {
+    // Starter budgets generated from the questionnaire arrive with recommendations (next step).
+    setStarted(true)
   }
 
   // ---------------- Render ----------------
@@ -724,8 +748,21 @@ export function BudgetPage() {
 
   if (!event) return <EventNotFound />
 
-  // Empty state — no snapshot for this event.
-  if (snapshotMissing) {
+  if (loadError) {
+    return (
+      <div className="px-10 pb-12 pt-8">
+        <EmptyState
+          icon={<Wallet className="h-6 w-6" />}
+          title="Couldn't load this budget"
+          description={loadError}
+          action={<Button onClick={() => window.location.reload()}>Try again</Button>}
+        />
+      </div>
+    )
+  }
+
+  // Empty state — nothing added yet.
+  if (!started) {
     return (
       <div className="px-10 pb-12 pt-8">
         <div className="mb-6 flex items-center gap-3">
@@ -739,9 +776,9 @@ export function BudgetPage() {
         <EmptyState
           icon={<Wallet className="h-6 w-6" />}
           title="Start planning your budget"
-          description="We haven't drafted line items for this event yet. Seed a starter list from your questionnaire and Elation will tune it from there."
+          description="Set a target and add items from Elation's inventory. Totals use live prices and update as you go."
           action={
-            <Button onClick={seedFromQuestionnaire}>
+            <Button onClick={startPlanning}>
               <Sparkles className="h-4 w-4" />
               Start planning your budget
             </Button>
@@ -772,16 +809,19 @@ export function BudgetPage() {
               </h1>
               <p className="text-muted/70 mt-1 text-sm">
                 Every rupee, live-priced against Elation's inventory.
+                <span className="ml-2 text-xs">
+                  {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : saveState === 'error' ? 'Not saved' : ''}
+                </span>
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="ghost" onClick={resetToDefaults}>
                 <RotateCcw className="h-4 w-4" />
-                Reset to Elation defaults
+                Undo changes
               </Button>
-              <Button onClick={requestQuote}>
+              <Button onClick={requestQuote} disabled={requesting}>
                 <Send className="h-4 w-4" />
-                Request a quote from Elation
+                {requesting ? 'Sending…' : 'Request a quote from Elation'}
               </Button>
             </div>
           </div>
@@ -804,7 +844,7 @@ export function BudgetPage() {
                       value={budget}
                       onChange={(e) => {
                         const n = Number(e.target.value)
-                        if (Number.isFinite(n)) setBudget(n)
+                        if (Number.isFinite(n)) editBudget(n)
                       }}
                       className="font-display text-text w-56 bg-transparent text-4xl tabular-nums outline-none focus:text-accent"
                     />
@@ -823,7 +863,7 @@ export function BudgetPage() {
                   min={BUDGET_MIN}
                   max={BUDGET_MAX}
                   step={BUDGET_STEP}
-                  onValueChange={(v) => setBudget(v[0] ?? BUDGET_MIN)}
+                  onValueChange={(v) => editBudget(v[0] ?? BUDGET_MIN)}
                 />
                 <div className="text-muted/60 mt-2 flex justify-between text-[10px] font-semibold uppercase tracking-widest">
                   <span>{formatPKRCompact(BUDGET_MIN)}</span>
