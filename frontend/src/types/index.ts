@@ -195,14 +195,23 @@ export type Inspiration = {
   slug: string
   name: string
   eventTypes: EventType[]
+  /** Style tags joined with " · " for display, e.g. "Regal · Modern Luxury". */
   style: string
+  styleTags: string[]
   palette: string[]
+  /** Cover photo, or a brand image when none is uploaded yet. */
   cover: string
+  /** Gallery photos (falls back to the cover). */
   tiles: string[]
   summary: string
-  featured?: boolean
-  budgetTier?: 'Intimate' | 'Signature' | 'Grand'
+  featured: boolean
+  budgetTier: 'Intimate' | 'Signature' | 'Grand' | null
+  /** Inventory the concept uses; carried into the moodboard and budget when adopted. */
+  items: { item: InventoryItem; quantity: number }[]
 }
+
+/** A concept ranked for one event (GET /api/events/:id/inspiration-recommendations). */
+export type RecommendedInspiration = { inspiration: Inspiration; reason: string; estimatedCostPkr: number }
 
 export type Message = {
   id: UUID

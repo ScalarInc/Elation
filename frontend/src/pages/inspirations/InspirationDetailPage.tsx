@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { api } from '@/api'
 import { useResolvedEvents } from '@/hooks/useResolvedEvent'
+import { useAdoptInspiration } from '@/hooks/useAdoptInspiration'
 import type { Inspiration, InventoryItem } from '@/types'
 
 function splitStyles(style: string): string[] {
@@ -33,13 +34,15 @@ export function InspirationDetailPage() {
     undefined,
   )
   const [targetEventId, setTargetEventId] = useState<string>('')
+  const { adopt: adoptInto, adopting } = useAdoptInspiration()
 
   useEffect(() => {
     if (!slug) return
     let cancelled = false
-    api.inspirations.get(slug).then((insp) => {
-      if (!cancelled) setInspiration(insp ?? null)
-    })
+    api.inspirations.get(slug).then(
+      (insp) => !cancelled && setInspiration(insp),
+      () => !cancelled && setInspiration(null),
+    )
     return () => {
       cancelled = true
     }
@@ -49,8 +52,7 @@ export function InspirationDetailPage() {
     if (!targetEventId && events[0]) setTargetEventId(events[0].id)
   }, [events, targetEventId])
 
-  // TODO(backend): inventory recommended for this concept.
-  const recommendedInventory: InventoryItem[] = []
+  const recommendedInventory: InventoryItem[] = inspiration ? inspiration.items.map((i) => i.item) : []
 
   if (inspiration === undefined) {
     return (
@@ -81,8 +83,7 @@ export function InspirationDetailPage() {
 
   function adopt() {
     if (!targetEventId || !inspiration) return
-    // TODO(backend): adopt the concept into the target event's moodboard and budget,
-    // then open /events/:id?tab=moodboard.
+    void adoptInto(inspiration.slug, targetEventId, inspiration.name)
   }
 
   return (
@@ -275,7 +276,7 @@ export function InspirationDetailPage() {
 
               <Button
                 size="lg"
-                disabled={!targetEventId}
+                disabled={!targetEventId || adopting}
                 onClick={adopt}
                 className="mt-1"
               >

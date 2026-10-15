@@ -1,4 +1,4 @@
-import type { InventoryItem, UUID } from '@/types'
+import type { EventType, InventoryItem, UUID } from '@/types'
 
 /** Types for the admin console API (/api/admin/*). */
 
@@ -78,3 +78,34 @@ export type InventoryItemInput = {
 export type InventoryItemUpdate = Partial<InventoryItemInput & { isActive: boolean }>
 
 export type PriceChange = { oldPricePkr: number; newPricePkr: number; changedByName: string | null; changedAt: string }
+
+/** Inspiration concept as seen by admins (includes drafts). */
+export type AdminInspiration = {
+  id: UUID
+  slug: string
+  name: string
+  summary: string | null
+  styleTags: string[]
+  eventTypes: EventType[]
+  palette: string[]
+  budgetTier: 'Intimate' | 'Signature' | 'Grand' | null
+  coverUrl: string | null
+  imageUrls: string[]
+  /** Storage paths matching `imageUrls`, used to remove a gallery image. */
+  imagePaths: string[]
+  isFeatured: boolean
+  isPublished: boolean
+  items: { item: InventoryItem; quantity: number }[]
+  updatedAt: string
+}
+
+export type InspirationInput = {
+  name: string
+  summary?: string | null
+  styleTags?: string[]
+  eventTypes?: EventType[]
+  palette?: string[]
+  budgetTier?: AdminInspiration['budgetTier']
+  isFeatured?: boolean
+  isPublished?: boolean
+}

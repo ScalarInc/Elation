@@ -15,6 +15,7 @@ import type {
   ProfileUpdate,
   QuestionnaireData,
   QuoteRequest,
+  RecommendedInspiration,
   UUID,
 } from '@/types'
 import defaultCover from '@/assets/images/img_11.jpg'
@@ -34,6 +35,30 @@ function withPreview(board: ApiMoodboard): Moodboard {
   const photos = board.items.map((i) => i.item.imageUrl).filter((url): url is string => Boolean(url))
   const cover = photos[0] ?? defaultCover
   return { ...board, cover, tiles: photos.length > 0 ? photos : [cover] }
+}
+
+type ApiInspiration = {
+  id: UUID
+  slug: string
+  name: string
+  summary: string | null
+  styleTags: string[]
+  eventTypes: Inspiration['eventTypes']
+  palette: string[]
+  budgetTier: Inspiration['budgetTier']
+  coverUrl: string | null
+  imageUrls: string[]
+  isFeatured: boolean
+  items: Inspiration['items']
+}
+
+export function toInspiration(i: ApiInspiration): Inspiration {
+  const cover = i.coverUrl ?? i.imageUrls[0] ?? defaultCover
+  return {
+    id: i.id, slug: i.slug, name: i.name, summary: i.summary ?? '', eventTypes: i.eventTypes,
+    styleTags: i.styleTags, style: i.styleTags.join(' · '), palette: i.palette, budgetTier: i.budgetTier,
+    featured: i.isFeatured, items: i.items, cover, tiles: i.imageUrls.length > 0 ? i.imageUrls : [cover],
+  }
 }
 
 type ApiBudget = {
@@ -98,8 +123,18 @@ export const api = {
   },
 
   inspirations: {
-    list: async (): Promise<Inspiration[]> => [],
-    get: async (_slug: string): Promise<Inspiration | undefined> => undefined,
+    list: async (): Promise<Inspiration[]> => (await apiRequest<ApiInspiration[]>('/api/inspirations')).map(toInspiration),
+    get: async (slug: string): Promise<Inspiration> =>
+      toInspiration(await apiRequest<ApiInspiration>(`/api/inspirations/${encodeURIComponent(slug)}`)),
+    /** Copies the concept into a new moodboard for the event; also drafts the budget if it's empty. */
+    adopt: (slug: string, eventId: UUID): Promise<{ moodboardId: UUID; eventId: UUID; budgetDrafted: boolean }> =>
+      apiRequest(`/api/inspirations/${encodeURIComponent(slug)}/adopt`, { method: 'POST', body: { eventId } }),
+    recommendedFor: async (eventId: UUID): Promise<RecommendedInspiration[]> =>
+      (
+        await apiRequest<(Omit<RecommendedInspiration, 'inspiration'> & { inspiration: ApiInspiration })[]>(
+          `/api/events/${eventId}/inspiration-recommendations`,
+        )
+      ).map((r) => ({ ...r, inspiration: toInspiration(r.inspiration) })),
   },
 
   inventory: {

@@ -28,6 +28,8 @@ import {
 import { api } from '@/api'
 import { cn } from '@/lib/utils'
 import { useResolvedEvents } from '@/hooks/useResolvedEvent'
+import { useAdoptInspiration } from '@/hooks/useAdoptInspiration'
+import { RecommendedForEvent } from '@/components/inspirations/RecommendedForEvent'
 import type {
   ClientEvent,
   EventType,
@@ -67,6 +69,7 @@ function splitStyles(style: string): string[] {
 
 export function InspirationsPage() {
   const events = useResolvedEvents()
+  const { adopt: adoptInto } = useAdoptInspiration()
 
   const [items, setItems] = useState<Inspiration[] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -153,9 +156,9 @@ export function InspirationsPage() {
     setLikes((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
-  function adopt(_inspiration: Inspiration, _eventId: string) {
-    // TODO(backend): adopt the concept into the event's moodboard and budget, then
-    // open /events/:id?tab=moodboard.
+  function adopt(inspiration: Inspiration, eventId: string) {
+    setOpenInspiration(null)
+    void adoptInto(inspiration.slug, eventId, inspiration.name)
   }
 
   function toggleStyle(s: string) {
@@ -201,6 +204,7 @@ export function InspirationsPage() {
             />
           )}
         </div>
+        <RecommendedForEvent events={events} onOpen={setOpenInspiration} />
       </motion.section>
 
       {/* Filter bar */}
@@ -583,8 +587,7 @@ function InspirationDetailDialog({
     }
   }, [inspiration, events, targetEventId])
 
-  // TODO(backend): inventory recommended for this concept.
-  const recommendedInventory: InventoryItem[] = []
+  const recommendedInventory: InventoryItem[] = inspiration ? inspiration.items.map((i) => i.item) : []
 
   const targetEvent = events.find((e) => e.id === targetEventId)
 

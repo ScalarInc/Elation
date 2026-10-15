@@ -1,10 +1,12 @@
 import type {
   AdminClient,
+  AdminInspiration,
   AdminInventoryItem,
   AdminSummary,
   ClientCreateInput,
   ClientStatus,
   ClientUpdateInput,
+  InspirationInput,
   InventoryItemInput,
   InventoryItemUpdate,
   InviteResult,
@@ -47,5 +49,23 @@ export const adminApi = {
       form.append('file', file)
       return apiRequest(`/api/admin/inventory/${id}/image`, { method: 'POST', body: form })
     },
+  },
+
+  inspirations: {
+    list: (): Promise<AdminInspiration[]> => apiRequest('/api/admin/inspirations'),
+    create: (input: InspirationInput): Promise<AdminInspiration> =>
+      apiRequest('/api/admin/inspirations', { method: 'POST', body: input }),
+    update: (id: UUID, changes: Partial<InspirationInput>): Promise<AdminInspiration> =>
+      apiRequest(`/api/admin/inspirations/${id}`, { method: 'PATCH', body: changes }),
+    setItems: (id: UUID, items: { inventoryItemId: UUID; quantity: number }[]): Promise<AdminInspiration> =>
+      apiRequest(`/api/admin/inspirations/${id}/items`, { method: 'PUT', body: items }),
+    addImage: (id: UUID, file: File, asCover: boolean): Promise<AdminInspiration> => {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('cover', String(asCover))
+      return apiRequest(`/api/admin/inspirations/${id}/images`, { method: 'POST', body: form })
+    },
+    removeImage: (id: UUID, path: string): Promise<AdminInspiration> =>
+      apiRequest(`/api/admin/inspirations/${id}/images?path=${encodeURIComponent(path)}`, { method: 'DELETE' }),
   },
 }
