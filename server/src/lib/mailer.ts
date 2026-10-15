@@ -24,16 +24,28 @@ export class ResendMailer implements Mailer {
 
   async send(mail: Mail) {
     const { error } = await this.client.emails.send({ from: this.from, ...mail })
-    if (error) throw new Error(`Email to ${mail.to} failed: ${error.message}`)
+    // No address in the message: errors end up in logs and Sentry.
+    if (error) throw new Error(`Email "${mail.subject}" failed: ${error.message}`)
   }
 }
 
-/** Development: no provider configured — print the email (links included) to the log. */
+/**
+ * No provider configured. Development: print the email, links included, so
+ * invites and resets can be followed. Anywhere else the send fails: the body
+ * carries one-time links that must not sit in a log drain.
+ */
 export class LogMailer implements Mailer {
-  constructor(private readonly log: FastifyBaseLogger) {}
+  constructor(
+    private readonly log: FastifyBaseLogger,
+    private readonly showBody = true,
+  ) {}
 
   async send(mail: Mail) {
-    this.log.info({ to: mail.to, subject: mail.subject }, `✉️  email (not sent — no RESEND_API_KEY)\n${mail.text}`)
+    if (!this.showBody) {
+      // Fail like a provider outage would: callers report "not emailed" and share the link instead.
+      throw new Error(`Email "${mail.subject}" not sent: RESEND_API_KEY is not set`)
+    }
+    this.log.info(`✉️  email to ${mail.to} (not sent — no RESEND_API_KEY): ${mail.subject}\n${mail.text}`)
   }
 }
 

@@ -44,6 +44,10 @@ jobs:
       - name: Install
         run: npm ci
 
+      # High/critical advisories in production dependencies fail the build (exceptions in the script).
+      - name: Audit dependencies
+        run: npm run audit:deps
+
       - name: Enable Postgres extensions
         run: psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS citext;"
 

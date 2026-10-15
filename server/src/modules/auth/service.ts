@@ -14,7 +14,7 @@ import type { Db } from '../../plugins/db'
 import { ACCESS_MESSAGES, accessProblem } from './access'
 import { createSession, deleteUserSessions } from './sessions'
 
-type Deps = { db: Db; config: Config; mailer: Mailer }
+type Deps = { db: Db; config: Config; mailer: Mailer; log?: { warn: (o: object, m: string) => void } }
 type ClientMeta = { userAgent?: string; ip?: string }
 
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000
@@ -113,7 +113,7 @@ export async function acceptInvite(
 // ─────────────── Passwords ───────────────
 
 /** Always succeeds from the caller's point of view — never reveals whether the email exists. */
-export async function requestPasswordReset({ db, config, mailer }: Deps, email: string) {
+export async function requestPasswordReset({ db, config, mailer, log }: Deps, email: string) {
   const user = await db.user.findUnique({ where: { email } })
   if (!user?.passwordHash || accessProblem(user) === 'ACCESS_REVOKED') return
 
@@ -122,7 +122,10 @@ export async function requestPasswordReset({ db, config, mailer }: Deps, email: 
     data: { id: sha256(token), userId: user.id, expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS) },
   })
   const resetUrl = `${config.APP_URL}/reset-password?token=${encodeURIComponent(token)}`
-  await mailer.send(passwordResetEmail({ to: user.email, name: user.name, resetUrl }))
+  // A mail failure must look the same as an unknown email (a 500 here would reveal the account).
+  await mailer
+    .send(passwordResetEmail({ to: user.email, name: user.name, resetUrl }))
+    .catch((err: unknown) => log?.warn({ err, userId: user.id }, 'password reset email failed'))
 }
 
 export async function resetPassword({ db }: Pick<Deps, 'db'>, input: { token: string; password: string }) {

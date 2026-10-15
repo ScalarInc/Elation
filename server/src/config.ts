@@ -49,6 +49,14 @@ const base = z.object({
   // Absolute or server-relative path to the built webapp (webapp/dist).
   // Set in production so one Railway service serves both web and API.
   SERVE_WEBAPP_DIST: optionalString,
+
+  // Error reporting (docs/step-14-deploy-ops.md). Both optional: without a DSN nothing is sent.
+  SENTRY_DSN: optionalString, // API
+  SENTRY_WEB_DSN: optionalString, // browser (public by design; handed to the web app at runtime)
+  SENTRY_ENVIRONMENT: z.string().default('development'), // staging | production
+  // Release tag for error reports. Railway sets RAILWAY_GIT_COMMIT_SHA on every deploy.
+  RELEASE: optionalString,
+  RAILWAY_GIT_COMMIT_SHA: optionalString,
 })
 
 const schema = base.superRefine((c, ctx) => {

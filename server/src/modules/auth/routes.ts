@@ -22,7 +22,7 @@ const meta = (request: FastifyRequest) => ({
 })
 
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {
-  const deps = { db: app.prisma, config: app.config, mailer: app.mailer }
+  const deps = { db: app.prisma, config: app.config, mailer: app.mailer, log: app.log }
 
   // Throttles: per IP (spraying many accounts) and per email (guessing one account).
   const perIp = (name: string, max: number) => rateLimit({ name: `${name}:ip`, max, windowMs: FIFTEEN_MIN, key: byIp })

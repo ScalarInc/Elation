@@ -1,12 +1,14 @@
 import cookie from '@fastify/cookie'
 import helmet from '@fastify/helmet'
-import Fastify, { type FastifyServerOptions } from 'fastify'
+import Fastify from 'fastify'
 import {
   serializerCompiler,
   validatorCompiler,
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod'
 import type { Config } from './config'
+import { cspDirectives } from './lib/csp'
+import { loggerOptions } from './lib/logging'
 import { LogMailer, ResendMailer, type Mailer } from './lib/mailer'
 import { createStorage, type Storage } from './lib/storage'
 import { adminRoutes, publicInquiryRoutes } from './modules/admin/routes'
@@ -53,31 +55,6 @@ export type AppDeps = {
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000
 const DIGEST_INTERVAL_MS = 60 * 1000
 
-async function loggerOptions(config: Config): Promise<FastifyServerOptions['logger']> {
-  if (config.NODE_ENV === 'test') return false
-  // Human-readable logs in development; JSON everywhere else (Railway log drain).
-  // pino-pretty is a devDependency, so it is only imported in development.
-  const stream =
-    config.NODE_ENV === 'development'
-      ? (await import('pino-pretty')).default({ translateTime: 'HH:MM:ss', ignore: 'pid,hostname' })
-      : undefined
-  return {
-    level: config.LOG_LEVEL,
-    // Never log credentials or contact details (docs/step-14-deploy-ops.md).
-    redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],
-    serializers: {
-      // Signed storage links carry their token in ?t= — never write it to the logs.
-      req: (req: { method: string; url: string; hostname?: string; ip?: string }) => ({
-        method: req.method,
-        url: req.url.replace(/([?&]t=)[^&]+/, '$1[redacted]'),
-        host: req.hostname,
-        remoteAddress: req.ip,
-      }),
-    },
-    stream,
-  }
-}
-
 export async function buildApp(config: Config, deps: AppDeps = {}) {
   const app = Fastify({
     logger: await loggerOptions(config),
@@ -93,14 +70,14 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
   app.decorate(
     'mailer',
     deps.mailer ??
-      (config.RESEND_API_KEY ? new ResendMailer(config.RESEND_API_KEY, config.MAIL_FROM) : new LogMailer(app.log)),
+      (config.RESEND_API_KEY ? new ResendMailer(config.RESEND_API_KEY, config.MAIL_FROM) : new LogMailer(app.log, config.NODE_ENV !== 'production')),
   )
 
   app.decorate('storage', deps.storage ?? createStorage(config))
 
   await app.register(errorsPlugin)
-  // CSP is configured in Step 14 once the webapp's asset origins are final.
-  await app.register(helmet, { contentSecurityPolicy: false })
+  // HSTS, nosniff, no-referrer, frame-ancestors 'none' … plus a CSP built from config (lib/csp.ts).
+  await app.register(helmet, { contentSecurityPolicy: { useDefaults: false, directives: cspDirectives(config) } })
   await app.register(cookie)
   await app.register(dbPlugin, { databaseUrl: config.DATABASE_URL })
   await app.register(authPlugin, { config })

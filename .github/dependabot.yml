@@ -1,0 +1,37 @@
+# Weekly dependency updates (docs/step-14-deploy-ops.md). Minor/patch bumps are
+# grouped into one PR per ecosystem; majors come one by one so they get a real review.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Karachi
+    target-branch: main
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    labels: [dependencies]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Karachi
+    target-branch: main
+    groups:
+      actions:
+        patterns: ['*']
+    labels: [dependencies]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Karachi
+    target-branch: main
+    labels: [dependencies]
