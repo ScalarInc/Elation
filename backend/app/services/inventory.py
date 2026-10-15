@@ -4,23 +4,18 @@ import re
 import secrets
 from datetime import UTC, datetime
 
-import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
-from app.errors import ApiError
 from app.models import InventoryItem, InventoryPriceHistory, Profile
+from app.services import storage
 
 IMAGE_BUCKET = "inventory-images"
-ALLOWED_IMAGE_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
-MAX_IMAGE_BYTES = 5 * 1024 * 1024
+MAX_IMAGE_BYTES = storage.MAX_IMAGE_BYTES
 
 
 def image_url(path: str | None) -> str | None:
-    if not path:
-        return None
-    return f"{get_settings().supabase_url.rstrip('/')}/storage/v1/object/public/{IMAGE_BUCKET}/{path}"
+    return storage.public_url(IMAGE_BUCKET, path)
 
 
 def make_sku(db: Session, name: str) -> str:
@@ -47,44 +42,8 @@ def change_price(db: Session, item: InventoryItem, new_price: int, admin: Profil
     item.price_updated_by = admin.id
 
 
-def _storage(method: str, path: str, **kwargs) -> httpx.Response:
-    settings = get_settings()
-    return httpx.request(
-        method,
-        f"{settings.supabase_url.rstrip('/')}/storage/v1{path}",
-        headers={"apikey": settings.supabase_secret_key, "Authorization": f"Bearer {settings.supabase_secret_key}",
-                 **kwargs.pop("headers", {})},
-        timeout=30,
-        **kwargs,
-    )
-
-
-def _ensure_bucket() -> None:
-    response = _storage("POST", "/bucket", json={"id": IMAGE_BUCKET, "name": IMAGE_BUCKET, "public": True})
-    if response.status_code >= 400 and "already exists" not in response.text.lower():
-        raise ApiError(502, "STORAGE_ERROR", f"Could not prepare image storage: {response.text[:200]}")
-
-
 def upload_image(item: InventoryItem, content: bytes, content_type: str) -> str:
-    """Store the image in Supabase Storage and return its object path."""
-    extension = ALLOWED_IMAGE_TYPES.get(content_type)
-    if extension is None:
-        raise ApiError(400, "VALIDATION_FAILED", "Upload a JPEG, PNG or WebP image.")
-    if len(content) > MAX_IMAGE_BYTES:
-        raise ApiError(400, "VALIDATION_FAILED", "Images must be 5 MB or smaller.")
-
-    path = f"{item.id}/{secrets.token_hex(6)}.{extension}"
-
-    def put() -> httpx.Response:
-        return _storage("POST", f"/object/{IMAGE_BUCKET}/{path}", content=content, headers={"Content-Type": content_type})
-
-    response = put()
-    if response.status_code == 404 or "bucket not found" in response.text.lower():
-        _ensure_bucket()  # first upload on a fresh project
-        response = put()
-    if response.status_code >= 400:
-        raise ApiError(502, "STORAGE_ERROR", f"Image upload failed: {response.text[:200]}")
-
-    if item.image_path:  # best effort: remove the replaced image
-        _storage("DELETE", f"/object/{IMAGE_BUCKET}/{item.image_path}")
+    """Store a new photo for the item and remove the one it replaces. Returns the object path."""
+    path = storage.upload_image(IMAGE_BUCKET, str(item.id), content, content_type)
+    storage.delete_object(IMAGE_BUCKET, item.image_path)
     return path
