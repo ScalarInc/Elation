@@ -1,0 +1,84 @@
+# Nightly database backup (docs/step-14-deploy-ops.md, restore steps in server/RUNBOOK.md):
+# pg_dump of production → encrypted with a passphrase → separate R2 bucket, kept 30 days.
+# On top of Railway's own volume backups; this copy lives outside Railway.
+name: Backup
+
+on:
+  schedule:
+    - cron: '30 21 * * *' # 02:30 Pakistan time
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  pg-dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: backups
+    env:
+      # Railway Postgres → Variables → DATABASE_PUBLIC_URL (TCP proxy). Read-only role recommended.
+      DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://${{ vars.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      BUCKET: ${{ vars.BACKUP_BUCKET || 'elation-backups' }}
+      # Same major version as the Railway Postgres server (pg_dump can't dump a newer server,
+      # and a newer pg_restore emits settings an older server rejects).
+      PG_IMAGE: postgres:${{ vars.PG_MAJOR || '16' }}
+      KEEP_DAYS: 30
+    steps:
+      - name: Check settings
+        run: |
+          for name in DATABASE_URL BACKUP_PASSPHRASE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+            [ -n "${!name}" ] || { echo "::error::Missing secret for $name on the 'backups' environment"; exit 1; }
+          done
+          [ -n "${{ vars.R2_ACCOUNT_ID }}" ] || { echo "::error::Set the R2_ACCOUNT_ID variable on the 'backups' environment"; exit 1; }
+
+      - name: Dump and encrypt
+        run: |
+          set -euo pipefail
+          name="elation-$(date -u +%Y-%m-%dT%H%M%SZ).dump.gpg"
+          echo "NAME=$name" >> "$GITHUB_ENV"
+          docker run --rm -e DATABASE_URL "$PG_IMAGE" \
+            pg_dump --format=custom --no-owner --no-privileges --dbname "$DATABASE_URL" \
+          | gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase-fd 3 --output "$name" 3<<<"$BACKUP_PASSPHRASE"
+          size=$(stat -c %s "$name")
+          [ "$size" -gt 10000 ] || { echo "::error::Dump is only $size bytes — something is wrong"; exit 1; }
+          echo "Dump: $name ($size bytes)"
+
+      - name: Check the dump can be read back
+        run: |
+          set -euo pipefail
+          gpg --batch --quiet --decrypt --passphrase-fd 3 "$NAME" 3<<<"$BACKUP_PASSPHRASE" \
+          | docker run --rm -i "$PG_IMAGE" pg_restore --list > toc.txt
+          grep -Eq 'TABLE DATA public "?User"? ' toc.txt || { echo "::error::No User table in the dump"; exit 1; }
+          echo "$(wc -l < toc.txt) entries in the dump"
+
+      - name: Upload to R2
+        run: aws s3 cp "$NAME" "s3://$BUCKET/postgres/$NAME" --endpoint-url "$R2_ENDPOINT" --only-show-errors
+
+      # Also set an R2 lifecycle rule on the bucket (RUNBOOK); this is the belt to its braces.
+      - name: Remove backups older than ${{ env.KEEP_DAYS }} days
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d "-${KEEP_DAYS} days" +%Y-%m-%dT%H%M%SZ)
+          aws s3api list-objects-v2 --bucket "$BUCKET" --prefix postgres/ --endpoint-url "$R2_ENDPOINT" \
+            --query 'Contents[].Key' --output text | tr '\t' '\n' | while read -r key; do
+            [ -z "$key" ] || [ "$key" = None ] && continue
+            stamp=${key#postgres/elation-}; stamp=${stamp%.dump.gpg}
+            if [[ "$stamp" < "$cutoff" ]]; then
+              echo "Deleting $key"
+              aws s3 rm "s3://$BUCKET/$key" --endpoint-url "$R2_ENDPOINT" --only-show-errors
+            fi
+          done
+
+      - name: Clean up
+        if: always()
+        run: rm -f ./*.dump.gpg toc.txt

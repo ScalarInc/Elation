@@ -1,0 +1,78 @@
+# Deploys one environment on Railway (docs/step-14-deploy-ops.md, server/RUNBOOK.md).
+# Called by deploy.yml. Railway runs the pre-deploy migration (railway.json) and only
+# switches traffic once /api/v1/readyz is healthy; then the smoke test runs here.
+name: Deploy (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub environment (staging | production) — holds the Railway token and URLs
+        type: string
+        required: true
+      sha:
+        description: Commit to deploy
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  RAILWAY_CLI_VERSION: 5.68.0
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.APP_URL }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      # Project token scoped to this Railway environment (Project → Settings → Tokens).
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.sha }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check settings
+        run: |
+          missing=0
+          for name in RAILWAY_TOKEN RAILWAY_SERVICE; do
+            if [ -z "${!name}" ]; then echo "::error::Set $name on the '${{ inputs.environment }}' environment"; missing=1; fi
+          done
+          if [ -z "${{ vars.APP_URL }}" ]; then echo "::error::Set the APP_URL variable on the '${{ inputs.environment }}' environment"; missing=1; fi
+          exit $missing
+
+      - name: Install Railway CLI
+        run: npm install --global "@railway/cli@${RAILWAY_CLI_VERSION}"
+
+      # Error reports and /client-config carry the commit being deployed.
+      - name: Tag the release
+        run: railway variable set "RELEASE=${{ inputs.sha }}" --service "$RAILWAY_SERVICE" --skip-deploys
+
+      - name: Build and deploy
+        run: railway up --ci --service "$RAILWAY_SERVICE" --message "${{ github.ref_name }} ${{ inputs.sha }}"
+
+      - name: Smoke test
+        env:
+          SMOKE_EXPECT_RELEASE: ${{ inputs.sha }}
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: |
+          # Railway may take a few seconds to route to the new deployment.
+          for attempt in 1 2 3 4 5 6; do
+            node scripts/smoke.mjs "${{ vars.APP_URL }}" && exit 0
+            echo "Smoke test attempt $attempt failed; retrying in 15 s"
+            sleep 15
+          done
+          exit 1

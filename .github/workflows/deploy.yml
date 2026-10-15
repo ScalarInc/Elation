@@ -1,0 +1,71 @@
+# Release pipeline (docs/step-14-deploy-ops.md):
+#   green CI on main  → staging, automatically
+#   tag vX.Y.Z on main → production, after a reviewer approves the 'production' environment
+#   manual run         → either, for the commit you pick (rollback = run it with an older tag)
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [staging, production]
+        default: staging
+      ref:
+        description: Branch, tag or commit (production needs a commit on main with green CI)
+        type: string
+        default: main
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  # Resolves what to deploy where, and refuses production deploys of untested commits.
+  plan:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    outputs:
+      environment: ${{ steps.plan.outputs.environment }}
+      sha: ${{ steps.plan.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_ENV: ${{ inputs.environment }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          case "$EVENT" in
+            workflow_run) env=staging; sha="$RUN_SHA" ;;
+            push)         env=production; sha="$GITHUB_SHA" ;;
+            *)            env="$INPUT_ENV"; sha=$(git rev-parse --verify "${INPUT_REF}^{commit}") ;;
+          esac
+          if [ "$env" = production ]; then
+            git merge-base --is-ancestor "$sha" origin/main || { echo "::error::$sha is not on main"; exit 1; }
+            ok=$(gh run list --workflow CI --commit "$sha" --status success --json databaseId --jq 'length')
+            [ "$ok" -gt 0 ] || { echo "::error::CI has not passed for $sha — wait for it or re-run it"; exit 1; }
+          fi
+          echo "Deploying $sha to $env"
+          echo "environment=$env" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: plan
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: ${{ needs.plan.outputs.environment }}
+      sha: ${{ needs.plan.outputs.sha }}
+    secrets: inherit
