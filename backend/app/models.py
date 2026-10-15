@@ -260,6 +260,8 @@ class MoodboardItem(Base):
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     suggested_qty: Mapped[int | None] = mapped_column(Integer)
+    # Budget bucket the item goes into when the moodboard is turned into a budget, e.g. "Stage".
+    budget_category: Mapped[str | None] = mapped_column(Text)
     reason: Mapped[str | None] = mapped_column(Text)
 
 
