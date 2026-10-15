@@ -1,6 +1,6 @@
 # Elation X — Handoff
 
-**State on 2026-10-13:** Steps 1–13 of the plan are built, reviewed and pushed to the `feature/backend` branch (CI green). Step 14 (deployment & operations) is next. `main` still has the old frontend-only app: merge `feature/backend` into `main` after Step 14.
+**State on 2026-10-15:** All 14 steps of the plan are built and merged into `main`. Step 14 (deployment & operations) adds the Docker image, the Railway config, the deploy and backup workflows, the data-retention purge, security headers and monitoring. What's left before launch is setting up the real Railway, R2 and Resend accounts ([`server/RUNBOOK.md`](../server/RUNBOOK.md) §1) and the items Elation has to supply (§6).
 
 ---
 
@@ -14,7 +14,6 @@ You need **Node 24** (see `.nvmrc`) and **Docker** (it runs the Postgres databas
 
 ```bash
 git clone <repo-url> && cd Elation
-git checkout feature/backend
 npm install                       # all workspaces: webapp, server, packages/shared
 npm run db:up                     # Postgres 16 in Docker on localhost:55432 (dev + test databases)
 cp server/.env.example server/.env
@@ -42,6 +41,7 @@ Good to know:
 ```bash
 npm run typecheck && npm run lint && npm test && npm run build
 npm run check:bundle -w webapp    # fails if demo data reaches the production bundle
+npm run audit:deps                # fails on high/critical advisories in production dependencies
 ```
 
 Server tests use the `elation_test` database from Docker (`DATABASE_URL_TEST` in `server/.env`). CI: `.github/workflows/ci.yml`.
@@ -68,7 +68,7 @@ packages/shared/   zod API schemas + types + the questionnaire & budget logic sh
 docs/              the plan (step-01 … step-14), decisions, panel reviews, this handoff
 ```
 
-## 4. What was built (Steps 1–13)
+## 4. What was built (Steps 1–14)
 
 Each step file in this folder has the original plan plus an **"As built"** section at the end describing what actually shipped.
 
@@ -87,15 +87,16 @@ Each step file in this folder has the original plan plus an **"As built"** secti
 | 11 | [Files](step-11-files.md) | Direct-to-R2 uploads, location data stripped from photos, Files tab, chat attachments |
 | 12 | [Admin console](step-12-admin.md) | Clients, quotes, inquiries, analytics, inventory, inspirations & AR CMS, team, settings |
 | 13 | [Frontend integration](step-13-frontend-integration.md) | No demo data in builds, error states everywhere, search, privacy summary |
+| 14 | [Deploy & ops](step-14-deploy-ops.md) | Docker image, Railway, deploy/backup workflows, 7-day data purge, access emails, CSP, Sentry, runbook |
 
-Tests at handoff: server 203, shared 62, webapp 3 — all passing.
+Tests at handoff: server 226, shared 62, webapp 5 — all passing.
 
 ## 5. How decisions were made
 
 Every step was reviewed by a five-person panel (Backend Lead, Frontend Lead, Product/Elation Ops, DevOps, Security & Data). Findings were fixed or turned into recorded decisions.
 
-- **[00-decisions.md](00-decisions.md)** — every decision, P1–P60, with the reasoning, plus the owner's answers (A1–A5) and open questions for Elation.
-- **[reviews/](reviews/)** — one file per step (5–13): what was checked, every finding and how it was resolved.
+- **[00-decisions.md](00-decisions.md)**: every decision, P1–P70, with the reasoning, plus the owner's answers (A1–A5) and open questions for Elation.
+- **[reviews/](reviews/)** — one file per step (5–14): what was checked, every finding and how it was resolved.
 - **[01-architecture.md](01-architecture.md)** — the overall design.
 
 Decisions you'll bump into most often:
@@ -111,20 +112,21 @@ Copy rule from the spec: always "Elation curated" / "Elation decides", never "AI
 
 ## 6. What's left
 
-### Step 14 — deployment & operations ([step-14-deploy-ops.md](step-14-deploy-ops.md))
-- Railway: one service serving web + API, managed Postgres, environment variables (see `server/.env.example`; production refuses to start without R2 settings).
-- Cloudflare R2: `elation-private` and `elation-public` buckets, a public domain for `elation-public` (`R2_PUBLIC_BASE_URL`), and the bucket CORS rule in [`server/deploy/r2-cors.json`](../server/deploy/r2-cors.json) — browsers upload straight to R2.
-- Resend for email (`RESEND_API_KEY`, `MAIL_FROM` on Elation's domain).
-- **Data retention purge** — delete expired clients' data 7 days after access ends (owner answer A5). Not built yet; `EXPIRED_DATA_RETENTION_DAYS` exists but nothing uses it.
-- Content-Security-Policy (helmet's CSP is off until asset origins are final), backups, monitoring, the launch checklist.
-- Then: merge `feature/backend` → `main`.
+### Going live (Step 14 is built; the accounts aren't set up yet)
+Follow [`server/RUNBOOK.md`](../server/RUNBOOK.md) §1:
+1. Cloudflare R2 buckets, CORS and keys.
+2. The Railway project, with two environments, Postgres 16 and the service variables.
+3. Resend on Elation's domain.
+4. The GitHub environments `staging` / `production` / `backups` and their secrets.
+5. Sentry and an uptime monitor.
 
+Then deploy and create the first admin with `create-admin`. After that, work through the launch checklist at the end of [step-14-deploy-ops.md](step-14-deploy-ops.md#launch-checklist-status), including a restore drill against Railway.
 ### Deferred by the panel (recorded decisions)
 - **P41** — socket events for "moodboard ready" / "budget updated".
 - **P45** — multipart uploads for very large files, a job queue for photo processing, malware scanning, moodboard reference tiles from uploads, avatar / event-cover upload UI.
 - **P56** — Cloudflare Turnstile on the public form (honeypot + rate limit for now), editable email templates beyond the invite intro, staff notifications for new inquiries, a chart library.
 - **P59** — server-side search (search filters loaded lists in the browser for now).
-- Expiry warning emails before access ends (noted in `server/src/modules/auth/sweep.ts`).
+- **P70**: Turnstile on login after failed attempts, Playwright E2E and k6 load tests, Sentry source maps, an external log drain and per-route metrics, a slimmer image.
 
 ### Needed from Elation
 - **Prices** for the 162 real catalogue pieces (admin → Inventory → "Needs a price"); until then budgets and concepts mostly use the 18 placeholder items.
@@ -135,7 +137,7 @@ Copy rule from the spec: always "Elation curated" / "Elation decides", never "AI
 
 ## 7. Working on it
 
-- Branch from `feature/backend` (or `main` once merged); keep the step docs' "As built" sections and `00-decisions.md` up to date when behaviour changes.
+- Branch from `main` and open a pull request (merging to `main` deploys to staging); keep the step docs' "As built" sections and `00-decisions.md` up to date when behaviour changes.
 - Schema changes: edit `server/prisma/schema.prisma`, add a migration (`npm run db:migrate -w server`), keep migrations additive.
 - API shapes live in `packages/shared/src/api/` — change them there and both sides type-check against them.
 - New page? Data through a hook in `webapp/src/data/`, with loading, error ("Try again") and empty states; no success toast before the server confirms.

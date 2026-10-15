@@ -146,8 +146,7 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 
 ## Working agreement
 
-- All backend work happens on the **`feature/backend`** branch; it is merged into `main` when the backend is done.
-- Commit and push to `feature/backend` at the end of every step in [README](README.md#steps).
+- Backend Steps 1–13 were built on **`feature/backend`** and merged into `main` (PR #1). From Step 14 on, work branches from `main` and lands through pull requests; `main` deploys to staging (P66).
 
 ## Deviation log
 
@@ -231,3 +230,13 @@ Format: **Decision** · options · outcome · reasoning · vote (B / F / P / D /
 - 2026-10-13 — Step 13 — P58: `/terms` is a factual privacy summary of how the studio works today; Elation's legal terms (and the data-retention period they promise) replace or join it before launch. ❓ Needs Elation.
 - 2026-10-13 — Step 13 — P59: search filters the client's already-loaded lists in the browser; a server search endpoint when the catalogue or history grows.
 - 2026-10-13 — Step 13 — P60: failed loads show an inline retry only when nothing is cached; one shared toast for server/network trouble on loads; mutations own their error messages.
+- 2026-10-15 — Step 14 — P61: retention purge (A5) deletes an expired client's events, threads (including staff attachments in them), files and their bytes, notes, consents, sessions and invites. The User row stays as an anonymised placeholder (`purgedAt`) so audit entries resolve; audit before/after details are cleared; the email is freed for a fresh invite; converted inquiries are anonymised. It runs in the hourly in-process sweep (no job queue yet), under the same row lock as extend.
+- 2026-10-15 — Step 14 — P62: access emails at 7 days, 1 day and 0 days, once per access window (`accessNoticeFor` / `accessNoticeStage`), claimed before sending so two instances don't both send; the consultant gets a copy of the "ended" email.
+- 2026-10-15 — Step 14 — P63: CSP built from config. `img-src` allows any https (CMS image links); `style-src 'unsafe-inline'` for runtime-injected styles; Google Fonts allowed; no CDN beyond R2.
+- 2026-10-15 — Step 14 — P64: logs redact contact details and secrets; outside development an unconfigured mailer fails instead of logging links; a reset-email failure looks like success to the caller (no account probing).
+- 2026-10-15 — Step 14 — P65: Sentry is optional per environment; the browser DSN arrives at runtime (`/client-config`) so one image serves staging and production; SDK lazy-loaded; no tracing, no PII, no source-map upload yet.
+- 2026-10-15 — Step 14 — P66: deploys go through GitHub Actions (`railway up`), not Railway's GitHub autodeploy, so CI gates them; staging follows `main` (the backend was merged in PR #1, so `feature/backend` no longer deploys); production needs a `v*` tag on a green `main` commit plus environment approval.
+- 2026-10-15 — Step 14 — P67: nightly backup is a GitHub Actions cron (pg_dump → gpg → separate R2 bucket, 30 days) rather than a pg-boss job; it lives outside Railway on purpose. Client major version = server major (16).
+- 2026-10-15 — Step 14 — P68: the first admin is created from the command line (`create-admin`), which prints a one-time link and refuses once an active admin exists.
+- 2026-10-15 — Step 14 — P69: `npm audit --omit=dev` gates CI on high/critical, with an allow-list in `scripts/audit.mjs` (Prisma CLI's `mysql2` / `deepmerge-ts`; replaces the Step 1 "not gated" note). `prisma` is a runtime dependency (pre-deploy migrations).
+- 2026-10-15 — Step 14 — P70: deferred — Turnstile on login after failed attempts, Playwright E2E, k6 load test, Sentry source maps, external log drain and per-route metrics, a slimmer image.

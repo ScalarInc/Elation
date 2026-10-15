@@ -1,6 +1,6 @@
 # Elation X — server
 
-Fastify + Prisma (PostgreSQL) API for Elation X. In production the same process also serves the built webapp, so web and API share one origin (see [`docs/step-14-deploy-ops.md`](../docs/step-14-deploy-ops.md)).
+Fastify + Prisma (PostgreSQL) API for Elation X. In production the same process also serves the built webapp, so web and API share one origin (see [`docs/step-14-deploy-ops.md`](../docs/step-14-deploy-ops.md)). Deploying and operating it: [`RUNBOOK.md`](RUNBOOK.md).
 
 ## Run locally
 
@@ -30,8 +30,9 @@ The database runs on host port **55432** so it never collides with a locally ins
 | Script | What it does |
 | --- | --- |
 | `dev` | `node --watch` + tsx, restarts on change |
-| `build` | Bundle `src/server.ts` (and `@elation/shared`) into `dist/` with tsup |
+| `build` | Bundle `src/server.ts` and `src/cli/create-admin.ts` (with `@elation/shared`) into `dist/` with tsup |
 | `start` | Run the bundle |
+| `admin:create` | `-- --email <email> --name "<name>"`: invite the first admin on an empty database, prints a one-time link |
 | `typecheck`, `lint`, `test` | tsc, oxlint, vitest (tests use `DATABASE_URL_TEST`) |
 | `db:migrate` | Create + apply a migration in development (`prisma migrate dev`) |
 | `db:deploy` | Apply pending migrations (CI / Railway pre-deploy) |
@@ -49,7 +50,8 @@ src/
   config.ts         env parsed with zod; the process refuses to start on bad config
   plugins/          db (Prisma), errors (error shape), webapp (static files in production)
   modules/<name>/   routes.ts → service.ts → Prisma; tests next to the code
-  lib/              AppError and shared helpers
+  lib/              AppError, policy, storage, emails, csp, logging, sentry …
+  cli/              operator commands bundled into the image (create-admin)
   test/             test helpers (buildTestApp)
   generated/        Prisma client (git-ignored)
 prisma/
@@ -72,7 +74,7 @@ prisma.config.ts    Prisma 7 config: schema path, migrations path, DATABASE_URL
   | `INTERNAL` | 500 | anything unhandled (logged, never leaked) |
 
   Module-specific codes (`EVENT_NOT_FOUND`, `ACCESS_EXPIRED`, `VERSION_CONFLICT`, …) are documented in each step doc.
-- **Routes** live under `/api/v1`. `GET /api/v1/healthz` = process up; `GET /api/v1/readyz` = database reachable.
+- **Routes** live under `/api/v1`. `GET /api/v1/healthz` = process up; `GET /api/v1/readyz` = database reachable; `GET /api/v1/client-config` = runtime settings for the web app (Sentry DSN, environment, release).
 - **Adding a migration:** edit `prisma/schema.prisma`, run `npm run db:migrate -w server -- --name <change>` in an interactive terminal (it can prompt), commit the generated folder under `prisma/migrations/`. Raw SQL that Prisma can't express (partial indexes, extensions) goes into the migration file via `--create-only` before applying.
 - **Soft delete:** `User`, `Event`, `File` reads hide rows with `deletedAt` set (Prisma extension in `plugins/db.ts`). Pass an explicit `deletedAt` filter to see them. Nested `include`s are not filtered.
 - **Enums:** the API uses display labels (`'Corporate Event'`), the DB uses keys (`CORPORATE_EVENT`); convert only through `src/lib/enums.ts`.

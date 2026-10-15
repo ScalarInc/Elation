@@ -77,7 +77,7 @@ Each step is validated by the five-persona technical panel before it is pushed: 
 
 ## How to use these docs
 
-- All work happens on the **`feature/backend`** branch, committed and pushed after every step; merged into `main` when done.
+- Steps 1–13 were built on **`feature/backend`** and merged into `main` (PR #1). New work branches from `main` and lands through a pull request; `main` deploys to staging ([server/RUNBOOK.md](../server/RUNBOOK.md)).
 
 - Each step ends with a **Definition of done** checklist. Tick it in the PR description that closes the step.
 - If implementation deviates from a doc, update the doc in the same PR and add a line to the deviation log in [00-decisions.md](00-decisions.md).

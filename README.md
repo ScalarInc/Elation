@@ -13,8 +13,9 @@ The platform is **never public**: client accounts are created by the Elation tea
 | Area | State |
 | --- | --- |
 | Client-facing frontend (`webapp/`) | Built — every page runs on the API (client studio + admin console) |
-| Admin area (`/admin/*`) | Routes + layout only, pages are placeholders |
-| Backend | **In progress** on `feature/backend` — Steps 1–13 (foundation, database, auth, events, questionnaire, inventory, moodboard, budget, inspirations & AR, chat & activity, files, admin console, frontend integration) done; plan in [`docs/`](docs/README.md) |
+| Admin area (`/admin/*`) | Built: clients, quotes, inquiries, analytics, inventory, inspirations & AR CMS, team, settings |
+| Backend | Built: Steps 1–14 of the [plan](docs/README.md), merged into `main` |
+| Deployment | Docker image + Railway config, deploy and backup workflows, runbook in [`server/RUNBOOK.md`](server/RUNBOOK.md). The live Railway, R2 and Resend accounts are not set up yet |
 | AR sets (Meta Quest 3) | Separate track; web app shows status + assets |
 
 Every page reads the API through `webapp/src/data/*` (TanStack Query); questionnaire edits are buffered locally and synced to the server. `webapp/src/mocks/*` only backs `VITE_API_MODE=mock` in `npm run dev` — production builds stub it out and CI fails if demo data reaches the bundle.
@@ -39,7 +40,7 @@ Every page reads the API through `webapp/src/data/*` (TanStack Query); questionn
 | `/messages` | Messages | Client ↔ consultant threads |
 | `/profile`, `/settings` | Profile & Settings | Personal details, partner/emergency contact, notification prefs, theme |
 
-### Admin area (`/admin/*`, placeholders today)
+### Admin area (`/admin/*`)
 
 Overview KPIs · Client management (invite / extend / revoke access) · Inquiries · Analytics (popular themes, budget ranges, consultation trends) · Inventory catalogue · Inspiration CMS · Settings.
 
@@ -62,8 +63,11 @@ Overview KPIs · Client management (invite / extend / revoke access) · Inquirie
 │       ├── layouts/                ClientLayout, AdminLayout, ProtectedRoute
 │       ├── questionnaire/          schema (questions + branching), store, derived selectors
 │       ├── mocks/                  types.ts (domain model), fixtures, questionnaire seeds
-│       └── lib/api.ts              Mock API — the seam the backend will plug into
-├── docs/                           Backend plan, one Markdown file per step
+│       ├── data/                   TanStack Query hooks, one file per domain (the API seam)
+│       └── lib/                    API client, realtime socket, uploads, monitoring
+├── docs/                           Backend plan, one Markdown file per step; HANDOFF.md
+├── Dockerfile, railway.json        Production image (web + API in one service) and Railway config
+├── scripts/                        smoke.mjs (post-deploy checks), audit.mjs (dependency gate)
 ├── PLAN.md                         Frontend build plan + data-flow rules
 ├── ELATION questionnaire.docx      134-question client brief with branching rules
 ├── Elation X_Modular_Report.docx   Scope, modules, priorities, timeline
@@ -91,22 +95,25 @@ npm run dev                          # API on :4000 + webapp on :5173
 
 Open <http://localhost:5173/> and sign in with a demo account (password `elation-dev`): client `malaika.khan@example.com`, consultant `ayesha@elationbyfmh.com`, admin `admin@elationx.local`. Everything runs against the real API — events, questionnaire, moodboards, budgets, inspirations, AR, live chat, files and the admin console (`/admin`). Server details: [`server/README.md`](server/README.md).
 
-Without `RESEND_API_KEY`, invitation and password-reset emails are printed to the server log, links included. To work on the frontend without the server, run `npm run dev` with `VITE_API_MODE=mock` (see `webapp/.env.example`); builds always use the API.
+Without `RESEND_API_KEY`, invitation and password-reset emails are printed to the server log in development, links included. To work on the frontend without the server, run `npm run dev` with `VITE_API_MODE=mock` (see `webapp/.env.example`); builds always use the API.
 
-Root scripts: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` — each runs across all workspaces.
+Root scripts: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` (each runs across all workspaces), and `npm run audit:deps`.
 
+## Deploy
+
+One Railway service serves the web app and the API from the root `Dockerfile`; migrations run before each deploy. Merging to `main` deploys to staging once CI passes; a `v*` tag deploys to production after approval. Setup, rollback, backups and incident steps: [`server/RUNBOOK.md`](server/RUNBOOK.md).
 
 ---
 
-## Backend (planned)
+## Backend
 
-Decided architecture — full reasoning in [`docs/00-decisions.md`](docs/00-decisions.md):
+Architecture (full reasoning in [`docs/00-decisions.md`](docs/00-decisions.md)):
 
 - **Node.js + TypeScript + Fastify** API in `server/`, sharing zod schemas and types with the frontend through `packages/shared/` (npm workspaces).
 - **PostgreSQL + Prisma** for Users, Events, Questionnaires, Moodboards, Budgets, Inventory, Chat, Activity.
 - **Session-cookie auth**, invite-only accounts with expiry; roles `client`, `consultant`, `admin`.
 - **Moodboard curation**: deterministic scoring of questionnaire answers against tagged inventory in v1; an LLM re-rank + concept narrative layer in v2.
-- **Hosting**: Railway/Render (API, websockets), Neon/managed Postgres, Cloudflare R2 for uploads.
+- **Hosting**: Railway (one service for web + API with websockets, Railway Postgres), Cloudflare R2 for uploads, Resend for email, Sentry for errors.
 
 The step-by-step plan, with owners and acceptance criteria, starts at [`docs/README.md`](docs/README.md).
 
