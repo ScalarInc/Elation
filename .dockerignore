@@ -1,0 +1,23 @@
+# Keep the build context small and secret-free: only what the Dockerfile copies.
+**/node_modules
+**/dist
+**/.storage
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+**/*.tsbuildinfo
+server/src/generated
+.git
+.github
+.vscode
+.idea
+.claude
+docs
+docker
+Inventory
+Moodboard_Isnpirations
+Sets
+*.docx
+*.pdf
+temp.txt

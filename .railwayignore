@@ -1,0 +1,9 @@
+# `railway up` uploads the repo (minus .gitignore'd paths) to build the Dockerfile.
+# Source material the image never uses stays home.
+docs
+Inventory
+Moodboard_Isnpirations
+Sets
+*.docx
+*.pdf
+temp.txt
