@@ -12,6 +12,7 @@ import { createStorage, type Storage } from './lib/storage'
 import { adminRoutes, publicInquiryRoutes } from './modules/admin/routes'
 import { authRoutes } from './modules/auth/routes'
 import { expireLapsedClients } from './modules/auth/sweep'
+import { purgeExpiredClients, sendAccessNotices } from './modules/auth/retention'
 import { eventRoutes } from './modules/events/routes'
 import { healthRoutes } from './modules/health/routes'
 import { adminInventoryRoutes, inventoryRoutes } from './modules/inventory/routes'
@@ -128,21 +129,35 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
     { prefix: API_PREFIX },
   )
 
-  // Access-expiry sweep (docs/step-03-auth.md). Tests call expireLapsedClients directly.
+  // Hourly account + storage sweep. Tests call each step directly.
   if (config.NODE_ENV !== 'test') {
-    const sweep = () => {
-      void expireLapsedClients(app.prisma)
-        .then((n) => n > 0 && app.log.info({ expired: n }, 'access sweep: clients expired'))
-        .catch((err) => app.log.error({ err }, 'access sweep failed'))
+    const step = async (name: string, run: () => Promise<number>) => {
+      try {
+        const n = await run()
+        if (n > 0) app.log.info({ count: n }, `sweep: ${name}`)
+      } catch (err) {
+        app.log.error({ err }, `sweep failed: ${name}`)
+      }
+    }
+    const retentionDays = config.EXPIRED_DATA_RETENTION_DAYS
+    const sweep = async () => {
+      // In order: expire (docs/step-03-auth.md) → access emails → data purge (A5, docs/step-14-deploy-ops.md).
+      await step('clients expired', () => expireLapsedClients(app.prisma))
+      await step('access notices sent', () =>
+        sendAccessNotices({ db: app.prisma, mailer: app.mailer, appUrl: config.APP_URL, retentionDays, log: app.log }),
+      )
+      await step('expired clients purged', async () => {
+        const purged = await purgeExpiredClients({ db: app.prisma, storage: app.storage, retentionDays, log: app.log })
+        for (const p of purged) app.log.info(p, 'retention purge: client data deleted')
+        return purged.length
+      })
       // Uploads started but never completed (docs/step-11-files.md).
-      void sweepPendingUploads({ db: app.prisma, storage: app.storage })
-        .then((n) => n > 0 && app.log.info({ removed: n }, 'upload sweep: abandoned uploads removed'))
-        .catch((err) => app.log.error({ err }, 'upload sweep failed'))
+      await step('abandoned uploads removed', () => sweepPendingUploads({ db: app.prisma, storage: app.storage }))
     }
     let timer: NodeJS.Timeout | undefined
     app.addHook('onReady', async () => {
       void sweep()
-      timer = setInterval(sweep, SWEEP_INTERVAL_MS)
+      timer = setInterval(() => void sweep(), SWEEP_INTERVAL_MS)
       timer.unref()
     })
     app.addHook('onClose', async () => clearInterval(timer))

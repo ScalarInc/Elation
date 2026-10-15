@@ -5,8 +5,8 @@ import type { Db } from '../../plugins/db'
  * sessions. (Requests already enforce expiry on their own — this keeps the
  * stored status accurate for admin lists and kills idle sessions.)
  *
- * Expiry warning emails and the 7-day data retention purge (owner answer A5)
- * run from the job queue once it exists — see docs/00-decisions.md.
+ * The same sweep then sends access-ending emails and purges expired clients'
+ * data after the retention period (retention.ts, owner answer A5) — see app.ts.
  */
 export async function expireLapsedClients(db: Db, now = new Date()): Promise<number> {
   const lapsed = await db.user.findMany({

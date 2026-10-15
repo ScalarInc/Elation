@@ -67,6 +67,11 @@ function AccessPanel({ c }: { c: AdminClientDetail }) {
           <dd className="text-text mt-1">{formatDay(c.accessExpiresAt)}</dd>
         </div>
       </dl>
+      {c.dataDeletionAt && (
+        <p role="status" className="border-danger/30 bg-danger/5 text-danger mt-3 rounded-lg border px-3 py-2 text-sm">
+          Access has ended. Their events, files and messages will be deleted on {formatDay(c.dataDeletionAt)} unless you extend access before then.
+        </p>
+      )}
 
       <div className="mt-5 space-y-4">
         {c.status === 'invited' ? (

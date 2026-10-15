@@ -107,6 +107,8 @@ export const adminClientDetailSchema = adminClientRowSchema.extend({
   notes: z.array(noteSchema),
   threads: z.array(z.object({ id: z.string(), title: z.string(), lastMessageAt: z.string() })),
   access: z.array(auditEntrySchema),
+  /** Expired clients: when their data is deleted unless access is extended first (owner answer A5). */
+  dataDeletionAt: z.string().nullable(),
 })
 export type AdminClientDetail = z.infer<typeof adminClientDetailSchema>
 

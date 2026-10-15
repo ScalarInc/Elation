@@ -72,13 +72,13 @@ export const adminRoutes: FastifyPluginAsyncZod = async (app) => {
     reply.code(201).send(await inviteClient(deps, currentUser(r), r.body, meta(r))),
   )
   app.get('/admin/clients/:id', { schema: { params: id, response: { 200: adminClientDetailSchema } } }, async (r) =>
-    clients.getClientDetail(app.prisma, currentUser(r), r.params.id),
+    clients.getClientDetail(app.prisma, currentUser(r), r.params.id, app.config.EXPIRED_DATA_RETENTION_DAYS),
   )
   app.patch('/admin/clients/:id', { schema: { params: id, body: updateClientBody, response: { 200: adminClientDetailSchema } } }, async (r) =>
     clients.updateClient(deps, currentUser(r), r.params.id, r.body, meta(r)),
   )
   app.post('/admin/clients/:id/resend-invite', { schema: { params: id, response: { 200: inviteClientResponse } } }, async (r) => {
-    await clients.getClientDetail(app.prisma, currentUser(r), r.params.id) // access check
+    await clients.getClientDetail(app.prisma, currentUser(r), r.params.id, app.config.EXPIRED_DATA_RETENTION_DAYS) // access check
     return resendInvite(deps, currentUser(r), r.params.id, meta(r))
   })
   app.post('/admin/clients/:id/extend', { schema: { params: id, body: extendBody, response: { 200: adminClientDetailSchema } } }, async (r) =>

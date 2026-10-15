@@ -11,6 +11,7 @@ import { ensureThreads, postSystemMessage } from '../../lib/threads'
 import type { Db } from '../../plugins/db'
 import type { Realtime } from '../../plugins/realtime'
 import { deleteUserSessions } from '../auth/sessions'
+import { dataDeletionDate } from '../auth/retention'
 import { audit, auditFor } from './audit'
 import { toNoteDto } from './notes'
 import { getSettings } from './settings'
@@ -123,7 +124,7 @@ export async function listClients(db: Db, actor: Actor, query: ListClientsQuery)
   return { rows: page, total: list.length, nextCursor: start + limit < list.length ? start + limit : null }
 }
 
-export async function getClientDetail(db: Db, actor: Actor, clientId: string): Promise<AdminClientDetail> {
+export async function getClientDetail(db: Db, actor: Actor, clientId: string, retentionDays: number): Promise<AdminClientDetail> {
   await assertClientAccess(db, actor, clientId)
   const u = (await db.user.findUniqueOrThrow({ where: { id: clientId }, include: rowInclude })) as RowSource
   const [events, notes, threads, access] = await Promise.all([
@@ -140,8 +141,10 @@ export async function getClientDetail(db: Db, actor: Actor, clientId: string): P
     db.thread.findMany({ where: { clientId }, orderBy: { lastMessageAt: 'desc' }, select: { id: true, title: true, lastMessageAt: true } }),
     auditFor(db, clientId),
   ])
+  const row = toRow(u)
   return {
-    ...toRow(u),
+    ...row,
+    dataDeletionAt: row.status === 'expired' && u.accessExpiresAt ? dataDeletionDate(u.accessExpiresAt, retentionDays).toISOString() : null,
     city: u.city,
     partnerName: u.partnerName,
     events: events.map((e) => ({
@@ -186,7 +189,7 @@ const adminOnly = (actor: Actor, what: string) => {
  */
 export async function extendAccess(deps: Deps, actor: Actor, clientId: string, body: ExtendBody, meta: Meta) {
   await extendCore(deps, actor, clientId, body, meta)
-  return getClientDetail(deps.db, actor, clientId)
+  return getClientDetail(deps.db, actor, clientId, deps.config.EXPIRED_DATA_RETENTION_DAYS)
 }
 
 async function extendCore(deps: Deps, actor: Actor, clientId: string, body: ExtendBody, meta: Meta) {
@@ -226,7 +229,7 @@ async function extendCore(deps: Deps, actor: Actor, clientId: string, body: Exte
 /** Admin only: closes the account now — every session ends, open sockets close, open invites die. */
 export async function revokeClient(deps: Deps, actor: Actor, clientId: string, reason: string, meta: Meta) {
   await revokeCore(deps, actor, clientId, reason, meta)
-  return getClientDetail(deps.db, actor, clientId)
+  return getClientDetail(deps.db, actor, clientId, deps.config.EXPIRED_DATA_RETENTION_DAYS)
 }
 
 async function revokeCore(deps: Deps, actor: Actor, clientId: string, reason: string, meta: Meta) {
@@ -252,7 +255,7 @@ export async function restoreClient(deps: Deps, actor: Actor, clientId: string, 
     await tx.user.update({ where: { id: clientId }, data: { status } })
     await audit(tx, actor, 'user.restore', 'User', clientId, { before: { status: 'REVOKED' }, after: { status }, ip: meta.ip })
   })
-  return getClientDetail(deps.db, actor, clientId)
+  return getClientDetail(deps.db, actor, clientId, deps.config.EXPIRED_DATA_RETENTION_DAYS)
 }
 
 /**
@@ -293,7 +296,7 @@ export async function updateClient(
     await ensureThreads(deps.db, clientId)
     await postSystemMessage(deps.db, { clientId, body: `${next!.name} is now your Elation consultant.`, meta: { type: 'consultant.changed', consultantId: next!.id } })
   }
-  return getClientDetail(deps.db, actor, clientId)
+  return getClientDetail(deps.db, actor, clientId, deps.config.EXPIRED_DATA_RETENTION_DAYS)
 }
 
 export async function bulkClients(

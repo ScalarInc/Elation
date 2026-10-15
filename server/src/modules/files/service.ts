@@ -31,7 +31,7 @@ const ruleOf = (f: Pick<File, 'purpose'>) => FILE_RULES[purposeFromDb(f.purpose)
 /** Originals always sit in the private bucket (they may carry location data). */
 const ORIGINALS: Bucket = 'private'
 /** Processed copies of catalogue media are public (CDN); everything else stays private. */
-const variantBucket = (f: Pick<File, 'purpose'>): Bucket => (ruleOf(f).public ? 'public' : 'private')
+export const variantBucket = (f: Pick<File, 'purpose'>): Bucket => (ruleOf(f).public ? 'public' : 'private')
 /** Photos get processed copies; everything else is shown as-is. */
 const PROCESSABLE = new Set(['image/jpeg', 'image/png', 'image/webp'])
 

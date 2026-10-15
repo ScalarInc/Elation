@@ -251,3 +251,85 @@ Elation by FMH`,
     ),
   }
 }
+
+// ─────────────── Access ending / ended (docs/step-14-deploy-ops.md) ───────────────
+
+const who = (consultantName: string | null) => consultantName ?? 'your Elation consultant'
+
+/** 7 days and 1 day before a client's access ends. */
+export function accessEndingEmail(input: {
+  to: string
+  name: string
+  until: Date
+  consultantName: string | null
+  retentionDays: number
+  url: string
+}): Mail {
+  const until = formatPkDate(input.until)
+  const ask = who(input.consultantName)
+  return {
+    to: input.to,
+    subject: `Your Elation X access ends on ${until}`,
+    text: `Hi ${input.name},
+
+Your Elation X studio is open until ${until}. If you need more time, ask ${ask} to extend it.
+
+${input.retentionDays} days after your access ends, your events, moodboards, budgets, files and messages are deleted. You can download a copy of your data any time from Settings.
+
+${input.url}
+
+Elation by FMH`,
+    html: layout(
+      `Your access ends on ${escapeHtml(until)}`,
+      `<p>Hi ${escapeHtml(input.name)}, your Elation X studio is open until <strong>${escapeHtml(until)}</strong>. If you need more time, ask ${escapeHtml(ask)} to extend it.</p>
+       <p style="color:#55545a">${input.retentionDays} days after your access ends, your events, moodboards, budgets, files and messages are deleted. You can download a copy of your data any time from Settings.</p>`,
+      { label: 'Open my studio', url: input.url },
+    ),
+  }
+}
+
+/** The day access ended: what happens to the data, and by when to act. */
+export function accessEndedEmail(input: { to: string; name: string; deleteOn: Date; consultantName: string | null }): Mail {
+  const on = formatPkDate(input.deleteOn)
+  const ask = who(input.consultantName)
+  return {
+    to: input.to,
+    subject: 'Your Elation X access has ended',
+    text: `Hi ${input.name},
+
+Your Elation X studio is now closed.
+
+On ${on} your events, moodboards, budgets, files and messages will be deleted. To keep them, ask ${ask} to extend your access before then.
+
+Thank you for planning with us.
+
+Elation by FMH`,
+    html: layout(
+      'Your access has ended',
+      `<p>Hi ${escapeHtml(input.name)}, your Elation X studio is now closed.</p>
+       <p>On <strong>${escapeHtml(on)}</strong> your events, moodboards, budgets, files and messages will be deleted. To keep them, ask ${escapeHtml(ask)} to extend your access before then.</p>
+       <p style="color:#55545a">Thank you for planning with us.</p>`,
+    ),
+  }
+}
+
+/** To the consultant, the day a client's access ends. */
+export function clientAccessEndedStaffEmail(input: { to: string; consultantName: string; clientName: string; deleteOn: Date; url: string }): Mail {
+  const on = formatPkDate(input.deleteOn)
+  return {
+    to: input.to,
+    subject: `${input.clientName}’s access has ended`,
+    text: `Hi ${input.consultantName},
+
+${input.clientName}’s Elation X access has ended. Their data will be deleted on ${on} unless you extend their access before then.
+
+${input.url}
+
+Elation X`,
+    html: layout(
+      `${escapeHtml(input.clientName)}’s access has ended`,
+      `<p>Hi ${escapeHtml(input.consultantName)}, ${escapeHtml(input.clientName)}’s Elation X access has ended. Their data will be deleted on <strong>${escapeHtml(on)}</strong> unless you extend their access before then.</p>`,
+      { label: 'Open the client', url: input.url },
+    ),
+  }
+}

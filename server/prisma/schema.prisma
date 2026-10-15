@@ -180,6 +180,13 @@ model User {
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
+  /// Access-ending emails (docs/step-14-deploy-ops.md): the expiry the last notice was about,
+  /// and which one it was (7 / 1 days before, 0 = access ended). Extending access resets them.
+  accessNoticeFor   DateTime?
+  accessNoticeStage Int?
+  /// Data-retention purge (owner answer A5): when this client's data was deleted and the row anonymised.
+  purgedAt          DateTime?
+
   sessions      Session[]
   consents      Consent[]
   events        Event[]
