@@ -4,6 +4,7 @@ import { ArrowRight, Copy, Heart, Sparkles, Trash2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/format'
 import { api } from '@/api'
@@ -32,17 +33,36 @@ export function MoodboardsPage() {
 
   const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
 
-  function duplicate(_board: Moodboard) {
-    // TODO(backend): duplicate the moodboard, then add the returned copy to `boards`.
+  async function duplicate(board: Moodboard) {
+    try {
+      const copy = await api.moodboards.duplicate(board.id)
+      setBoards((prev) => [copy, ...prev])
+      toast.success('Concept duplicated')
+    } catch (err) {
+      toast.error("Couldn't duplicate", { description: (err as Error).message })
+    }
   }
 
-  function remove(_id: string) {
-    // TODO(backend): delete the moodboard, then drop it from `boards`.
+  async function remove(id: string) {
+    if (!window.confirm('Delete this concept? This cannot be undone.')) return
+    try {
+      await api.moodboards.remove(id)
+      setBoards((prev) => prev.filter((b) => b.id !== id))
+      toast.success('Concept deleted')
+    } catch (err) {
+      toast.error("Couldn't delete", { description: (err as Error).message })
+    }
   }
 
-  // Local only — favourites are not persisted yet.
-  function toggleLike(id: string) {
-    setBoards((prev) => prev.map((b) => (b.id === id ? { ...b, liked: !b.liked } : b)))
+  async function toggleLike(id: string) {
+    const board = boards.find((b) => b.id === id)
+    if (!board) return
+    try {
+      const saved = await api.moodboards.update(id, { liked: !board.liked })
+      setBoards((prev) => prev.map((b) => (b.id === id ? saved : b)))
+    } catch (err) {
+      toast.error("Couldn't update", { description: (err as Error).message })
+    }
   }
 
   return (

@@ -576,6 +576,7 @@ export function BudgetPage() {
   const [initial, setInitial] = useState<{ budget: number; lines: BudgetLine[] } | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [requesting, setRequesting] = useState(false)
+  const [drafting, setDrafting] = useState(false)
   // Edits made after loading; autosave only runs once the user changes something.
   const dirty = useRef(false)
 
@@ -719,8 +720,26 @@ export function BudgetPage() {
   }
 
   function startPlanning() {
-    // Starter budgets generated from the questionnaire arrive with recommendations (next step).
     setStarted(true)
+  }
+
+  async function draftFromConcept() {
+    if (!id) return
+    setDrafting(true)
+    try {
+      // Uses the newest moodboard; Elation curates one first if the event has none.
+      const snap = await api.budget.fromMoodboard(id)
+      const known = new Set(inventoryList.map((i) => i.id))
+      setInventoryList((prev) => [...prev, ...snap.items.filter((i) => !known.has(i.id))])
+      setLines(snap.lines)
+      setInitial({ budget, lines: snap.lines })
+      setStarted(true)
+      toast.success('Elation drafted a starter budget', { description: `${snap.lines.length} items from your concept` })
+    } catch (err) {
+      toast.error("Couldn't draft a budget", { description: (err as Error).message })
+    } finally {
+      setDrafting(false)
+    }
   }
 
   // ---------------- Render ----------------
@@ -776,12 +795,17 @@ export function BudgetPage() {
         <EmptyState
           icon={<Wallet className="h-6 w-6" />}
           title="Start planning your budget"
-          description="Set a target and add items from Elation's inventory. Totals use live prices and update as you go."
+          description="Let Elation draft a starter budget from your concept and real inventory prices, or start from scratch and add items yourself."
           action={
-            <Button onClick={startPlanning}>
-              <Sparkles className="h-4 w-4" />
-              Start planning your budget
-            </Button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button onClick={draftFromConcept} disabled={drafting}>
+                <Sparkles className="h-4 w-4" />
+                {drafting ? 'Drafting…' : 'Draft my starter budget'}
+              </Button>
+              <Button variant="outline" onClick={startPlanning}>
+                Start from scratch
+              </Button>
+            </div>
           }
         />
       </div>

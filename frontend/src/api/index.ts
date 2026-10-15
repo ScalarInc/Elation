@@ -11,6 +11,7 @@ import type {
   Message,
   MessageThread,
   Moodboard,
+  MoodboardControls,
   ProfileUpdate,
   QuestionnaireData,
   QuoteRequest,
@@ -24,6 +25,15 @@ type ApiEvent = Omit<ClientEvent, 'coverImage'> & { coverImage: string | null }
 /** Events without an uploaded cover use a brand image so cards always have a picture. */
 function withCover(event: ApiEvent): ClientEvent {
   return { ...event, coverImage: event.coverImage ?? defaultCover }
+}
+
+type ApiMoodboard = Omit<Moodboard, 'cover' | 'tiles'>
+
+/** Adds preview images; items without photos fall back to a brand image. */
+function withPreview(board: ApiMoodboard): Moodboard {
+  const photos = board.items.map((i) => i.item.imageUrl).filter((url): url is string => Boolean(url))
+  const cover = photos[0] ?? defaultCover
+  return { ...board, cover, tiles: photos.length > 0 ? photos : [cover] }
 }
 
 type ApiBudget = {
@@ -75,9 +85,16 @@ export const api = {
   },
 
   moodboards: {
-    list: async (): Promise<Moodboard[]> => [],
-    byEvent: async (_eventId: UUID): Promise<Moodboard[]> => [],
-    get: async (_id: UUID): Promise<Moodboard | undefined> => undefined,
+    list: async (): Promise<Moodboard[]> => (await apiRequest<ApiMoodboard[]>('/api/moodboards')).map(withPreview),
+    byEvent: async (eventId: UUID): Promise<Moodboard[]> =>
+      (await apiRequest<ApiMoodboard[]>(`/api/events/${eventId}/moodboards`)).map(withPreview),
+    generate: async (eventId: UUID, controls: MoodboardControls): Promise<Moodboard> =>
+      withPreview(await apiRequest<ApiMoodboard>(`/api/events/${eventId}/moodboards/generate`, { method: 'POST', body: controls })),
+    update: async (id: UUID, changes: { title?: string; liked?: boolean }): Promise<Moodboard> =>
+      withPreview(await apiRequest<ApiMoodboard>(`/api/moodboards/${id}`, { method: 'PATCH', body: changes })),
+    duplicate: async (id: UUID): Promise<Moodboard> =>
+      withPreview(await apiRequest<ApiMoodboard>(`/api/moodboards/${id}/duplicate`, { method: 'POST' })),
+    remove: (id: UUID): Promise<void> => apiRequest(`/api/moodboards/${id}`, { method: 'DELETE' }),
   },
 
   inspirations: {
@@ -107,6 +124,9 @@ export const api = {
       ),
     requestQuote: (eventId: UUID, note?: string): Promise<QuoteRequest> =>
       apiRequest(`/api/events/${eventId}/quote-requests`, { method: 'POST', body: { note } }),
+    /** Starter budget from a moodboard (default: the newest one; generated if none). */
+    fromMoodboard: async (eventId: UUID, options: { moodboardId?: UUID; replace?: boolean } = {}): Promise<BudgetSnapshot> =>
+      toSnapshot(await apiRequest<ApiBudget>(`/api/events/${eventId}/budget/generate`, { method: 'POST', body: options })),
   },
 
   messages: {

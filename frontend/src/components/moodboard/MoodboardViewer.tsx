@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Heart, Save, Sparkles, X } from 'lucide-react'
+import { Heart, ImageOff, Sparkles, Wallet, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { formatPKR } from '@/lib/format'
 import { api } from '@/api'
-import type { InventoryItem, Moodboard } from '@/types'
+import { ApiRequestError } from '@/api/client'
+import { toast } from '@/components/ui/toast'
+import type { InventoryItem, Moodboard, MoodboardItem } from '@/types'
 import { deriveMoodboardDefaults } from '@/lib/questionnaire/derived'
 import { EMPTY_ANSWERS, useQuestionnaire } from '@/stores/questionnaireStore'
 
@@ -22,7 +25,9 @@ type Concept = { id: string; letter: string; board: Moodboard }
 type Props = { eventId: string }
 
 export function MoodboardViewer({ eventId }: Props) {
+  const navigate = useNavigate()
   const [boards, setBoards] = useState<Moodboard[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const answers = useQuestionnaire(
     (s) => s.byEvent[eventId]?.answers ?? EMPTY_ANSWERS,
   )
@@ -30,25 +35,27 @@ export function MoodboardViewer({ eventId }: Props) {
 
   useEffect(() => {
     let cancelled = false
-    api.moodboards.byEvent(eventId).then((rows) => {
-      if (!cancelled) setBoards(rows)
-    })
+    api.moodboards.byEvent(eventId).then(
+      (rows) => !cancelled && setBoards(rows),
+      (err: Error) => !cancelled && setLoadError(err.message),
+    )
     return () => {
       cancelled = true
     }
   }, [eventId])
 
+  // Newest concept first from the API; letters follow creation order (A = oldest).
   const variants = useMemo<Concept[]>(
     () =>
-      (boards ?? []).map((board, i) => ({
+      [...(boards ?? [])].reverse().map((board, i) => ({
         id: board.id,
-        letter: String.fromCharCode(65 + i),
+        letter: String.fromCharCode(65 + (i % 26)),
         board,
       })),
     [boards],
   )
   const [conceptId, setConceptId] = useState<string | null>(null)
-  const active = variants.find((v) => v.id === conceptId) ?? variants[0]
+  const active = variants.find((v) => v.id === conceptId) ?? variants[variants.length - 1]
 
   const [mood, setMood] = useState(() => derived.mood ?? 'Romantic')
   const [style, setStyle] = useState(() => derived.style ?? 'Modern Luxury')
@@ -63,10 +70,98 @@ export function MoodboardViewer({ eventId }: Props) {
       : active?.board.palette ?? []
 
   const [regenerating, setRegenerating] = useState(false)
-  // Opened from a tile once moodboard tiles reference inventory items.
-  const [drawerItem, setDrawerItem] = useState<InventoryItem | null>(null)
-  const [likedById, setLikedById] = useState<Record<string, boolean>>({})
-  const liked = active ? (likedById[active.id] ?? active.board.liked) : false
+  const [usingInBudget, setUsingInBudget] = useState(false)
+  const [selected, setSelected] = useState<MoodboardItem | null>(null)
+  const drawerItem = selected?.item ?? null
+  const liked = active?.board.liked ?? false
+
+  function replaceBoard(board: Moodboard) {
+    setBoards((prev) => (prev ?? []).map((b) => (b.id === board.id ? board : b)))
+  }
+
+  async function regenerate() {
+    setRegenerating(true)
+    try {
+      const board = await api.moodboards.generate(eventId, {
+        mood,
+        style,
+        density,
+        venue: venueLocked ? venue : undefined,
+      })
+      setBoards((prev) => [board, ...(prev ?? [])])
+      setConceptId(board.id)
+      toast.success('Elation curated a new concept', {
+        description: board.source === 'ai' ? board.title : `${board.title} · built from inventory rules`,
+      })
+    } catch (err) {
+      toast.error("Couldn't create a concept", { description: (err as Error).message })
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  async function useInBudget() {
+    if (!active) return
+    setUsingInBudget(true)
+    try {
+      try {
+        await api.budget.fromMoodboard(eventId, { moodboardId: active.id })
+      } catch (err) {
+        if (!(err instanceof ApiRequestError && err.code === 'BUDGET_NOT_EMPTY')) throw err
+        if (!window.confirm('Your budget already has items. Replace them with this concept?')) return
+        await api.budget.fromMoodboard(eventId, { moodboardId: active.id, replace: true })
+      }
+      toast.success('Budget drafted from this concept')
+      navigate(`/events/${eventId}/budget`)
+    } catch (err) {
+      toast.error("Couldn't draft the budget", { description: (err as Error).message })
+    } finally {
+      setUsingInBudget(false)
+    }
+  }
+
+  async function addToBudget(entry: MoodboardItem) {
+    try {
+      const snapshot = await api.budget.forEvent(eventId)
+      const line = {
+        id: crypto.randomUUID(),
+        category: entry.budgetCategory ?? entry.item.category,
+        itemId: entry.item.id,
+        qty: entry.suggestedQty ?? 1,
+        included: true,
+      }
+      await api.budget.save(eventId, snapshot.budgetPkr, [...snapshot.lines, line])
+      toast.success('Added to budget', { description: `${entry.item.name} × ${line.qty}` })
+      setSelected(null)
+    } catch (err) {
+      toast.error("Couldn't add to budget", { description: (err as Error).message })
+    }
+  }
+
+  function requestSwap(_item: InventoryItem) {
+    // Live consultant messaging arrives in step 9; for now this opens the Messages page.
+    navigate('/messages')
+  }
+
+  async function toggleLiked() {
+    if (!active) return
+    try {
+      replaceBoard(await api.moodboards.update(active.id, { liked: !liked }))
+    } catch (err) {
+      toast.error("Couldn't update", { description: (err as Error).message })
+    }
+  }
+
+  if (loadError) {
+    return (
+      <Card className="mt-4">
+        <CardContent className="py-14 text-center">
+          <p className="font-display text-text text-xl">Couldn't load moodboards</p>
+          <p className="text-muted mt-2 text-sm">{loadError}</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (boards === null) {
     return <Skeleton className="mt-4 h-96 w-full" />
@@ -75,43 +170,20 @@ export function MoodboardViewer({ eventId }: Props) {
   if (!active) {
     return (
       <Card className="mt-4">
-        <CardContent className="flex flex-col items-center gap-2 py-14 text-center">
+        <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
           <p className="font-display text-text text-xl">No moodboard yet.</p>
           <p className="text-muted max-w-md text-sm">
-            Complete the questionnaire and Elation will draft a concept for you.
+            Elation curates a concept from your questionnaire answers and real inventory. The more you've
+            answered, the better it fits.
           </p>
+          <Button onClick={regenerate} disabled={regenerating}>
+            <Sparkles className="h-4 w-4" />
+            {regenerating ? 'Curating…' : 'Curate my first concept'}
+          </Button>
         </CardContent>
       </Card>
     )
   }
-
-  async function regenerate() {
-    setRegenerating(true)
-    try {
-      // TODO(backend): request a new moodboard from the mood, style, density and
-      // venue controls, then reload `boards`.
-    } finally {
-      setRegenerating(false)
-    }
-  }
-
-  function saveConcept() {
-    // TODO(backend): save the active concept to the client's moodboard library.
-  }
-
-  function addToBudget(_item: InventoryItem) {
-    // TODO(backend): add the item as a line on this event's budget.
-  }
-
-  function requestSwap(_item: InventoryItem) {
-    // TODO(backend): ask Elation for alternatives to this item.
-  }
-
-  function toggleLiked() {
-    if (!active) return
-    setLikedById((prev) => ({ ...prev, [active.id]: !liked }))
-  }
-
   return (
     <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
       {/* Left controls */}
@@ -197,10 +269,11 @@ export function MoodboardViewer({ eventId }: Props) {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={saveConcept}
+                onClick={useInBudget}
+                disabled={usingInBudget || active.board.items.length === 0}
               >
-                <Save className="h-4 w-4" />
-                Save as concept
+                <Wallet className="h-4 w-4" />
+                {usingInBudget ? 'Drafting budget…' : 'Use in my budget'}
               </Button>
             </div>
           </CardContent>
@@ -291,18 +364,44 @@ export function MoodboardViewer({ eventId }: Props) {
                 transition={{ duration: 0.4 }}
                 className="columns-1 gap-4 sm:columns-2 lg:columns-3"
               >
-                {active.board.tiles.map((src, i) => (
-                  <div
-                    key={`${active.id}-${i}`}
-                    className="group relative mb-4 block w-full overflow-hidden rounded-2xl"
+                {active.board.summary && (
+                  <p className="text-muted mb-4 break-inside-avoid text-sm leading-relaxed">{active.board.summary}</p>
+                )}
+                {active.board.items.map((entry, i) => (
+                  <button
+                    key={`${active.id}-${entry.item.id}`}
+                    type="button"
+                    onClick={() => setSelected(entry)}
+                    className="group relative mb-4 block w-full overflow-hidden rounded-2xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    style={{ height: i % 3 === 0 ? 300 : i % 3 === 1 ? 220 : 260 }}
                   >
-                    <img
-                      src={src}
-                      alt=""
-                      className="w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                      style={{ height: i % 3 === 0 ? 320 : i % 3 === 1 ? 240 : 280 }}
-                    />
-                  </div>
+                    {entry.item.imageUrl ? (
+                      <img
+                        src={entry.item.imageUrl}
+                        alt={entry.item.name}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                      />
+                    ) : (
+                      // No photo uploaded yet: a palette-tinted card keeps the board readable.
+                      <div
+                        className="flex h-full w-full items-center justify-center"
+                        style={{ background: active.board.palette[i % active.board.palette.length] ?? '#E1CBAD' }}
+                      >
+                        <ImageOff className="h-6 w-6 text-white/60" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent" />
+                    <div className="absolute inset-x-3 bottom-2 text-white">
+                      <p className="text-[9px] font-bold uppercase tracking-widest opacity-80">
+                        {entry.budgetCategory ?? entry.item.category}
+                      </p>
+                      <p className="text-sm font-semibold leading-tight">{entry.item.name}</p>
+                      <p className="text-[10px] text-white/80">
+                        {entry.suggestedQty ? `${entry.suggestedQty} × ` : ''}
+                        {formatPKR(entry.item.pricePkr)} / {entry.item.unit}
+                      </p>
+                    </div>
+                  </button>
                 ))}
               </motion.div>
             )}
@@ -320,7 +419,7 @@ export function MoodboardViewer({ eventId }: Props) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
-              onClick={() => setDrawerItem(null)}
+              onClick={() => setSelected(null)}
             />
             <motion.aside
               key="drawer"
@@ -339,7 +438,7 @@ export function MoodboardViewer({ eventId }: Props) {
                     <h3 className="font-display text-text mt-1 text-2xl">{drawerItem.name}</h3>
                   </div>
                   <button
-                    onClick={() => setDrawerItem(null)}
+                    onClick={() => setSelected(null)}
                     aria-label="Close"
                     className="hover:bg-surface-2 rounded-lg p-2 transition"
                   >
@@ -347,13 +446,22 @@ export function MoodboardViewer({ eventId }: Props) {
                   </button>
                 </div>
 
-                <img
-                  src={drawerItem.imageUrl ?? undefined}
-                  alt={drawerItem.name}
-                  className="mt-5 h-56 w-full rounded-2xl object-cover"
-                />
+                {drawerItem.imageUrl && (
+                  <img
+                    src={drawerItem.imageUrl}
+                    alt={drawerItem.name}
+                    className="mt-5 h-56 w-full rounded-2xl object-cover"
+                  />
+                )}
+
+                {selected?.reason && (
+                  <p className="border-accent/30 bg-accent/10 text-text mt-5 rounded-2xl border px-4 py-3 text-sm">
+                    {selected.reason}
+                  </p>
+                )}
 
                 <dl className="mt-5 space-y-2 text-sm">
+                  {selected?.suggestedQty != null && <Row label="Suggested quantity" value={String(selected.suggestedQty)} />}
                   {drawerItem.colour && <Row label="Colour" value={drawerItem.colour} />}
                   {drawerItem.material && <Row label="Material" value={drawerItem.material} />}
                   <Row label="Unit" value={drawerItem.unit} />
@@ -361,13 +469,13 @@ export function MoodboardViewer({ eventId }: Props) {
                     label="Price"
                     value={`${formatPKR(drawerItem.pricePkr)} / ${drawerItem.unit}`}
                   />
-                  <Row label="Tags" value={drawerItem.tags.join(', ')} />
+                  {drawerItem.tags.length > 0 && <Row label="Tags" value={drawerItem.tags.join(', ')} />}
                 </dl>
 
                 <div className="mt-6 flex gap-2">
                   <Button
                     className="flex-1"
-                    onClick={() => addToBudget(drawerItem)}
+                    onClick={() => selected && void addToBudget(selected)}
                   >
                     Add to budget
                   </Button>
@@ -375,7 +483,7 @@ export function MoodboardViewer({ eventId }: Props) {
                     variant="outline"
                     onClick={() => requestSwap(drawerItem)}
                   >
-                    Ask for swap
+                    Ask my consultant
                   </Button>
                 </div>
               </div>

@@ -101,17 +101,40 @@ export type QuestionnaireData = {
   updatedAt: string | null
 }
 
+/** One recommended inventory item on a moodboard. */
+export type MoodboardItem = {
+  item: InventoryItem
+  suggestedQty: number | null
+  /** Budget bucket used when the moodboard becomes a budget, e.g. "Stage". */
+  budgetCategory: string | null
+  reason: string | null
+}
+
 export type Moodboard = {
   id: UUID
   eventId: UUID
   title: string
+  summary: string | null
+  /** The event's type. */
   tag: EventType
+  /** Preview image: first item photo, or a brand image when items have no photos yet. */
   cover: string
+  /** Item photos for preview grids (falls back to `cover`). */
   tiles: string[]
   palette: string[]
+  mood: string | null
+  style: string | null
+  density: string | null
+  venue: string | null
+  /** "ai" = Groq, "rules" = built-in fallback, "inspiration" = adopted concept. */
+  source: 'ai' | 'rules' | 'inspiration'
   createdAt: string
   liked: boolean
+  items: MoodboardItem[]
 }
+
+/** Direction controls sent when generating a new concept. */
+export type MoodboardControls = { mood?: string; style?: string; density?: string; venue?: string }
 
 export const INVENTORY_CATEGORIES = [
   'Sofa', 'Chair', 'Table', 'Chandelier', 'Floral', 'Backdrop', 'Prop', 'Signage', 'Lighting', 'Fabric', 'Structure',
