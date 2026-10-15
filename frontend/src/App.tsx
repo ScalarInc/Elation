@@ -27,6 +27,7 @@ import { NotFoundPage } from '@/pages/common/NotFoundPage'
 import { PlaceholderPage } from '@/pages/common/PlaceholderPage'
 import { AdminClientsPage } from '@/pages/admin/AdminClientsPage'
 import { AdminInventoryPage } from '@/pages/admin/AdminInventoryPage'
+import { AdminInspirationsPage } from '@/pages/admin/AdminInspirationsPage'
 
 function App() {
   return (
@@ -90,10 +91,7 @@ function App() {
                 element={<PlaceholderPage title="Analytics" description="Popular themes, budget ranges, consultation trends." sprintNumber={14} />}
               />
               <Route path="inventory" element={<AdminInventoryPage />} />
-              <Route
-                path="inspirations"
-                element={<PlaceholderPage title="Inspiration Concepts" description="CMS for the inspiration gallery." sprintNumber={14} />}
-              />
+              <Route path="inspirations" element={<AdminInspirationsPage />} />
               <Route
                 path="settings"
                 element={<PlaceholderPage title="Admin Settings" description="Team, roles, branding, email templates." sprintNumber={14} />}

@@ -1,21 +1,11 @@
 export type UUID = string
 
-export type EventType =
-  | 'Mehndi'
-  | 'Mayoun'
-  | 'Baraat'
-  | 'Walima'
-  | 'Nikkah'
-  | 'Engagement'
-  | 'Birthday'
-  | 'Corporate Event'
-  | 'Milad'
-  | 'Qawwali'
-  | 'Dinner'
-  | 'Bridal Shower'
-  | 'Baby Shower'
-  | 'Anniversary'
-  | 'Other'
+export const EVENT_TYPES = [
+  'Mehndi', 'Mayoun', 'Baraat', 'Walima', 'Nikkah', 'Engagement', 'Birthday', 'Corporate Event', 'Milad',
+  'Qawwali', 'Dinner', 'Bridal Shower', 'Baby Shower', 'Anniversary', 'Other',
+] as const
+
+export type EventType = (typeof EVENT_TYPES)[number]
 
 export type ModuleStatus = 'complete' | 'in_progress' | 'pending'
 
