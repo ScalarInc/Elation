@@ -30,4 +30,26 @@ describe('health', () => {
       error: { code: 'ROUTE_NOT_FOUND', message: 'No route for GET /api/v1/nope' },
     })
   })
+
+  it('GET /api/v1/client-config → runtime settings for the web app, signed out', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/client-config' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ sentryDsn: null, environment: 'development', release: null })
+  })
+})
+
+describe('client config with Sentry', () => {
+  it('hands the browser DSN and the deploy commit to the web app', async () => {
+    const app = await buildTestApp({
+      SENTRY_WEB_DSN: 'https://key@o1.ingest.sentry.io/2',
+      SENTRY_ENVIRONMENT: 'staging',
+      RAILWAY_GIT_COMMIT_SHA: '0123456789abcdef0123',
+    })
+    try {
+      const res = await app.inject({ method: 'GET', url: '/api/v1/client-config' })
+      expect(res.json()).toEqual({ sentryDsn: 'https://key@o1.ingest.sentry.io/2', environment: 'staging', release: '0123456789ab' })
+    } finally {
+      await app.close()
+    }
+  })
 })

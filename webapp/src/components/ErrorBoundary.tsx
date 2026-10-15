@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { reportError } from '@/lib/monitoring'
 
 /**
  * Last line of defence: a crash in one page shows a calm "something went wrong"
@@ -12,6 +13,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode; resetKey?: s
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    reportError(error)
     // Name only in production: messages can echo server data.
     if (import.meta.env.PROD) console.error('Page crashed:', error.name)
     else console.error('Page crashed', error, info.componentStack)

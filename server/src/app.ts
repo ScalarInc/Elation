@@ -9,6 +9,7 @@ import {
 import type { Config } from './config'
 import { cspDirectives } from './lib/csp'
 import { loggerOptions } from './lib/logging'
+import { reportError } from './lib/sentry'
 import { LogMailer, ResendMailer, type Mailer } from './lib/mailer'
 import { createStorage, type Storage } from './lib/storage'
 import { adminRoutes, publicInquiryRoutes } from './modules/admin/routes'
@@ -114,6 +115,7 @@ export async function buildApp(config: Config, deps: AppDeps = {}) {
         if (n > 0) app.log.info({ count: n }, `sweep: ${name}`)
       } catch (err) {
         app.log.error({ err }, `sweep failed: ${name}`)
+        reportError(err, { job: name })
       }
     }
     const retentionDays = config.EXPIRED_DATA_RETENTION_DAYS

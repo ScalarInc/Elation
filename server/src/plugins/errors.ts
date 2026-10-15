@@ -2,6 +2,7 @@ import type { FastifyError, FastifyInstance } from 'fastify'
 import fp from 'fastify-plugin'
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod'
 import { AppError, type ErrorBody } from '../lib/errors'
+import { reportError } from '../lib/sentry'
 
 /** Prisma error codes we translate instead of leaking as 500s. */
 const PRISMA_NOT_FOUND = 'P2025'
@@ -35,6 +36,7 @@ export default fp(async function errorsPlugin(app: FastifyInstance) {
     }
 
     request.log.error({ err }, 'Unhandled error')
+    reportError(err, { route: request.routeOptions.url, method: request.method, userId: request.auth?.user.id })
     return reply.code(500).send(errorBody('INTERNAL', 'Something went wrong'))
   })
 })
