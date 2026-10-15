@@ -1,7 +1,8 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
-  entry: ['src/server.ts'],
+  // The server, plus the one-off operator commands shipped in the image (docs/step-14-deploy-ops.md).
+  entry: { server: 'src/server.ts', 'create-admin': 'src/cli/create-admin.ts' },
   format: ['esm'],
   platform: 'node',
   target: 'node24',
