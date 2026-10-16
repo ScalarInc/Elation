@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.errors import register_error_handlers
-from app.routers import admin_clients, auth, budget, events, health, inspirations, inventory, me, moodboards
+from app.routers import admin_clients, auth, budget, events, health, inspirations, inventory, me, messages, moodboards
 
 
 def create_app() -> FastAPI:
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(moodboards.router, prefix="/api")
     app.include_router(inspirations.client_router, prefix="/api")
     app.include_router(inspirations.admin_router, prefix="/api")
+    app.include_router(messages.router, prefix="/api")
     return app
 
 
