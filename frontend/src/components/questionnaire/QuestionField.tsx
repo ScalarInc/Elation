@@ -155,7 +155,7 @@ function UploadField({ eventId, question }: Props) {
   const set = useQuestionnaire((s) => s.setAnswer)
 
   function handleFiles(_e: React.ChangeEvent<HTMLInputElement>) {
-    // TODO(backend): upload the selected files and store their references as the answer.
+    // TODO(backend): upload the files and store their references. Hidden until then (UPLOADS_AVAILABLE in schema.ts).
   }
   function removeFile(name: string) {
     set(eventId, question.id, (files ?? []).filter((n) => n !== name))
@@ -294,6 +294,11 @@ export function QuestionField({ eventId, question }: Props) {
           <h3 className="font-display text-text text-lg leading-tight tracking-tight">
             {question.label}
             {question.required && <span className="text-accent ml-1">*</span>}
+            {question.optional && (
+              <span className="text-muted/60 ml-2 align-middle font-sans text-[10px] font-bold uppercase tracking-widest">
+                Optional
+              </span>
+            )}
           </h3>
           {question.help && <p className="text-muted mt-1.5 text-xs leading-relaxed">{question.help}</p>}
         </div>

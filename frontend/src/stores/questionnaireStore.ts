@@ -166,7 +166,8 @@ export function computeCategoryProgress(
 ): CategoryProgress[] {
   const visible = visibleQuestions(questions, answers)
   return categories.map((c) => {
-    const catQs = visible.filter((q) => q.category === c.title)
+    // Optional detail questions never hold back progress.
+    const catQs = visible.filter((q) => q.category === c.title && !q.optional)
     // A category with no visible questions (e.g. "no dance floor") has nothing to answer: it counts as done.
     const total = catQs.length
     const answered = catQs.filter(

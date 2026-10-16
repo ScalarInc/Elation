@@ -10,14 +10,25 @@ from typing import Any
 from app.models import InventoryItem
 from app.services.recommendations.rules import Brief, Slot
 
-# Design-related questions whose answers are useful for choosing decor.
+# Design questions whose answers change which decor gets picked. Anything not listed here is never sent,
+# including names, personalisation (names/monograms on signage, dance floor, photo area), cultural,
+# religious and privacy answers, family traditions, uploads and the free-form "dream event" text.
+# Groq's free tier is about 8,000 tokens per minute: only add an id if it materially changes picks.
 DESIGN_QUESTION_IDS = (
     "q9_areas", "q10_aesthetic", "q11_atmosphere", "q12_theme", "q13_colours", "q14_direction", "q15_metallic",
-    "q16_entrance", "q17_entrance_style", "q29_stage", "q31_stage_type", "q40_dance", "q42_dance_finish",
-    "q46_ceiling", "q47_ceiling_type", "q51_seating", "q56_floor", "q57_floor_style", "q61_tables",
-    "q62_table_shape", "q71_lounges", "q76_florals", "q77_floral_intensity", "q83_lighting", "q87_mood",
-    "q90_fabric", "q92_fabric_style", "q95_structures", "q96_structure_type", "q99_installations", "q102_photo",
-    "q103_photo_style", "q122_priorities", "q124_flex", "q125_must", "q126_no", "q130_control", "q133_feel",
+    "q15_reference_avoid", "q19_avoid_colours",
+    "q16_entrance", "q17_entrance_style", "q28_entrance_scale",
+    "q29_stage", "q31_stage_type", "q32_stage_backdrop", "q35_stage_florals", "q38_stage_seating_type",
+    "q40_dance", "q42_dance_finish",
+    "q46_ceiling", "q47_ceiling_type", "q48_ceiling_intensity",
+    "q51_seating", "q52_chair_colour", "q56_floor", "q57_floor_style",
+    "q61_tables", "q62_table_shape", "q63_table_finish", "q69_centrepieces",
+    "q71_lounges", "q72_lounge_style", "q74_lounge_pieces",
+    "q76_florals", "q77_floral_intensity", "q81_floral_style",
+    "q83_lighting", "q84_chandeliers", "q85_chandelier_style", "q87_mood",
+    "q90_fabric", "q92_fabric_style", "q95_structures", "q96_structure_type", "q97_structure_material",
+    "q99_installations", "q102_photo", "q103_photo_style",
+    "q122_priorities", "q124_flex", "q125_must", "q126_no", "q130_control", "q133_feel",
 )
 FREE_TEXT_LIMIT = 400
 

@@ -136,3 +136,30 @@ def test_quantity_clamps() -> None:
 
 def test_prompt_redaction() -> None:
     assert prompt.redact("mail a.b@c.co now") == "mail [removed] now"
+
+
+def test_groq_only_gets_whitelisted_design_answers(monkeypatch) -> None:
+    captured = {}
+
+    def capture(payload):
+        captured["p"] = payload
+        raise groq_provider.GroqUnavailable("captured")
+
+    monkeypatch.setattr(groq_provider, "suggest", capture)
+    sensitive = {
+        "q2_name": "Ayla & Omar", "q3_date": "2026-12-14", "q5_venue": "Private Farmhouse 12",
+        "q8_upload": ["venue.jpg"], "q13_reference_upload": ["pin.png"],
+        "q25_signage_content": ["Names"], "q45_dance_personalisation": ["Monogram"],
+        "q104_photo_personalisation": ["Couple's Name"], "q110_cultural": "Quran recitation corner",
+        "q111_cultural_avoid": "No idols", "q112_traditions": "Grandmother's dupatta",
+        "q113_privacy": ["Ladies/Gents Separation"], "q101_symbolic": "Our initials A&O", "q134_dream": "Ayla's dream",
+        "q119_prayer_area": "Yes", "q64_table_quantity": "20 tables",
+    }
+    design = {"q81_floral_style": "Romantic", "q85_chandelier_style": "Crystal", "q19_avoid_colours": "orange"}
+    service.build_setup(FakeDb(catalogue(), {**sensitive, **design}), make_event(), {})
+    sent = captured["p"]["answers"]
+    assert set(sent) == set(design)
+    assert set(sent) <= set(prompt.DESIGN_QUESTION_IDS)
+    text = json.dumps(captured["p"])
+    for value in ("Quran", "idols", "dupatta", "Ladies", "A&O", "Ayla", "venue.jpg", "pin.png", "Couple"):
+        assert value not in text, value
