@@ -1,45 +1,74 @@
 # Elation X
 
-Client-facing webapp for **Elation by FMH**: an event mood-board, budget estimator, and AR visualisation platform for luxury weddings.
+A private planning studio for clients of **Elation by FMH**, a luxury event and wedding décor house. Clients answer a design questionnaire, get moodboards curated from Elation's real inventory, build a live-priced budget and message their consultant. The Elation team manages client access, inventory prices, inspiration concepts and consultations from an admin console.
+
+Accounts are invite-only. There is no public sign-up.
+
+## Features
+
+**Clients**
+- Sign in with an emailed invitation link; access expires after a set period (30 days by default).
+- Events: create events and track progress across questionnaire, moodboard and budget.
+- Questionnaire: guided brief with conditional questions and "Elation decides" options; answers autosave.
+- Moodboards: concepts curated from inventory by Groq (`openai/gpt-oss-120b`), with a rule-based fallback. Answers like "no ceiling décor" are respected.
+- Budget estimator: every line priced from current inventory. Traffic light: yellow below 90% of target, green 90–100%, red above 100%. A starter budget can be drafted from any moodboard.
+- Quote requests freeze prices, quantities and totals at the moment they are sent.
+- Inspiration gallery: browse concepts, see which suit an event, adopt one into the moodboard and budget.
+- Live messaging with the Elation team (Supabase Realtime).
+- Light and dark themes.
+
+**Admins** (who also act as consultants)
+- Overview with key numbers, charts and recent activity.
+- Clients: invite, re-send invites, extend or shorten access, revoke and reactivate, assign a consultant.
+- Inventory: add, edit, archive and upload photos; edit prices inline with full price history.
+- Inspirations: create concepts with images, palette, styles and the inventory they use; publish when ready.
+- Consultations: each client's progress, quote requests (new, contacted, closed) and follow-up notes.
+- Messages inbox across all clients, updated live.
+- Analytics: events by type, budget ranges, popular styles, weekly moodboards and quotes.
+
+## Tech stack
+
+| Part | Technology |
+| --- | --- |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS, Radix UI, Zustand, react-hook-form + zod, recharts |
+| Backend | Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, httpx, PyJWT, managed with uv |
+| Database, auth, files, realtime | Supabase (Postgres, Auth, Storage, Realtime) |
+| AI | Groq API, model `openai/gpt-oss-120b`, strict JSON-schema output |
+| Email | Resend |
+
+```
+Browser (React)
+ ├─ supabase-js ─▶ Supabase Auth       sign-in, set/reset password, session refresh
+ ├─ supabase-js ─▶ Supabase Realtime   live messages (row-level security filters them)
+ └─ fetch + Bearer token ─▶ FastAPI ─▶ Supabase Postgres
+                              ├─▶ Supabase Auth admin API   invites, bans
+                              ├─▶ Supabase Storage          inventory and inspiration images
+                              ├─▶ Groq                      recommendations
+                              └─▶ Resend                    invitation and reset emails
+```
+
+The browser never reads or writes tables directly. The only exception is the Realtime subscription to `messages`, protected by row-level security.
 
 ## Repository layout
 
 ```
 .
-├── docs/
-│   ├── frontend-build-plan.md       # page-by-page build plan and data-flow rules
-│   ├── product/
-│   │   ├── decision-log.md          # confirmed product/backend decisions (append-only)
-│   │   ├── backend-plan.md          # backend architecture, tables, endpoints, pricing
-│   │   └── backend-requirements.md  # credentials, .env outline, open decisions
-│   ├── requirements/
-│   │   ├── elation-x-modular-report.docx   # scope, timeline, module breakdown
-│   │   └── elation-questionnaire.docx      # 134-question conditional client brief
-│   └── reference/
-│       ├── ar-sets/                 # concept files for the 3 AR visualisation sets
-│       ├── inventory/               # scanned physical inventory (chairs, sofas, décor)
-│       └── lookbook/                # FMH Lookbook (About Us + inspiration source)
-├── backend/                         # FastAPI + SQLAlchemy + Alembic (Python)
-│   ├── app/                         # routers, services, schemas, models
-│   ├── alembic/                     # database migrations
+├── AGENTS.md            # rules and context for coding agents and new developers
+├── .env.example         # every environment variable, no secrets
+├── backend/             # FastAPI app (see AGENTS.md for the internal layout)
+│   ├── app/             # routers, services, schemas, models, seed and scripts
+│   ├── alembic/         # database migrations
 │   └── tests/
-└── frontend/                        # Vite + React + TypeScript + TailwindCSS
-    └── src/
-        ├── api/                     # data access layer (calls the backend)
-        ├── assets/                  # brand/ and images/
-        ├── components/              # ui/ primitives + feature folders
-        ├── hooks/                   # shared React hooks
-        ├── layouts/                 # page shells (client, admin, public)
-        ├── lib/                     # pure helpers, questionnaire schema/derivations
-        ├── pages/                   # grouped by route area
-        ├── routes/                  # route guards
-        ├── stores/                  # Zustand stores
-        └── types/                   # shared domain types
+├── frontend/            # React app
+│   └── src/             # api, pages, components, hooks, stores, types, lib
+└── docs/
+    ├── product/         # decision log, backend plan, requirements checklist
+    ├── requirements/    # original modular report and questionnaire (.docx)
+    ├── reference/       # inventory scans, lookbook, AR set concepts
+    └── frontend-build-plan.md
 ```
 
-## Local setup
-
-The app has two parts that run side by side: a **FastAPI backend** (`backend/`, Python) and a **React frontend** (`frontend/`, Vite). Both read one `.env` at the repo root. Data, sign-in, live messaging and images live in **Supabase**; AI recommendations use **Groq**; emails go through **Resend**.
+## Getting started
 
 ### 1. Prerequisites
 
@@ -49,8 +78,10 @@ The app has two parts that run side by side: a **FastAPI backend** (`backend/`, 
 
 ### 2. Configure `.env`
 
+Both apps read a single `.env` in the repository root.
+
 ```bash
-cp .env.example .env    # then fill in the values
+cp .env.example .env
 ```
 
 | Variable | Where to find it |
@@ -60,14 +91,15 @@ cp .env.example .env    # then fill in the values
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Same page → publishable key (`sb_publishable_…`) |
 | `DATABASE_URL` | Supabase → **Connect** → **Session pooler** (port 5432). URL-encode special characters in the password. |
 | `SUPERUSER_EMAIL` | The first admin's email |
-| `GROQ_API_KEY` | console.groq.com → API Keys (optional: without it, built-in rules make recommendations) |
-| `RESEND_API_KEY`, `EMAIL_FROM` | resend.com. `onboarding@resend.dev` works for testing but only delivers to your own Resend email. |
+| `GROQ_API_KEY` | console.groq.com → API Keys. Optional: without it, built-in rules make recommendations. |
+| `RESEND_API_KEY`, `EMAIL_FROM` | resend.com. `onboarding@resend.dev` works for testing but only delivers to your own Resend address. |
+| `ADMIN_NOTIFICATION_EMAIL` | Optional: receives an email for each quote request |
 
-Never commit `.env`; it is git-ignored.
+Only variables starting with `VITE_` reach the browser. `.env` is git-ignored; never commit it.
 
 ### 3. Supabase dashboard (one time)
 
-- **Authentication → Sign In / Providers:** turn **off** "Allow new users to sign up" (accounts are created by admins). Keep Email on.
+- **Authentication → Sign In / Providers:** turn off "Allow new users to sign up". Keep Email on.
 - **Authentication → URL Configuration:** Site URL `http://localhost:5173`; redirect URLs `http://localhost:5173/auth/set-password` and `http://localhost:5173/auth/reset-password`.
 - **Authentication → Sign In / Providers → Email:** set *Email OTP Expiration* to `86400` so invite links last 24 hours.
 
@@ -76,13 +108,13 @@ Never commit `.env`; it is git-ignored.
 ```bash
 cd backend
 uv sync                                         # install pinned dependencies
-uv run alembic upgrade head                     # create tables, security policies, realtime
+uv run alembic upgrade head                     # tables, security policies, realtime
 uv run python -m app.seed.inventory_seed        # provisional inventory (safe to re-run)
 uv run python -m app.scripts.create_superuser   # first admin: prints a one-time set-password link
-uv run python -m app                            # API on http://localhost:8787 (docs at /docs)
+uv run python -m app                            # API on http://localhost:8787
 ```
 
-Open the printed link, choose a password, and you're signed in as the admin.
+Open the printed link and choose a password to sign in as the admin. Interactive API docs are at <http://localhost:8787/docs> while `NODE_ENV=development`.
 
 ### 5. Frontend
 
@@ -92,40 +124,61 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-Other scripts: `npm run build` (type-check + production build), `npm run lint` (oxlint).
+### 6. Try the full journey
 
-### 6. Try it end to end
+1. As the admin, open **Clients → Invite client**. If the email can't be delivered, copy the link from the dialog.
+2. Open the link in a private window and set a password. You are now the client.
+3. As the client: create an event, answer the questionnaire, curate a moodboard, draft a budget, request a quote and send a message.
+4. As the admin: see it arrive in **Messages**, **Consultations** and **Overview**. Edit prices in **Inventory** and add concepts in **Inspirations**.
 
-1. Sign in as the admin → **Clients → Invite client**. If the email can't be delivered, copy the link from the dialog.
-2. Open the link in a private window, set a password → you're the client.
-3. As the client: create an event, answer the questionnaire, curate a moodboard, draft a budget, request a quote, send a message.
-4. As the admin: watch it arrive in **Messages**, **Consultations** and **Overview**; edit prices in **Inventory**; add concepts in **Inspirations**.
+## Commands
 
-### Tests
+| Where | Command | What it does |
+| --- | --- | --- |
+| `backend/` | `uv run python -m app` | Run the API with auto-reload |
+| `backend/` | `uv run pytest` | Run tests (no database or network needed) |
+| `backend/` | `uv run alembic upgrade head` | Apply migrations |
+| `backend/` | `uv run alembic revision --autogenerate -m "…"` | Create a migration after editing `models.py` |
+| `backend/` | `uv run alembic check` | Confirm models and database match |
+| `frontend/` | `npm run dev` | Dev server |
+| `frontend/` | `npm run build` | Type-check and production build |
+| `frontend/` | `npm run lint` | Lint with oxlint |
 
-```bash
-cd backend && uv run pytest        # no database or network needed
-```
+## Data you should know about
 
-They cover budget maths and the traffic light, quote snapshots, access expiry, role and ownership checks, recommendation validation and fallback, the Groq privacy payload, and messaging validation.
+- **Inventory prices are provisional.** The 34 seeded items use placeholder estimates, not verified Elation prices. Each shows a "Provisional" badge until an admin saves a price. Re-running the seed never overwrites edited prices.
+- **The inspiration gallery starts empty.** Concepts are added by admins in the admin console.
+- **Budgets use live prices; quotes do not.** Editing a price changes every open budget immediately but never changes a quote that was already requested.
 
-### Troubleshooting
+## Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
-| `/api/health` says `database: unavailable` | Use the **Session pooler** connection string; the direct host is IPv6-only. |
-| Invite link shows "Link expired" | Links are single-use and expire (see step 3). Re-send from **Clients**. |
-| Recommendations say "built from inventory rules" | Groq was unavailable or over its free-tier limit (8k tokens/min); the rules fallback was used. |
-| Invitation email not received | With `onboarding@resend.dev` Resend only emails your own address; verify a domain for real clients. |
-| Adding a column/table | Edit `backend/app/models.py`, then `uv run alembic revision --autogenerate -m "…"` and `uv run alembic upgrade head`. New tables must also be added to the RLS list (a test enforces this). |
+| `/api/health` returns `database: unavailable` | Use the **Session pooler** connection string; the direct host is IPv6-only. |
+| Invite link shows "Link expired" | Links are single-use and expire. Re-send from **Clients**, and check the OTP expiry setting above. |
+| Moodboards say "built from inventory rules" | Groq was unavailable or over its free-tier limit (8k tokens per minute); the rule-based fallback ran. |
+| Invitation email never arrives | With `onboarding@resend.dev`, Resend only emails your own address. Verify a domain in Resend for real clients. |
+| Port 8787 already in use | Stop the previous API process; an old auto-reload server may still be running. |
 
-## Where things live
+## Project status
 
-- `backend/app/routers/`: HTTP endpoints (thin) · `services/`: business logic · `schemas/`: request/response models (camelCase JSON) · `models.py`: database tables
-- `frontend/src/api/`: all backend calls · `pages/`: screens · `components/`: UI · `stores/`, `hooks/`: shared state
-- Product decisions and the full plan: `docs/product/`
+All planned web features are built. Deferred by decision:
 
-## Brand system
+- AR visualisation (Meta Quest 3). The AR pages show empty states.
+- Public landing page, booking form and inquiry form. The admin **Inquiries** and **Settings** pages are placeholders.
+
+Known gaps: Settings notification toggles, data export and account deletion are not wired; consent is stored only in the browser; questionnaire file uploads do nothing yet; 54 of the questionnaire's 134 questions are implemented.
+
+Before real clients use it: verify a Resend sending domain, replace provisional prices with Elation's real inventory, and add real inspiration concepts.
+
+## Documentation
+
+- [`AGENTS.md`](./AGENTS.md): conventions, architecture rules and pitfalls for anyone changing the code
+- [`docs/product/decision-log.md`](./docs/product/decision-log.md): confirmed product decisions
+- [`docs/product/backend-plan.md`](./docs/product/backend-plan.md): data model, endpoints, business rules, pricing assumptions
+- [`docs/product/backend-requirements.md`](./docs/product/backend-requirements.md): credentials and configuration checklist
+
+## Brand
 
 | Token | Hex |
 | --- | --- |
@@ -136,5 +189,4 @@ They cover budget maths and the traffic light, quote snapshots, access expiry, r
 | Cream | `#FAF3EF` |
 | Ink | `#3B3A3F` |
 
-- Headings: **Playfair Display**
-- Body: **Lato**
+Headings use **Playfair Display**; body text uses **Lato**.
