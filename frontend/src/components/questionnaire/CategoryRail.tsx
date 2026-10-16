@@ -109,7 +109,7 @@ export function CategoryRail({ progress, activeSlug, onSelect }: Props) {
                             />
                           </div>
                           <span className="text-muted/60 text-[9px] tabular-nums">
-                            {c.answeredCount}/{c.visibleCount}
+                            {c.visibleCount === 0 ? 'Not needed' : `${c.answeredCount}/${c.visibleCount}`}
                           </span>
                         </div>
                       </div>

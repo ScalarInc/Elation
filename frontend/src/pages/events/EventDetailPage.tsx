@@ -425,7 +425,7 @@ function QuestionnaireSummary({ eventId }: { eventId: string }) {
               <div className="ml-4 text-right">
                 <p className="text-text font-display text-lg leading-none">{c.percent}%</p>
                 <p className="text-muted/70 mt-1 text-[10px]">
-                  {c.answeredCount}/{c.visibleCount}
+                  {c.visibleCount === 0 ? 'Not needed' : `${c.answeredCount}/${c.visibleCount}`}
                 </p>
               </div>
             </Link>

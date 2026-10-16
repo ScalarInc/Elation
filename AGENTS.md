@@ -98,6 +98,7 @@ frontend/src/
 - **Supabase in the browser** (`lib/supabase.ts`) is for auth and the Realtime subscription only, never for reading or writing tables.
 - Types mirror backend JSON (camelCase). When an API shape changes, update `types/` and the mapping in `api/` (for example `withCover`, `withPreview`, `toInspiration`, `toSnapshot`) in the same change.
 - Event pages use `useResolvedEvent`: `undefined` means loading, `null` means not found or not yours. Show `PageLoader` for `undefined`.
+- **Questionnaire never asks twice.** The backend pre-fills Event Basics (type, name, date, guests, venue) from the event (`services/events.answers_with_event_defaults`). In `lib/questionnaire/schema.ts`, `AREA_GATES` makes "Which areas need décor?" answer the matching yes/no questions (stage, ceiling, entrance…), which are then hidden. New yes/no questions tied to an area belong in `AREA_GATES`.
 - Use the existing UI primitives in `components/ui/` and theme tokens (`bg-surface`, `text-text`, `text-muted`, `accent`…) so dark mode keeps working. Don't add new UI libraries.
 - camelCase for variables and functions; PascalCase for components and types.
 - Every list needs loading, empty and error states. Mutations confirm with a toast and show the backend's error message on failure.

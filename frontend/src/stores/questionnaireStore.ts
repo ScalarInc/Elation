@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { api } from '@/api'
-import { categories, questions, questionsInCategory, visibleQuestions } from '@/lib/questionnaire/schema'
+import { applyAreaGates, categories, questions, visibleQuestions } from '@/lib/questionnaire/schema'
 
 /**
  * Questionnaire answers per event, synced with the backend.
@@ -73,9 +73,13 @@ export const useQuestionnaire = create<QState>()((set, get) => {
     saveTimers.set(eventId, setTimeout(() => void save(eventId), SAVE_DELAY_MS))
   }
 
-  /** Apply a change to one event's state, then queue a save. */
+  /** Apply a change to one event's state, then queue a save. Area choices (q9_areas) also
+   * answer the linked yes/no questions, so those are never asked twice. */
   function update(eventId: string, change: (prev: EventState) => EventState) {
-    set((s) => ({ byEvent: { ...s.byEvent, [eventId]: change(s.byEvent[eventId] ?? initial) } }))
+    set((s) => {
+      const next = change(s.byEvent[eventId] ?? initial)
+      return { byEvent: { ...s.byEvent, [eventId]: { ...next, answers: applyAreaGates(next.answers) } } }
+    })
     scheduleSave(eventId)
   }
 
@@ -92,7 +96,10 @@ export const useQuestionnaire = create<QState>()((set, get) => {
       try {
         const saved = await api.questionnaire.get(eventId)
         set((s) => ({
-          byEvent: { ...s.byEvent, [eventId]: { answers: saved.answers, elationDecides: saved.elationDecides } },
+          byEvent: {
+            ...s.byEvent,
+            [eventId]: { answers: applyAreaGates(saved.answers), elationDecides: saved.elationDecides },
+          },
           loadState: { ...s.loadState, [eventId]: 'loaded' },
         }))
       } catch {
@@ -160,12 +167,12 @@ export function computeCategoryProgress(
   const visible = visibleQuestions(questions, answers)
   return categories.map((c) => {
     const catQs = visible.filter((q) => q.category === c.title)
-    // Fallback for categories where every question is conditional & hidden.
-    const total = catQs.length || questionsInCategory(c.title).length
+    // A category with no visible questions (e.g. "no dance floor") has nothing to answer: it counts as done.
+    const total = catQs.length
     const answered = catQs.filter(
       (q) => isAnswered(answers[q.id]) || decides[q.id],
     ).length
-    const percent = total === 0 ? 0 : Math.round((answered / total) * 100)
+    const percent = total === 0 ? 100 : Math.round((answered / total) * 100)
     return {
       slug: c.slug,
       title: c.title,
@@ -173,8 +180,8 @@ export function computeCategoryProgress(
       visibleCount: total,
       answeredCount: answered,
       percent,
-      isComplete: total > 0 && answered === total,
-      isStarted: answered > 0,
+      isComplete: answered === total,
+      isStarted: answered > 0 || total === 0,
     }
   })
 }

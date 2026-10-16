@@ -69,6 +69,23 @@ def to_event_datetime(day: date) -> datetime:
     return datetime.combine(day, time(12, 0), tzinfo=UTC)  # midday UTC: same calendar day everywhere
 
 
+def answers_with_event_defaults(event: Event, answers: dict[str, Any]) -> dict[str, Any]:
+    """Pre-fill the Event Basics questions from what the client entered when creating the event,
+    so the questionnaire never asks for the same thing twice. Saved answers always win."""
+    defaults = {
+        "q1_type": event.type,
+        "q2_name": event.concept or event.name,
+        "q3_date": event.event_date.date().isoformat(),
+        "q4_guests": event.guest_count,
+        "q5_venue": event.venue_name,
+    }
+    merged = dict(answers)
+    for key, value in defaults.items():
+        if merged.get(key) in (None, "") and value not in (None, ""):
+            merged[key] = value
+    return merged
+
+
 def apply_answers_to_event(event: Event, answers: dict[str, Any]) -> None:
     def text(key: str) -> str | None:
         value = answers.get(key)

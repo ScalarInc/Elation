@@ -147,6 +147,7 @@ export const questions: Question[] = [
     id: 'q16_entrance', category: 'Entrance', kind: 'single', required: true,
     label: 'Do you require a decorated entrance?',
     options: ['Yes', 'No'],
+    showIf: askUnlessAreasAnswer('q16_entrance'),
   },
   {
     id: 'q17_entrance_style', category: 'Entrance', kind: 'multi',
@@ -160,6 +161,7 @@ export const questions: Question[] = [
     id: 'q29_stage', category: 'Stage', kind: 'single', required: true,
     label: 'Is a stage required?',
     options: ['Yes', 'No'],
+    showIf: askUnlessAreasAnswer('q29_stage'),
   },
   {
     id: 'q31_stage_type', category: 'Stage', kind: 'multi',
@@ -173,6 +175,7 @@ export const questions: Question[] = [
     id: 'q40_dance', category: 'Dance Floor', kind: 'single',
     label: 'Do you require a dance floor?',
     options: ['Yes', 'No'],
+    showIf: askUnlessAreasAnswer('q40_dance'),
   },
   {
     id: 'q42_dance_finish', category: 'Dance Floor', kind: 'single',
@@ -186,6 +189,7 @@ export const questions: Question[] = [
     id: 'q46_ceiling', category: 'Ceiling / Roof', kind: 'single',
     label: 'Do you want ceiling décor?',
     options: ['Yes', 'No'],
+    showIf: askUnlessAreasAnswer('q46_ceiling'),
   },
   {
     id: 'q47_ceiling_type', category: 'Ceiling / Roof', kind: 'multi',
@@ -219,6 +223,7 @@ export const questions: Question[] = [
     id: 'q61_tables', category: 'Tables & Dining', kind: 'single',
     label: 'Are dining tables required?',
     options: ['Yes', 'No'],
+    showIf: askUnlessAreasAnswer('q61_tables'),
   },
   {
     id: 'q62_table_shape', category: 'Tables & Dining', kind: 'multi',
@@ -264,6 +269,7 @@ export const questions: Question[] = [
     id: 'q90_fabric', category: 'Fabric & Draping', kind: 'single',
     label: 'Do you want fabric incorporated?',
     options: ['Yes', 'No'],
+    showIf: askUnlessAreasAnswer('q90_fabric'),
   },
   {
     id: 'q92_fabric_style', category: 'Fabric & Draping', kind: 'multi',
@@ -298,6 +304,7 @@ export const questions: Question[] = [
     id: 'q102_photo', category: 'Photo / Content Area', kind: 'single',
     label: 'Do you require a photo area / photo opportunity?',
     options: ['Yes', 'No'],
+    showIf: askUnlessAreasAnswer('q102_photo'),
   },
   {
     id: 'q103_photo_style', category: 'Photo / Content Area', kind: 'multi',
@@ -391,6 +398,54 @@ export const questions: Question[] = [
     label: 'Describe your dream event in your own words — even if you don\'t know the design terminology.',
   },
 ]
+
+/**
+ * "Which areas need décor?" (q9_areas) already answers several later yes/no questions.
+ * Once areas are chosen, each linked question is answered automatically and hidden:
+ * - area selected → "Yes"
+ * - area not selected → "No" (only when `notSelectedMeansNo`; e.g. fabric can still be wanted
+ *   without wall décor, so "Walls" only ever implies Yes)
+ */
+export const AREA_GATES: { area: string; questionId: string; notSelectedMeansNo: boolean }[] = [
+  { area: 'Entrance', questionId: 'q16_entrance', notSelectedMeansNo: true },
+  { area: 'Main Stage', questionId: 'q29_stage', notSelectedMeansNo: true },
+  { area: 'Dance Floor', questionId: 'q40_dance', notSelectedMeansNo: true },
+  { area: 'Ceiling', questionId: 'q46_ceiling', notSelectedMeansNo: true },
+  { area: 'Dining', questionId: 'q61_tables', notSelectedMeansNo: true },
+  { area: 'Photo Area', questionId: 'q102_photo', notSelectedMeansNo: true },
+  { area: 'Walls', questionId: 'q90_fabric', notSelectedMeansNo: false },
+]
+
+function selectedAreas(a: Answers): string[] | null {
+  const areas = a.q9_areas
+  return Array.isArray(areas) && areas.length > 0 ? (areas as string[]) : null
+}
+
+/** The answer q9_areas implies for a gate question, or undefined if the client should be asked. */
+export function impliedByAreas(a: Answers, questionId: string): 'Yes' | 'No' | undefined {
+  const areas = selectedAreas(a)
+  const gate = AREA_GATES.find((g) => g.questionId === questionId)
+  if (!areas || !gate) return undefined
+  if (areas.includes(gate.area)) return 'Yes'
+  return gate.notSelectedMeansNo ? 'No' : undefined
+}
+
+/** Write the implied gate answers so progress, saving and recommendations all agree. */
+export function applyAreaGates(a: Answers): Answers {
+  if (!selectedAreas(a)) return a
+  const next = { ...a }
+  for (const { questionId } of AREA_GATES) {
+    const implied = impliedByAreas(a, questionId)
+    if (implied) next[questionId] = implied
+  }
+  return next
+}
+
+/** Gate questions stay hidden while q9_areas answers them. (A function declaration, so the
+ * `questions` array above can use it.) */
+function askUnlessAreasAnswer(questionId: string) {
+  return (a: Answers) => impliedByAreas(a, questionId) === undefined
+}
 
 /** Only questions whose showIf predicate passes (or has no predicate). */
 export function visibleQuestions(all: Question[], answers: Answers): Question[] {

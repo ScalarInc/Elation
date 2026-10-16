@@ -70,7 +70,7 @@ def get_questionnaire(event_id: UUID, user: CurrentClient, db: DbSession) -> Que
     event = event_service.get_own_event(db, user.id, event_id)
     saved = db.get(QuestionnaireResponse, event.id)
     return QuestionnaireOut(
-        answers=saved.answers if saved else {},
+        answers=event_service.answers_with_event_defaults(event, saved.answers if saved else {}),
         elation_decides=saved.elation_decides if saved else {},
         percent=event.questionnaire_percent,
         updated_at=saved.updated_at if saved else None,

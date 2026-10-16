@@ -74,3 +74,18 @@ def test_oversized_answers_rejected() -> None:
     event = make_event(uuid.uuid4())
     with pytest.raises(ApiError):
         events.save_questionnaire(FakeSession(), event, {"q12_theme": "x" * 250_000}, {}, 10)
+
+
+def test_questionnaire_prefills_basics_from_the_event() -> None:
+    event = make_event(uuid.uuid4(), name="Ali Taha's Wedding", concept=None, type="Baraat", guest_count=350,
+                       venue_name="Pearl Hall", event_date=datetime(2026, 12, 20, 12, tzinfo=UTC))
+    answers = events.answers_with_event_defaults(event, {"q10_aesthetic": ["Regal"]})
+    assert answers["q1_type"] == "Baraat" and answers["q2_name"] == "Ali Taha's Wedding"
+    assert answers["q3_date"] == "2026-12-20" and answers["q4_guests"] == 350 and answers["q5_venue"] == "Pearl Hall"
+    assert answers["q10_aesthetic"] == ["Regal"]
+    assert "q6_indoor" not in answers  # never asked at creation, so not guessed
+
+
+def test_saved_answers_win_over_event_defaults() -> None:
+    event = make_event(uuid.uuid4(), guest_count=200)
+    assert events.answers_with_event_defaults(event, {"q4_guests": 500})["q4_guests"] == 500
