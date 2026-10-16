@@ -5,7 +5,7 @@ import uuid
 import pytest
 
 from app.models import BudgetLine, InventoryItem
-from app.services.budget import PricedLine, classify_budget, compute_totals
+from app.services.budget import PricedLine, classify_budget, compute_totals, snapshot_lines
 
 
 @pytest.mark.parametrize(
@@ -46,3 +46,28 @@ def test_totals_use_unit_price_times_quantity_and_skip_excluded_lines() -> None:
 def test_no_target_has_no_delta_or_ratio() -> None:
     totals = compute_totals([priced("Seating", 600, 10)], target_pkr=None)
     assert (totals.delta_pkr, totals.ratio, totals.status) == (None, None, "noTarget")
+
+
+def test_quote_snapshot_is_frozen_against_later_price_changes() -> None:
+    chairs = priced("Seating", 600, 100)
+    skipped = priced("Stage", 60_000, 1, included=False)
+    snapshot = snapshot_lines([chairs, skipped])
+    assert len(snapshot) == 1 and snapshot[0]["unitPricePkr"] == 600 and snapshot[0]["subtotalPkr"] == 60_000
+
+    chairs.item.price_pkr = 900  # an admin edits the price afterwards
+    assert snapshot[0]["unitPricePkr"] == 600 and snapshot[0]["subtotalPkr"] == 60_000
+
+
+def test_clients_cannot_open_another_clients_budget(monkeypatch) -> None:
+    from datetime import UTC, datetime
+
+    from app.models import Event
+    from tests.helpers import FakeSession, auth_header, client_with, make_profile, use_local_jwks
+
+    use_local_jwks(monkeypatch)
+    owner, intruder = make_profile(), make_profile(invitation_status="accepted")
+    event = Event(id=uuid.uuid4(), client_id=owner.id, name="x", type="Mehndi", event_date=datetime.now(UTC),
+                  venue_name="x", venue_city="x", venue_setting="Both", guest_count=10)
+    api = client_with(FakeSession(owner, intruder, event))
+    assert api.get(f"/api/events/{event.id}/budget", headers=auth_header(intruder)).status_code == 404
+    assert api.post(f"/api/events/{event.id}/quote-requests", headers=auth_header(intruder), json={}).status_code == 404

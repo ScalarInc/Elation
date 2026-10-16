@@ -112,11 +112,24 @@ def replace_lines(db: Session, event: Event, target_pkr: int | None, lines: list
     db.commit()
 
 
+def snapshot_lines(priced: list[PricedLine]) -> list[dict]:
+    """Frozen copy of the included lines: values are copied, so later price edits can't change them."""
+    return [
+        {
+            "inventoryItemId": str(p.item.id), "sku": p.item.sku, "name": p.item.name, "category": p.line.category,
+            "unit": p.item.unit, "unitPricePkr": p.item.price_pkr, "quantity": p.line.quantity,
+            "subtotalPkr": p.subtotal_pkr,
+        }
+        for p in priced
+        if p.line.included and p.line.quantity > 0
+    ]
+
+
 def create_quote_request(db: Session, event: Event, client: Profile, note: str | None) -> QuoteRequest:
     """Freeze the current budget. Prices are copied, not referenced."""
     priced = load_priced_lines(db, event.id)
-    included = [p for p in priced if p.line.included and p.line.quantity > 0]
-    if not included:
+    lines = snapshot_lines(priced)
+    if not lines:
         raise ApiError(409, "EMPTY_BUDGET", "Add at least one included item before requesting a quote.")
 
     totals = compute_totals(priced, event.target_budget_pkr)
@@ -127,21 +140,14 @@ def create_quote_request(db: Session, event: Event, client: Profile, note: str |
         target_budget_pkr=event.target_budget_pkr,
         total_pkr=totals.total_pkr,
         budget_status=totals.status,
-        lines_snapshot=[
-            {
-                "inventoryItemId": str(p.item.id), "sku": p.item.sku, "name": p.item.name, "category": p.line.category,
-                "unit": p.item.unit, "unitPricePkr": p.item.price_pkr, "quantity": p.line.quantity,
-                "subtotalPkr": p.subtotal_pkr,
-            }
-            for p in included
-        ],
+        lines_snapshot=lines,
         client_note=(note or "").strip() or None,
     )
     db.add(quote)
     db.add(
         ActivityEntry(
             client_id=client.id, event_id=event.id, actor_id=client.id, kind="budget",
-            title="Quote requested", detail=f"{len(included)} items · PKR {totals.total_pkr:,}",
+            title="Quote requested", detail=f"{len(lines)} items · PKR {totals.total_pkr:,}",
         )
     )
     db.commit()
