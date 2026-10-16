@@ -6,6 +6,7 @@ from pydantic import Field
 
 from app.models import Profile
 from app.schemas.base import CamelModel
+from app.services import account
 
 ClientRole = Literal["Bride", "Groom", "Family", "Organizer"]
 
@@ -22,6 +23,24 @@ class ConsultantSummary(CamelModel):
     avatar_initials: str
 
 
+class ConsentOut(CamelModel):
+    version: int
+    accepted_at: datetime
+    marketing: bool
+
+
+class NotificationPrefs(CamelModel):
+    consultant_messages: bool
+    marketing: bool
+
+
+def _consent_out(consent: dict | None) -> ConsentOut | None:
+    if not consent or "version" not in consent or "accepted_at" not in consent:
+        return None
+    return ConsentOut(version=consent["version"], accepted_at=consent["accepted_at"],
+                      marketing=bool(consent.get("marketing")))
+
+
 class MeResponse(CamelModel):
     id: UUID
     role: Literal["admin", "client"]
@@ -36,7 +55,8 @@ class MeResponse(CamelModel):
     emergency_contact_name: str | None
     emergency_contact_phone: str | None
     access_expires_at: datetime | None
-    notifications: dict
+    notifications: NotificationPrefs
+    consent: ConsentOut | None
     consultant: ConsultantSummary | None
 
     @classmethod
@@ -55,7 +75,8 @@ class MeResponse(CamelModel):
             emergency_contact_name=profile.emergency_contact_name,
             emergency_contact_phone=profile.emergency_contact_phone,
             access_expires_at=profile.access_expires_at,
-            notifications=profile.notification_prefs,
+            notifications=NotificationPrefs(**account.notification_prefs(profile)),
+            consent=_consent_out(profile.consent),
             consultant=(
                 ConsultantSummary(
                     id=consultant.id,
@@ -83,3 +104,18 @@ class MeUpdate(CamelModel):
 
 class ForgotPasswordRequest(CamelModel):
     email: str = Field(min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class ConsentIn(CamelModel):
+    version: int
+    terms: bool
+    data_use: bool
+    studio_share: bool
+    marketing: bool = False
+
+
+class NotificationPrefsUpdate(CamelModel):
+    """Only the fields sent are changed."""
+
+    consultant_messages: bool | None = None
+    marketing: bool | None = None

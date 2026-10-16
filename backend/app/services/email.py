@@ -62,3 +62,11 @@ def invitation_email(full_name: str, link: str, access_until: str | None = None)
 def password_reset_email(link: str) -> tuple[str, str]:
     body = "We received a request to reset your Elation X password. If it wasn't you, ignore this email."
     return "Reset your Elation X password", _layout("Reset your password", body, link, "Choose a new password")
+
+
+def reply_notice_email(client_name: str, consultant_name: str, link: str) -> tuple[str, str]:
+    body = (
+        f"Hello {html.escape(client_name)}, {html.escape(consultant_name)} from Elation has replied to you. "
+        "Open your studio to read the message. You can turn these emails off in Settings."
+    )
+    return "New message from your Elation consultant", _layout("You have a new message", body, link, "Open messages")

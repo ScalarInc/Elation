@@ -4,17 +4,24 @@ Sends always go through the API (validated here). Live delivery happens through 
 Realtime, which only pushes rows the subscriber's RLS policy allows (see the initial migration).
 """
 
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.constants import MESSAGE_MAX_LENGTH
 from app.errors import ApiError
 from app.models import ActivityEntry, Message, Profile
+from app.services import account, email
+
+logger = logging.getLogger("elation.messaging")
 
 PAGE_SIZE = 50
+# A burst of consultant replies sends one email: skip it if the consultant already wrote within this window.
+REPLY_EMAIL_DEBOUNCE = timedelta(minutes=10)
 
 
 def history(db: Session, client_id: UUID, before: datetime | None = None, limit: int = PAGE_SIZE) -> list[Message]:
@@ -40,6 +47,28 @@ def send(db: Session, client_id: UUID, sender: Profile, body: str) -> Message:
     db.commit()
     db.refresh(message)
     return message
+
+
+def should_email_reply(db: Session, client: Profile, message: Message) -> bool:
+    """Email the client about a consultant reply unless they turned it off or one was sent moments ago."""
+    if not account.notification_prefs(client)["consultant_messages"]:
+        return False
+    previous = db.scalar(
+        select(func.max(Message.created_at)).where(
+            Message.client_id == client.id, Message.sender_role == "admin", Message.id != message.id
+        )
+    )
+    return previous is None or message.created_at - previous >= REPLY_EMAIL_DEBOUNCE
+
+
+def email_reply_notice(to: str, client_name: str, consultant_name: str) -> None:
+    """Best effort, run in the background: a failed email never fails the reply. The message text is not included."""
+    link = f"{get_settings().frontend_url.rstrip('/')}/messages"
+    subject, body = email.reply_notice_email(client_name, consultant_name, link)
+    try:
+        email.send_email(to, subject, body)
+    except Exception:
+        logger.warning("Reply notification email not sent", exc_info=True)
 
 
 def sender_names(db: Session, messages: list[Message]) -> dict[UUID, str]:

@@ -33,3 +33,6 @@ SENDER_ROLES = ("client", "admin")
 ACTIVITY_KINDS = ("moodboard", "budget", "note", "system", "ar")
 
 MESSAGE_MAX_LENGTH = 4000
+
+# Bump when the consent wording changes; clients are asked again. Mirrored in ConsentGate.tsx.
+CONSENT_VERSION = 1

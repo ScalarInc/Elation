@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, BackgroundTasks, Query
 
 from app.deps import CurrentAdmin, CurrentClient, DbSession
 from app.errors import ApiError
@@ -58,5 +58,11 @@ def client_messages(
 
 
 @router.post("/admin/clients/{client_id}/messages", response_model=MessageOut, status_code=201)
-def reply(client_id: UUID, payload: MessageIn, admin: CurrentAdmin, db: DbSession) -> MessageOut:
-    return _out(db, [messaging.send(db, _client(db, client_id).id, admin, payload.body)])[0]
+def reply(
+    client_id: UUID, payload: MessageIn, admin: CurrentAdmin, db: DbSession, background: BackgroundTasks
+) -> MessageOut:
+    client = _client(db, client_id)
+    message = messaging.send(db, client.id, admin, payload.body)
+    if messaging.should_email_reply(db, client, message):
+        background.add_task(messaging.email_reply_notice, client.email, client.full_name, admin.full_name)
+    return _out(db, [message])[0]

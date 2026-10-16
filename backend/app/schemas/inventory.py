@@ -19,6 +19,7 @@ class InventoryItemOut(CamelModel):
     """What clients see (active items only)."""
 
     id: UUID
+    sku: str
     name: str
     category: Category
     colour: str | None
@@ -34,7 +35,6 @@ class InventoryItemOut(CamelModel):
 
 
 class AdminInventoryItemOut(InventoryItemOut):
-    sku: str
     stock_qty: int | None
     is_active: bool
     is_provisional_price: bool
@@ -45,7 +45,6 @@ class AdminInventoryItemOut(InventoryItemOut):
     def from_model(cls, item: InventoryItem) -> "AdminInventoryItemOut":
         return cls(
             **_common(item),
-            sku=item.sku,
             stock_qty=item.stock_qty,
             is_active=item.is_active,
             is_provisional_price=item.is_provisional_price,
@@ -56,7 +55,7 @@ class AdminInventoryItemOut(InventoryItemOut):
 
 def _common(item: InventoryItem) -> dict:
     return dict(
-        id=item.id, name=item.name, category=item.category, colour=item.colour, material=item.material,
+        id=item.id, sku=item.sku, name=item.name, category=item.category, colour=item.colour, material=item.material,
         unit=item.unit, price_pkr=item.price_pkr, tags=item.tags, image_url=image_url(item.image_path),
     )
 
