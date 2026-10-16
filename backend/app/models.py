@@ -322,6 +322,7 @@ class ConsultationNote(Base):
     author_id: Mapped[uuid.UUID | None] = _profile_fk()
     body: Mapped[str] = mapped_column(Text, nullable=False)
     follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # follow-up done
     created_at: Mapped[datetime] = _created_at()
 
 
