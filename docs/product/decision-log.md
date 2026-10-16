@@ -5,6 +5,19 @@ Detailed design: [`backend-plan.md`](./backend-plan.md). Credentials and open it
 
 ---
 
+## 2026-10-16 — Revision 3: loose ends (product owner)
+
+| # | Topic | Confirmed decision |
+| --- | --- | --- |
+| 1 | Admin placeholders | Inquiries and admin Settings routes and nav entry removed until the public forms exist |
+| 2 | Consent | Saved on `profiles.consent` through `PUT /api/me/consent`, no longer in localStorage. Required agreements can't be revoked in-app; the marketing opt-in can be changed in Settings |
+| 3 | Notifications | Only working preferences are shown: Consultant messages (debounced reply email via Resend) and Marketing (same choice as the consent opt-in). Moodboard updates, budget alerts and weekly digest removed |
+| 4 | Data export | One JSON download (`GET /api/me/export`), not a ZIP/PDF |
+| 5 | Account deletion | No self-service deletion. Clients send a deletion request into their message thread; an admin deletes the account |
+| 6 | Questionnaire uploads | Deferred; upload questions are hidden (messages have no attachments either) |
+| 7 | Questionnaire length | All 134 questions added; the 80 new ones are optional (not counted in progress) and mostly shown only as follow-ups. Groq receives only answers that change décor picks |
+| 8 | Sessions | No device list; copy clarifies that "Sign out other sessions" signs out every other browser |
+
 ## 2026-10-16 — Revision 2: confirmed backend and product decisions (product owner)
 
 | # | Topic | Confirmed decision | Replaces (revision 1 proposal) |

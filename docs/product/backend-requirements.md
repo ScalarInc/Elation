@@ -73,7 +73,7 @@ Shared by both apps from the repository root. The backend loads `../.env` with `
 | --- | --- | --- |
 | Structured inventory list (name, category, colour/material, unit, real price, quantity owned, photo) | Replacing provisional prices; better recommendations | Missing. Scans in `docs/reference/inventory/` are photos only. CSV/XLSX can be imported later. |
 | Inspiration concepts (name, summary, styles, event types, palette, images, linked items) | Inspiration gallery, adopt flow, concept recommendations | Missing. Gallery is empty until added through the admin CMS. |
-| Remaining questionnaire questions (54 of 134 implemented) | Full brief, recommendation quality | Source: `docs/requirements/elation-questionnaire.docx`; frontend work, not blocking. |
+| Remaining questionnaire questions | Full brief, recommendation quality | Done: all 134 questions from `docs/requirements/elation-questionnaire.docx` are in `lib/questionnaire/schema.ts`; Elation may want to review wording. |
 | About Us copy (Lookbook pp. 1–3) | About page | Not blocking. |
 
 ## 6. Local prerequisites

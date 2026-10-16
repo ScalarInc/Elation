@@ -56,6 +56,7 @@ Elation X is an invite-only web app for clients of **Elation by FMH** (luxury Pa
 | 10 | Admin Overview (KPIs, charts, activity), Analytics, Consultations (progress, quote status, follow-up notes); client activity feed |
 | 11 | Extra tests (quote snapshot, budget ownership), full README setup guide, 18/18 end-to-end smoke run |
 | After | README rewritten, `AGENTS.md` added; questionnaire no longer re-asks event basics (pre-filled by backend) or yes/no questions already answered by "Which areas need décor?" (`AREA_GATES`) |
+| Loose ends | Admin Inquiries/Settings placeholders removed; "Ask my consultant" opens Messages with an editable draft (item, SKU, event); consent saved via `PUT /api/me/consent`; Settings keeps only Consultant messages + Marketing (`PATCH /api/me/notifications`, optimistic with rollback) and admin replies send a debounced Resend email; `GET /api/me/export` JSON download; deletion is a request message to the consultant; upload questions hidden; all 134 questionnaire questions (80 new, optional); Groq whitelist extended with design-only answers; sessions copy clarified |
 
 Migrations applied to the live Supabase DB (head `5a8109cc2edd`):
 1. `5073a4c38412` initial schema + security
@@ -72,27 +73,29 @@ Database contents right now: the superuser profile and the 34 seeded inventory i
 
 ## 7. How verification has been done
 
-- Backend unit tests: `cd backend; uv run pytest -q` (85 passing). They never touch the real DB.
+- Backend unit tests: `cd backend; uv run pytest -q` (96 passing). They never touch the real DB.
 - Frontend: `cd frontend; npm run build` and `npm run lint` (0 errors; ~19 warnings, all the existing "setState in effect" / data-on-mount pattern).
 - Live checks: temporary Python scripts in `backend/` that create a throwaway client via `services.clients.create_client`, get a real access token with `supabase_admin.generate_link("magiclink", …)` + following the redirect, call the running API, then `supabase_admin.delete_user(id)` (cascades). Scripts are deleted after running. Start a temporary API with `uv run uvicorn app.main:app --port 8787` if none is running, and stop it afterwards.
 - Realtime/RLS was checked with a Node script using `@supabase/supabase-js` and two client sessions.
 - **Not yet done:** a manual click-through of the UI in a real browser.
 
-## 8. Loose ends (owner said "we'll see about the loose ends" after steps 10–11)
+## 8. Loose ends
 
-- Settings page: notification toggles, data export and delete-account are `TODO(backend)`; consent (`ConsentGate`) is stored only in localStorage, though `profiles.consent` exists.
-- Questionnaire file uploads (`QuestionField.tsx` upload kind) do nothing; only 54 of 134 questions exist in `lib/questionnaire/schema.ts`.
-- Admin **Inquiries** route and **Settings** page are placeholders (Inquiries was removed from the nav and replaced by Consultations; the route still exists). Suggested: hide both.
-- Moodboard drawer "Ask my consultant" only opens Messages; it doesn't pre-fill a message.
-- Client Settings has no list of sessions/devices; "Sign out other sessions" uses Supabase `signOut({ scope: 'others' })`.
+Resolved on 2026-10-16 (decision log revision 3): Settings notifications, consent, data export, deletion requests, admin placeholders, "Ask my consultant" draft, questionnaire completeness, sessions copy. Still open:
+
+- Questionnaire file uploads (`q8_upload`, `q13_reference_upload`) are hidden by `UPLOADS_AVAILABLE = false` in `lib/questionnaire/schema.ts`. Building them needs a private Storage bucket and an upload endpoint.
+- Consent version lives in two places: `CONSENT_VERSION` in `backend/app/constants.py` and `ConsentGate.tsx`. Bump both if the wording changes. Clients who accepted before this change (localStorage only) see the consent screen once more.
+- Reply emails go only to the Resend account owner until a sending domain is verified.
+- Client Settings has no list of sessions/devices (by decision).
 - AR pages keep empty states and `TODO(backend)` handlers by design.
+- The loose-end changes were covered by unit tests, build and lint, but not yet checked against the live Supabase project or clicked through in a browser.
 
 ## 9. Content needed from Elation (not code)
 
 - Verified Resend sending domain and `EMAIL_FROM` before real client invites.
 - Real inventory list with prices and photos to replace the provisional seed (`docs/reference/inventory/` scans are photos only, no names or prices).
 - Real inspiration concepts (gallery starts empty).
-- Remaining questionnaire questions from the .docx.
+- Remaining questionnaire questions from the .docx (now all added; Elation may review wording).
 
 ## 10. Things that bit us (also in AGENTS.md)
 

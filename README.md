@@ -165,9 +165,9 @@ npm run dev        # http://localhost:5173
 All planned web features are built. Deferred by decision:
 
 - AR visualisation (Meta Quest 3). The AR pages show empty states.
-- Public landing page, booking form and inquiry form. The admin **Inquiries** and **Settings** pages are placeholders.
+- Public landing page, booking form and inquiry form.
 
-Known gaps: Settings notification toggles, data export and account deletion are not wired; consent is stored only in the browser; questionnaire file uploads do nothing yet; 54 of the questionnaire's 134 questions are implemented.
+Known gaps: questionnaire file uploads are hidden until uploads exist; account deletion is handled by an admin after the client requests it in Messages.
 
 Before real clients use it: verify a Resend sending domain, replace provisional prices with Elation's real inventory, and add real inspiration concepts.
 
