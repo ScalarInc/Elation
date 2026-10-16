@@ -9,7 +9,6 @@ import type {
   Inspiration,
   InventoryItem,
   Message,
-  MessageThread,
   Moodboard,
   MoodboardControls,
   ProfileUpdate,
@@ -165,11 +164,10 @@ export const api = {
   },
 
   messages: {
-    thread: async (): Promise<Message[]> => [],
-    threads: async (): Promise<MessageThread[]> => [],
-    send: async (_body: string): Promise<Message> => {
-      throw new Error('Messaging is not connected yet.')
-    },
+    /** The signed-in client's thread, oldest first. Pass `before` (ISO) to page back. */
+    list: (before?: string): Promise<Message[]> =>
+      apiRequest(`/api/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`),
+    send: (body: string): Promise<Message> => apiRequest('/api/messages', { method: 'POST', body: { body } }),
   },
 
   ar: {

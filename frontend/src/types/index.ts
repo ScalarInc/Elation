@@ -203,24 +203,16 @@ export type Inspiration = {
 /** A concept ranked for one event (GET /api/events/:id/inspiration-recommendations). */
 export type RecommendedInspiration = { inspiration: Inspiration; reason: string; estimatedCostPkr: number }
 
+/** One message in a client's thread. Admins appear to clients as their Elation consultant. */
 export type Message = {
   id: UUID
-  authorId: UUID
-  authorName: string
-  authorRole: 'client' | 'consultant' | 'system'
+  /** The client whose thread this belongs to (one thread per client). */
+  clientId: UUID
+  senderId: UUID | null
+  senderRole: 'client' | 'admin'
+  senderName: string
   body: string
   createdAt: string
-  attachments?: { name: string; url: string }[]
-  read?: boolean
-}
-
-export type MessageThread = {
-  id: UUID
-  eventId?: UUID
-  title: string
-  participants: { id: UUID; name: string; role: 'client' | 'consultant'; avatarInitials: string }[]
-  lastMessageAt: string
-  unread: number
 }
 
 export type ARSet = {

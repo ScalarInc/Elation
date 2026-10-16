@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Users, ClipboardList, BarChart3, Boxes, Sparkles, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, BarChart3, Boxes, Sparkles, Settings, LogOut, MessageCircle } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useSignOut } from '@/hooks/useSignOut'
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 const nav = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/admin/clients', label: 'Clients', icon: Users },
+  { to: '/admin/messages', label: 'Messages', icon: MessageCircle },
   { to: '/admin/inquiries', label: 'Inquiries', icon: ClipboardList },
   { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/admin/inventory', label: 'Inventory', icon: Boxes },

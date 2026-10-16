@@ -1,4 +1,4 @@
-import type { EventType, InventoryItem, UUID } from '@/types'
+import type { EventType, InventoryItem, Message, UUID } from '@/types'
 
 /** Types for the admin console API (/api/admin/*). */
 
@@ -108,4 +108,14 @@ export type InspirationInput = {
   budgetTier?: AdminInspiration['budgetTier']
   isFeatured?: boolean
   isPublished?: boolean
+}
+
+/** A client's thread in the admin inbox. */
+export type Conversation = {
+  clientId: UUID
+  clientName: string
+  clientEmail: string
+  avatarInitials: string
+  lastMessage: Message | null
+  messageCount: number
 }

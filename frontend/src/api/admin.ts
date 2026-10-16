@@ -6,13 +6,14 @@ import type {
   ClientCreateInput,
   ClientStatus,
   ClientUpdateInput,
+  Conversation,
   InspirationInput,
   InventoryItemInput,
   InventoryItemUpdate,
   InviteResult,
   PriceChange,
 } from '@/types/admin'
-import type { UUID } from '@/types'
+import type { Message, UUID } from '@/types'
 import { apiRequest } from './client'
 
 /** Admin console endpoints. The backend rejects these for non-admins. */
@@ -67,5 +68,13 @@ export const adminApi = {
     },
     removeImage: (id: UUID, path: string): Promise<AdminInspiration> =>
       apiRequest(`/api/admin/inspirations/${id}/images?path=${encodeURIComponent(path)}`, { method: 'DELETE' }),
+  },
+
+  messages: {
+    conversations: (): Promise<Conversation[]> => apiRequest('/api/admin/conversations'),
+    list: (clientId: UUID, before?: string): Promise<Message[]> =>
+      apiRequest(`/api/admin/clients/${clientId}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`),
+    send: (clientId: UUID, body: string): Promise<Message> =>
+      apiRequest(`/api/admin/clients/${clientId}/messages`, { method: 'POST', body: { body } }),
   },
 }

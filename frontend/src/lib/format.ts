@@ -29,3 +29,14 @@ export function daysUntil(iso: string) {
   const diff = new Date(iso).getTime() - Date.now()
   return Math.max(0, Math.round(diff / 86_400_000))
 }
+
+/** Up to two initials for an avatar, e.g. "Ayla Noor Khan" → "AN". */
+export function initialsOf(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+}

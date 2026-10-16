@@ -28,6 +28,7 @@ import { PlaceholderPage } from '@/pages/common/PlaceholderPage'
 import { AdminClientsPage } from '@/pages/admin/AdminClientsPage'
 import { AdminInventoryPage } from '@/pages/admin/AdminInventoryPage'
 import { AdminInspirationsPage } from '@/pages/admin/AdminInspirationsPage'
+import { AdminMessagesPage } from '@/pages/admin/AdminMessagesPage'
 
 function App() {
   return (
@@ -92,6 +93,7 @@ function App() {
               />
               <Route path="inventory" element={<AdminInventoryPage />} />
               <Route path="inspirations" element={<AdminInspirationsPage />} />
+              <Route path="messages" element={<AdminMessagesPage />} />
               <Route
                 path="settings"
                 element={<PlaceholderPage title="Admin Settings" description="Team, roles, branding, email templates." sprintNumber={14} />}

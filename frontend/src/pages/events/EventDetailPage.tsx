@@ -11,7 +11,6 @@ import {
   Palette,
   Calculator,
   Boxes,
-  Sparkles,
   Check,
   Clock,
   Loader2,
@@ -210,12 +209,12 @@ function OverviewTab({ event }: { event: ClientEvent }) {
     Promise.all([
       api.moodboards.byEvent(event.id),
       api.budget.forEvent(event.id),
-      api.messages.thread(),
+      api.messages.list(),
     ]).then(([eventBoards, snap, thread]) => {
       if (cancelled) return
       setBoards(eventBoards)
       setBudgetSnap(snap)
-      setRecent(thread.slice(0, 3))
+      setRecent(thread.slice(-3).reverse())
     })
     return () => {
       cancelled = true
@@ -345,18 +344,14 @@ function OverviewTab({ event }: { event: ClientEvent }) {
                 <span
                   className={cn(
                     'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                    m.authorRole === 'system'
-                      ? 'bg-accent/20 text-accent'
-                      : m.authorRole === 'consultant'
-                      ? 'bg-sage/25 text-sage-deep'
-                      : 'bg-blush/40 text-ink',
+                    m.senderRole === 'admin' ? 'bg-sage/25 text-sage-deep' : 'bg-blush/40 text-ink',
                   )}
                 >
-                  {m.authorRole === 'system' ? <Sparkles className="h-4 w-4" /> : m.authorName[0]}
+                  {m.senderName[0]}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-muted text-[11px]">
-                    <span className="text-text font-semibold">{m.authorName}</span>
+                    <span className="text-text font-semibold">{m.senderName}</span>
                     {' · '}
                     {formatDate(m.createdAt)}
                   </p>
