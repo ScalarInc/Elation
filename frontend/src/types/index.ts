@@ -234,10 +234,10 @@ export type ARSet = {
 
 export type ActivityEntry = {
   id: UUID
-  eventId?: UUID
+  eventId: UUID | null
   kind: 'moodboard' | 'budget' | 'note' | 'system' | 'ar'
   title: string
-  detail?: string
+  detail: string | null
   at: string
 }
 

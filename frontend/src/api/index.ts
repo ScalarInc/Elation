@@ -176,7 +176,7 @@ export const api = {
   },
 
   activity: {
-    list: async (): Promise<ActivityEntry[]> => [],
-    forEvent: async (_eventId: UUID): Promise<ActivityEntry[]> => [],
+    list: (): Promise<ActivityEntry[]> => apiRequest('/api/activity'),
+    forEvent: (eventId: UUID): Promise<ActivityEntry[]> => apiRequest(`/api/activity?eventId=${eventId}`),
   },
 }

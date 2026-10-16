@@ -29,6 +29,9 @@ import { AdminClientsPage } from '@/pages/admin/AdminClientsPage'
 import { AdminInventoryPage } from '@/pages/admin/AdminInventoryPage'
 import { AdminInspirationsPage } from '@/pages/admin/AdminInspirationsPage'
 import { AdminMessagesPage } from '@/pages/admin/AdminMessagesPage'
+import { AdminOverviewPage } from '@/pages/admin/AdminOverviewPage'
+import { AdminAnalyticsPage } from '@/pages/admin/AdminAnalyticsPage'
+import { AdminConsultationsPage } from '@/pages/admin/AdminConsultationsPage'
 
 function App() {
   return (
@@ -72,25 +75,14 @@ function App() {
           {/* Admin area */}
           <Route element={<ProtectedRoute role="admin" />}>
             <Route path="/admin" element={<AdminLayout />}>
-              <Route
-                index
-                element={
-                  <PlaceholderPage
-                    title="Admin Overview"
-                    description="KPIs, client activity feed, budget/theme charts, upcoming consultations."
-                    sprintNumber={13}
-                  />
-                }
-              />
+              <Route index element={<AdminOverviewPage />} />
               <Route path="clients" element={<AdminClientsPage />} />
               <Route
                 path="inquiries"
                 element={<PlaceholderPage title="Inquiries" description="Public consultation-form submissions to convert." sprintNumber={14} />}
               />
-              <Route
-                path="analytics"
-                element={<PlaceholderPage title="Analytics" description="Popular themes, budget ranges, consultation trends." sprintNumber={14} />}
-              />
+              <Route path="analytics" element={<AdminAnalyticsPage />} />
+              <Route path="consultations" element={<AdminConsultationsPage />} />
               <Route path="inventory" element={<AdminInventoryPage />} />
               <Route path="inspirations" element={<AdminInspirationsPage />} />
               <Route path="messages" element={<AdminMessagesPage />} />

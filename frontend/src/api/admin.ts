@@ -1,19 +1,25 @@
 import type {
+  AdminAnalytics,
   AdminClient,
   AdminInspiration,
   AdminInventoryItem,
+  AdminOverview,
   AdminSummary,
   ClientCreateInput,
   ClientStatus,
   ClientUpdateInput,
+  Consultation,
+  ConsultationNote,
+  ConsultationQuote,
   Conversation,
   InspirationInput,
   InventoryItemInput,
   InventoryItemUpdate,
   InviteResult,
   PriceChange,
+  QuoteStatus,
 } from '@/types/admin'
-import type { Message, UUID } from '@/types'
+import type { ActivityEntry, Message, UUID } from '@/types'
 import { apiRequest } from './client'
 
 /** Admin console endpoints. The backend rejects these for non-admins. */
@@ -76,5 +82,20 @@ export const adminApi = {
       apiRequest(`/api/admin/clients/${clientId}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`),
     send: (clientId: UUID, body: string): Promise<Message> =>
       apiRequest(`/api/admin/clients/${clientId}/messages`, { method: 'POST', body: { body } }),
+  },
+
+  overview: (): Promise<AdminOverview> => apiRequest('/api/admin/overview'),
+  analytics: (): Promise<AdminAnalytics> => apiRequest('/api/admin/analytics'),
+  activity: (): Promise<ActivityEntry[]> => apiRequest('/api/admin/activity'),
+
+  consultations: {
+    list: (): Promise<Consultation[]> => apiRequest('/api/admin/consultations'),
+    setQuoteStatus: (quoteId: UUID, status: QuoteStatus): Promise<ConsultationQuote> =>
+      apiRequest(`/api/admin/quote-requests/${quoteId}`, { method: 'PATCH', body: { status } }),
+    notes: (clientId: UUID): Promise<ConsultationNote[]> => apiRequest(`/api/admin/clients/${clientId}/notes`),
+    addNote: (clientId: UUID, note: { body: string; followUpAt?: string | null }): Promise<ConsultationNote> =>
+      apiRequest(`/api/admin/clients/${clientId}/notes`, { method: 'POST', body: note }),
+    setNoteDone: (noteId: UUID, completed: boolean): Promise<ConsultationNote> =>
+      apiRequest(`/api/admin/notes/${noteId}`, { method: 'PATCH', body: { completed } }),
   },
 }

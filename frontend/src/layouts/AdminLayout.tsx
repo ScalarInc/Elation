@@ -9,7 +9,7 @@ const nav = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/admin/clients', label: 'Clients', icon: Users },
   { to: '/admin/messages', label: 'Messages', icon: MessageCircle },
-  { to: '/admin/inquiries', label: 'Inquiries', icon: ClipboardList },
+  { to: '/admin/consultations', label: 'Consultations', icon: ClipboardList },
   { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/admin/inventory', label: 'Inventory', icon: Boxes },
   { to: '/admin/inspirations', label: 'Inspirations', icon: Sparkles },

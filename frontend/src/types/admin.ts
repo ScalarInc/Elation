@@ -1,4 +1,4 @@
-import type { EventType, InventoryItem, Message, UUID } from '@/types'
+import type { EventProgress, EventType, InventoryItem, Message, UUID } from '@/types'
 
 /** Types for the admin console API (/api/admin/*). */
 
@@ -118,4 +118,65 @@ export type Conversation = {
   avatarInitials: string
   lastMessage: Message | null
   messageCount: number
+}
+
+
+export type ChartPoint = { label: string; value: number }
+
+export type AdminOverview = {
+  activeClients: number
+  pendingInvites: number
+  /** Active clients whose access ends within 7 days. */
+  expiringSoon: number
+  events: number
+  moodboardsThisWeek: number
+  openQuotes: number
+  /** Follow-ups due by tomorrow and not yet done. */
+  followUpsDue: number
+}
+
+export type AdminAnalytics = {
+  eventsByType: ChartPoint[]
+  budgetRanges: ChartPoint[]
+  popularStyles: ChartPoint[]
+  moodboardsPerWeek: ChartPoint[]
+  quotesPerWeek: ChartPoint[]
+  quotesByStatus: ChartPoint[]
+}
+
+export type QuoteStatus = 'new' | 'contacted' | 'closed'
+
+export type ConsultationQuote = {
+  id: UUID
+  eventId: UUID
+  eventName: string
+  status: QuoteStatus
+  totalPkr: number
+  budgetStatus: string
+  itemCount: number
+  clientNote: string | null
+  createdAt: string
+}
+
+export type Consultation = {
+  clientId: UUID
+  clientName: string
+  clientEmail: string
+  status: ClientStatus
+  accessExpiresAt: string
+  consultantName: string | null
+  events: { id: UUID; name: string; type: string; date: string; guests: number; budgetPkr: number | null; progress: EventProgress }[]
+  quotes: ConsultationQuote[]
+  openFollowUps: number
+}
+
+export type ConsultationNote = {
+  id: UUID
+  clientId: UUID
+  eventId: UUID | null
+  authorName: string | null
+  body: string
+  followUpAt: string | null
+  completedAt: string | null
+  createdAt: string
 }
