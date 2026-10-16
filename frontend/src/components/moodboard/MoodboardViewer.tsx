@@ -22,9 +22,9 @@ const VENUE_OPTIONS = ['Hilltop Outdoor', 'Ballroom', 'Garden', 'Terrace']
 /** Each saved moodboard for the event is shown as a lettered concept (A, B, C…). */
 type Concept = { id: string; letter: string; board: Moodboard }
 
-type Props = { eventId: string }
+type Props = { eventId: string; eventName: string }
 
-export function MoodboardViewer({ eventId }: Props) {
+export function MoodboardViewer({ eventId, eventName }: Props) {
   const navigate = useNavigate()
   const [boards, setBoards] = useState<Moodboard[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -138,9 +138,10 @@ export function MoodboardViewer({ eventId }: Props) {
     }
   }
 
-  function requestSwap(_item: InventoryItem) {
-    // Live consultant messaging arrives in step 9; for now this opens the Messages page.
-    navigate('/messages')
+  function requestSwap(item: InventoryItem) {
+    // Opens Messages with an editable draft; nothing is sent until the client presses Send.
+    const draft = `Hi, could we look at alternatives to ${item.name} (SKU ${item.sku}) for ${eventName}?`
+    navigate('/messages', { state: { draft } })
   }
 
   async function toggleLiked() {

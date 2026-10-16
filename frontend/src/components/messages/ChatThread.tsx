@@ -55,6 +55,7 @@ export function ChatThread({
   header,
   emptyTitle,
   emptyBody,
+  initialDraft = '',
 }: {
   viewer: 'client' | 'admin'
   messages: Message[]
@@ -68,8 +69,10 @@ export function ChatThread({
   header: ReactNode
   emptyTitle: string
   emptyBody: string
+  /** Pre-filled composer text (e.g. from "Ask my consultant"); the user can edit it before sending. */
+  initialDraft?: string
 }) {
-  const [draft, setDraft] = useState('')
+  const [draft, setDraft] = useState(initialDraft)
   const [sending, setSending] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)

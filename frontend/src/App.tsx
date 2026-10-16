@@ -24,7 +24,6 @@ import { MessagesPage } from '@/pages/messages/MessagesPage'
 import { SettingsPage } from '@/pages/account/SettingsPage'
 import { ProfilePage } from '@/pages/account/ProfilePage'
 import { NotFoundPage } from '@/pages/common/NotFoundPage'
-import { PlaceholderPage } from '@/pages/common/PlaceholderPage'
 import { AdminClientsPage } from '@/pages/admin/AdminClientsPage'
 import { AdminInventoryPage } from '@/pages/admin/AdminInventoryPage'
 import { AdminInspirationsPage } from '@/pages/admin/AdminInspirationsPage'
@@ -77,19 +76,11 @@ function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminOverviewPage />} />
               <Route path="clients" element={<AdminClientsPage />} />
-              <Route
-                path="inquiries"
-                element={<PlaceholderPage title="Inquiries" description="Public consultation-form submissions to convert." sprintNumber={14} />}
-              />
               <Route path="analytics" element={<AdminAnalyticsPage />} />
               <Route path="consultations" element={<AdminConsultationsPage />} />
               <Route path="inventory" element={<AdminInventoryPage />} />
               <Route path="inspirations" element={<AdminInspirationsPage />} />
               <Route path="messages" element={<AdminMessagesPage />} />
-              <Route
-                path="settings"
-                element={<PlaceholderPage title="Admin Settings" description="Team, roles, branding, email templates." sprintNumber={14} />}
-              />
             </Route>
           </Route>
 

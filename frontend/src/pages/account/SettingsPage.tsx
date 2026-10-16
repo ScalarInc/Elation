@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -11,16 +12,14 @@ import {
   Palette,
   Shield,
   ShieldAlert,
-  Sparkles,
   Trash2,
   Type,
-  Wallet,
   Megaphone,
-  Newspaper,
   Monitor,
   Sun,
   Moon,
 } from 'lucide-react'
+import { api } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -42,10 +41,10 @@ import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { useAuthStore } from '@/stores/authStore'
 import type { ClientUser } from '@/types'
 
-type NotificationPrefs = NonNullable<ClientUser['notifications']>
-type NotificationKey = keyof NotificationPrefs
+type NotificationKey = keyof ClientUser['notifications']
 
 const SECTIONS = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -62,33 +61,15 @@ const notificationRows: {
   Icon: React.ComponentType<{ className?: string }>
 }[] = [
   {
-    key: 'moodboardUpdates',
-    label: 'Moodboard updates',
-    description: 'When Elation refreshes a concept board for one of your events.',
-    Icon: Sparkles,
-  },
-  {
-    key: 'budgetAlerts',
-    label: 'Budget alerts',
-    description: 'When an event moves into red or amber against your target.',
-    Icon: Wallet,
-  },
-  {
     key: 'consultantMessages',
     label: 'Consultant messages',
-    description: 'Push and email when your consultant replies.',
+    description: 'Email when your consultant replies. A quick run of replies sends one email.',
     Icon: MessageCircle,
-  },
-  {
-    key: 'weeklyDigest',
-    label: 'Weekly digest',
-    description: 'A Monday summary of everything that changed across your events.',
-    Icon: Newspaper,
   },
   {
     key: 'marketing',
     label: 'Marketing',
-    description: 'Occasional emails about new features and inspirations.',
+    description: 'Occasional emails about new features and inspirations. Same choice as on the consent screen.',
     Icon: Megaphone,
   },
 ]
@@ -261,17 +242,19 @@ function AppearanceSection() {
 }
 
 function NotificationsSection({ user }: { user: ClientUser | null }) {
-  // Local edits layered over the saved preferences; nothing is persisted yet.
-  const [edits, setEdits] = useState<Partial<NotificationPrefs>>({})
-  const saved = user?.notifications
+  const setUser = useAuthStore((s) => s.setUser)
 
-  function isOn(key: NotificationKey) {
-    return edits[key] ?? saved?.[key] ?? false
-  }
-
-  function togglePref(key: NotificationKey, value: boolean) {
-    setEdits((prev) => ({ ...prev, [key]: value }))
-    // TODO(backend): persist the notification preference.
+  // Optimistic: flip the switch now, roll back if the save fails.
+  async function togglePref(key: NotificationKey, value: boolean) {
+    if (!user) return
+    setUser({ ...user, notifications: { ...user.notifications, [key]: value } })
+    try {
+      setUser(await api.me.updateNotifications({ [key]: value }))
+      toast.success('Preferences saved', { duration: 1400 })
+    } catch (err) {
+      setUser(user)
+      toast.error("Couldn't save your preference", { description: (err as Error).message })
+    }
   }
 
   return (
@@ -280,7 +263,7 @@ function NotificationsSection({ user }: { user: ClientUser | null }) {
         <SectionHeading
           icon={Bell}
           title="Notifications"
-          description="Choose what deserves a nudge — everything else stays in-app."
+          description="Choose what deserves an email — everything else stays in-app."
         />
         <ul className="divide-border/10 divide-y">
           {notificationRows.map((row) => {
@@ -300,8 +283,9 @@ function NotificationsSection({ user }: { user: ClientUser | null }) {
                   </div>
                 </div>
                 <Switch
-                  checked={isOn(row.key)}
-                  onCheckedChange={(v) => togglePref(row.key, v)}
+                  checked={user?.notifications[row.key] ?? false}
+                  disabled={!user}
+                  onCheckedChange={(v) => void togglePref(row.key, v)}
                   aria-label={row.label}
                 />
               </li>
@@ -384,6 +368,10 @@ function SecuritySection({ user }: { user: ClientUser | null }) {
             <p className="text-text text-sm font-semibold">
               You're signed in on this device
             </p>
+            <p className="text-muted/70 mt-0.5 text-xs">
+              Signing out other sessions signs you out of Elation in every other browser and device.
+              You stay signed in here.
+            </p>
           </div>
           <Button variant="ghost" onClick={signOutOtherSessions}>
             Sign out other sessions
@@ -395,8 +383,25 @@ function SecuritySection({ user }: { user: ClientUser | null }) {
 }
 
 function DataSection({ user }: { user: ClientUser | null }) {
-  function requestExport() {
-    // TODO(backend): request a data export for the client.
+  const [exporting, setExporting] = useState(false)
+
+  async function downloadExport() {
+    setExporting(true)
+    try {
+      const data = await api.me.exportData()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `elation-export-${new Date().toISOString().slice(0, 10)}.json`
+      link.click()
+      URL.revokeObjectURL(url)
+      toast.success('Your data is downloading')
+    } catch (err) {
+      toast.error("Couldn't export your data", { description: (err as Error).message })
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -416,17 +421,18 @@ function DataSection({ user }: { user: ClientUser | null }) {
             <div className="min-w-0 flex-1">
               <p className="text-text text-sm font-semibold">Export your event data</p>
               <p className="text-muted/70 mt-1 text-xs">
-                Includes every event, questionnaire answer, moodboard reference, and budget line
-                you've saved with Elation. Delivered as a ZIP with JSON + PDF summaries.
+                Includes your profile and every event, questionnaire answer, moodboard, budget line,
+                quote request and message you've saved with Elation, in one JSON file.
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 className="mt-3"
-                onClick={requestExport}
+                onClick={() => void downloadExport()}
+                disabled={exporting}
               >
                 <Download className="h-3.5 w-3.5" />
-                Request export
+                {exporting ? 'Preparing…' : 'Download as JSON'}
               </Button>
             </div>
           </div>
@@ -452,11 +458,28 @@ function DataSection({ user }: { user: ClientUser | null }) {
   )
 }
 
-function AccountSection() {
-  const [open, setOpen] = useState(false)
+/** Sent into the client's message thread; an admin carries out the deletion. */
+const DELETION_REQUEST_MESSAGE =
+  'Please delete my Elation X account and all of my data (profile, events, questionnaire answers, ' +
+  'moodboards, budgets, quote requests and messages).'
 
-  function deleteAccount() {
-    // TODO(backend): delete the account via the API, then sign the client out.
+function AccountSection() {
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  async function requestDeletion() {
+    setSending(true)
+    try {
+      await api.messages.send(DELETION_REQUEST_MESSAGE)
+      setOpen(false)
+      toast.success('Deletion request sent', { description: 'Your consultant will confirm in Messages.' })
+      navigate('/messages')
+    } catch (err) {
+      toast.error("Couldn't send your request", { description: (err as Error).message })
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -472,7 +495,8 @@ function AccountSection() {
           <div>
             <p className="text-text text-sm font-semibold">Delete my account</p>
             <p className="text-muted/70 mt-0.5 text-xs">
-              Permanently removes your profile, events, and moodboards from Elation.
+              Ask Elation to permanently remove your profile, events, and moodboards. Your
+              consultant handles the request.
             </p>
           </div>
 
@@ -480,23 +504,24 @@ function AccountSection() {
             <DialogTrigger asChild>
               <Button variant="ghost" className="text-danger hover:bg-danger/10">
                 <Trash2 className="h-4 w-4" />
-                Delete my account
+                Request deletion
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Delete your account?</DialogTitle>
+                <DialogTitle>Request account deletion?</DialogTitle>
                 <DialogDescription>
-                  This will remove every event, moodboard, and answer you've saved. There is no
-                  undo. Your consultant will be notified.
+                  We'll send a deletion request to your consultant in Messages. Once Elation
+                  deletes your account, every event, moodboard, and answer you've saved is removed
+                  and can't be restored. You can download your data first under Data.
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-2 flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="destructive" onClick={deleteAccount}>
-                  Delete forever
+                <Button variant="destructive" onClick={() => void requestDeletion()} disabled={sending}>
+                  {sending ? 'Sending…' : 'Send request'}
                 </Button>
               </div>
             </DialogContent>

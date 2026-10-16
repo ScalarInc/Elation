@@ -29,13 +29,23 @@ export type ClientUser = {
   accessExpiresAt: string | null
   /** Assigned Elation consultant (an admin); null until one is assigned. */
   consultant: { id: UUID; name: string; email: string; avatarInitials: string } | null
-  notifications: Partial<{
-    moodboardUpdates: boolean
-    budgetAlerts: boolean
+  notifications: {
+    /** Email when a consultant replies (a burst of replies sends one email). */
     consultantMessages: boolean
-    weeklyDigest: boolean
+    /** Occasional Elation emails; the same choice as the marketing opt-in on the consent screen. */
     marketing: boolean
-  }>
+  }
+  /** Saved when the client accepts the consent screen; null until then. */
+  consent: { version: number; acceptedAt: string; marketing: boolean } | null
+}
+
+/** Body of PUT /api/me/consent. */
+export type ConsentInput = {
+  version: number
+  terms: boolean
+  dataUse: boolean
+  studioShare: boolean
+  marketing: boolean
 }
 
 /** Body of PATCH /api/me. */
@@ -134,6 +144,7 @@ export const INVENTORY_UNITS = ['each', 'set', 'linear ft', 'sqft'] as const
 /** An inventory item as returned by GET /api/inventory. Prices are live from the database. */
 export type InventoryItem = {
   id: UUID
+  sku: string
   name: string
   category: (typeof INVENTORY_CATEGORIES)[number]
   colour: string | null

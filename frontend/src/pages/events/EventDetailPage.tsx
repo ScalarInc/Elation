@@ -529,7 +529,7 @@ export function EventDetailPage() {
           <QuestionnaireSummary eventId={event.id} />
         </TabsContent>
         <TabsContent value="moodboard">
-          <MoodboardViewer eventId={event.id} />
+          <MoodboardViewer eventId={event.id} eventName={event.concept ?? event.name} />
         </TabsContent>
         <TabsContent value="budget">
           <ModuleHandoff

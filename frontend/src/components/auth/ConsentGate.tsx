@@ -2,43 +2,28 @@ import { useEffect, useState } from 'react'
 import { useSignOut } from '@/hooks/useSignOut'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Lock, ShieldCheck, Sparkles, X } from 'lucide-react'
+import { api } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from '@/components/ui/toast'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/authStore'
 
-const CONSENT_KEY = 'elation.consent-v1'
+/** Bump when the wording changes so clients are asked again. Mirrors CONSENT_VERSION in backend/app/constants.py. */
 const CONSENT_VERSION = 1
-
-type StoredConsent = {
-  version: number
-  acceptedAt: string
-  terms: boolean
-  dataUse: boolean
-  studioShare: boolean
-  marketing: boolean
-}
-
-function hasConsented(): boolean {
-  if (typeof window === 'undefined') return true
-  try {
-    const raw = window.localStorage.getItem(CONSENT_KEY)
-    if (!raw) return false
-    const parsed = JSON.parse(raw) as StoredConsent
-    return parsed.version === CONSENT_VERSION && parsed.terms && parsed.dataUse && parsed.studioShare
-  } catch {
-    return false
-  }
-}
 
 /**
  * First-run consent gate. Renders nothing if the client already accepted the
- * current terms version. Otherwise blocks the page with a warm, editorial
- * dialog that captures required agreements and an optional marketing opt-in.
+ * current terms version (saved on their profile). Otherwise blocks the page with a warm,
+ * editorial dialog that captures required agreements and an optional marketing opt-in.
  */
 export function ConsentGate() {
   const signOut = useSignOut()
-  const [open, setOpen] = useState(false)
+  const user = useCurrentUser()
+  const setUser = useAuthStore((s) => s.setUser)
+  const [revealed, setRevealed] = useState(false)
+  const [declined, setDeclined] = useState(false)
   const [terms, setTerms] = useState(false)
   const [dataUse, setDataUse] = useState(false)
   const [studioShare, setStudioShare] = useState(false)
@@ -47,31 +32,28 @@ export function ConsentGate() {
 
   useEffect(() => {
     // Delay one tick so the layout renders behind, then reveal.
-    const t = setTimeout(() => setOpen(!hasConsented()), 250)
+    const t = setTimeout(() => setRevealed(true), 250)
     return () => clearTimeout(t)
   }, [])
 
+  const needsConsent = user?.role === 'client' && user.consent?.version !== CONSENT_VERSION
+  const open = revealed && needsConsent && !declined
   const allRequiredChecked = terms && dataUse && studioShare
 
-  function accept() {
+  async function accept() {
     if (!allRequiredChecked) return
     setSubmitting(true)
-    const record: StoredConsent = {
-      version: CONSENT_VERSION,
-      acceptedAt: new Date().toISOString(),
-      terms,
-      dataUse,
-      studioShare,
-      marketing,
+    try {
+      setUser(await api.me.recordConsent({ version: CONSENT_VERSION, terms, dataUse, studioShare, marketing }))
+    } catch (err) {
+      toast.error("Couldn't save your agreement", { description: (err as Error).message })
+    } finally {
+      setSubmitting(false)
     }
-    // TODO(backend): record consent against the client account; stored locally for now.
-    window.localStorage.setItem(CONSENT_KEY, JSON.stringify(record))
-    setOpen(false)
-    setSubmitting(false)
   }
 
   function decline() {
-    setOpen(false)
+    setDeclined(true)
     toast('You can accept later to continue. See you soon.', { duration: 3000 })
     void signOut()
   }
@@ -166,9 +148,9 @@ export function ConsentGate() {
                 </div>
 
                 <p className="text-muted/60 mt-6 text-[11px] leading-relaxed">
-                  You can revisit or revoke these agreements from{' '}
-                  <span className="text-muted">Settings → Data</span> at any time. This consent
-                  screen only appears once per account.
+                  You can change the optional updates choice any time in{' '}
+                  <span className="text-muted">Settings → Notifications</span>. This consent screen
+                  only appears once per account.
                 </p>
               </div>
 

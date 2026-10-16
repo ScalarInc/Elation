@@ -55,7 +55,6 @@ export type InviteResult = {
 
 /** Inventory item as seen by admins (includes archived items and audit fields). */
 export type AdminInventoryItem = InventoryItem & {
-  sku: string
   stockQty: number | null
   isActive: boolean
   /** True until an admin first sets the price; seed prices are estimates. */

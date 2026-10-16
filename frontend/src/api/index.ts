@@ -5,6 +5,7 @@ import type {
   BudgetSnapshot,
   ClientEvent,
   ClientUser,
+  ConsentInput,
   EventCreateInput,
   Inspiration,
   InventoryItem,
@@ -87,6 +88,12 @@ export const api = {
     get: (): Promise<ClientUser> => apiRequest('/api/me'),
     update: (changes: ProfileUpdate): Promise<ClientUser> =>
       apiRequest('/api/me', { method: 'PATCH', body: changes }),
+    recordConsent: (consent: ConsentInput): Promise<ClientUser> =>
+      apiRequest('/api/me/consent', { method: 'PUT', body: consent }),
+    updateNotifications: (changes: Partial<ClientUser['notifications']>): Promise<ClientUser> =>
+      apiRequest('/api/me/notifications', { method: 'PATCH', body: changes }),
+    /** Everything the client has saved, as the parsed JSON export. */
+    exportData: (): Promise<unknown> => apiRequest('/api/me/export'),
   },
 
   auth: {

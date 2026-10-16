@@ -1,4 +1,5 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { api } from '@/api'
 import { ChatThread } from '@/components/messages/ChatThread'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -9,6 +10,18 @@ import { useMessageThread } from '@/hooks/useMessageThread'
 export function MessagesPage() {
   const user = useCurrentUser()
   const consultant = user?.consultant ?? null
+  const location = useLocation()
+  const navigate = useNavigate()
+  // Other pages can open Messages with a suggested message ({ state: { draft } }).
+  const [initialDraft] = useState(() => {
+    const draft = (location.state as { draft?: unknown } | null)?.draft
+    return typeof draft === 'string' ? draft : ''
+  })
+
+  // Clear the router state so a page refresh doesn't bring the draft back.
+  useEffect(() => {
+    if (location.state) navigate(location.pathname, { replace: true, state: null })
+  }, [location.state, location.pathname, navigate])
 
   const nameFor = useCallback(
     ({ senderId, senderRole }: { senderId: string | null; senderRole: 'client' | 'admin' }) => {
@@ -29,6 +42,7 @@ export function MessagesPage() {
     <div className="flex h-[calc(100vh-73px)] overflow-hidden">
       <ChatThread
         viewer="client"
+        initialDraft={initialDraft}
         {...thread}
         onLoadOlder={thread.loadOlder}
         onSend={thread.sendMessage}
