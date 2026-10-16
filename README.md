@@ -174,6 +174,7 @@ Before real clients use it: verify a Resend sending domain, replace provisional 
 ## Documentation
 
 - [`AGENTS.md`](./AGENTS.md): conventions, architecture rules and pitfalls for anyone changing the code
+- [`docs/product/memory.md`](./docs/product/memory.md): project history, current state and open items (hand-off notes)
 - [`docs/product/decision-log.md`](./docs/product/decision-log.md): confirmed product decisions
 - [`docs/product/backend-plan.md`](./docs/product/backend-plan.md): data model, endpoints, business rules, pricing assumptions
 - [`docs/product/backend-requirements.md`](./docs/product/backend-requirements.md): credentials and configuration checklist

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Guidance for coding agents and new developers working on Elation X. Read this before changing code. Setup and product overview are in [`README.md`](./README.md); product decisions are in [`docs/product/decision-log.md`](./docs/product/decision-log.md).
+Guidance for coding agents and new developers working on Elation X. Read this before changing code. Setup and product overview are in [`README.md`](./README.md); product decisions are in [`docs/product/decision-log.md`](./docs/product/decision-log.md); project history, current state and open items are in [`docs/product/memory.md`](./docs/product/memory.md).
 
 ## What this is
 
