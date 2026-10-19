@@ -40,29 +40,40 @@ def event_status(event: Event, today: date | None = None) -> str:
 
 
 def module_progress(db: Session, event: Event) -> dict[str, str]:
-    """Derived per request; nothing extra is stored."""
+    return progress_for(db, [event])[event.id]
 
-    def any_row(model, *conditions) -> bool:
-        return bool(db.scalar(select(exists().where(*conditions))))
 
-    percent = event.questionnaire_percent
-    questionnaire = "pending" if percent == 0 else "complete" if percent >= 100 else "in_progress"
+def progress_for(db: Session, events: list[Event]) -> dict[UUID, dict[str, str]]:
+    """Derived per request; nothing extra is stored. One query for any number of events
+    (the database is far away, so every round trip counts)."""
+    if not events:
+        return {}
 
-    if any_row(Moodboard, Moodboard.event_id == event.id, Moodboard.liked.is_(True)):
-        moodboard = "complete"
-    elif any_row(Moodboard, Moodboard.event_id == event.id):
-        moodboard = "in_progress"
-    else:
-        moodboard = "pending"
+    def has(model, *conditions):
+        return exists().where(model.event_id == Event.id, *conditions).correlate(Event)
 
-    if any_row(QuoteRequest, QuoteRequest.event_id == event.id):
-        budget = "complete"
-    elif any_row(BudgetLine, BudgetLine.event_id == event.id):
-        budget = "in_progress"
-    else:
-        budget = "pending"
+    rows = db.execute(
+        select(
+            Event.id,
+            has(Moodboard, Moodboard.liked.is_(True)),
+            has(Moodboard),
+            has(QuoteRequest),
+            has(BudgetLine),
+        ).where(Event.id.in_([e.id for e in events]))
+    ).all()
+    flags = {row[0]: row[1:] for row in rows}
 
-    return {"questionnaire": questionnaire, "moodboard": moodboard, "budget": budget, "ar": "pending"}
+    result = {}
+    for event in events:
+        liked_board, any_board, any_quote, any_line = flags.get(event.id, (False, False, False, False))
+        percent = event.questionnaire_percent
+        result[event.id] = {
+            "questionnaire": "pending" if percent == 0 else "complete" if percent >= 100 else "in_progress",
+            "moodboard": "complete" if liked_board else "in_progress" if any_board else "pending",
+            "budget": "complete" if any_quote else "in_progress" if any_line else "pending",
+            "ar": "pending",
+        }
+    return result
 
 
 def to_event_datetime(day: date) -> datetime:

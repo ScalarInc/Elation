@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models import ConsultationNote, Event, Moodboard, Profile, QuoteRequest
 from app.services.clients import client_status
-from app.services.events import module_progress
+from app.services.events import progress_for
 
 EXPIRING_WINDOW = timedelta(days=7)
 
@@ -113,13 +113,14 @@ def consultations(db: Session) -> list[dict]:
     )
     admins = {p.id: p.full_name for p in db.scalars(select(Profile).where(Profile.role == "admin"))}
     event_names = {e.id: e.name for evs in events_by_client.values() for e in evs}
+    progress = progress_for(db, [e for evs in events_by_client.values() for e in evs])
 
     return [
         {
             "client": client,
             "status": client_status(client),
             "consultant_name": admins.get(client.assigned_admin_id),
-            "events": [{"event": e, "progress": module_progress(db, e)} for e in events_by_client[client.id]],
+            "events": [{"event": e, "progress": progress[e.id]} for e in events_by_client[client.id]],
             "quotes": [{"quote": q, "event_name": event_names.get(q.event_id, "")} for q in quotes_by_client[client.id]],
             "open_follow_ups": open_notes.get(client.id, 0),
         }

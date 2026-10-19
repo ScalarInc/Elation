@@ -17,8 +17,9 @@ def _out(db: DbSession, event: Event) -> EventOut:
 
 @router.get("", response_model=list[EventOut])
 def list_events(user: CurrentClient, db: DbSession) -> list[EventOut]:
-    events = db.scalars(select(Event).where(Event.client_id == user.id).order_by(Event.event_date))
-    return [_out(db, e) for e in events]
+    events = list(db.scalars(select(Event).where(Event.client_id == user.id).order_by(Event.event_date)))
+    progress = event_service.progress_for(db, events)
+    return [EventOut.build(e, progress[e.id], event_service.event_status(e)) for e in events]
 
 
 @router.post("", response_model=EventOut, status_code=201)
