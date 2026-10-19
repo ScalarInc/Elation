@@ -95,13 +95,18 @@ export const useQuestionnaire = create<QState>()((set, get) => {
       set((s) => ({ loadState: { ...s.loadState, [eventId]: 'loading' } }))
       try {
         const saved = await api.questionnaire.get(eventId)
+        const answers = applyAreaGates(saved.answers)
         set((s) => ({
           byEvent: {
             ...s.byEvent,
-            [eventId]: { answers: applyAreaGates(saved.answers), elationDecides: saved.elationDecides },
+            [eventId]: { answers, elationDecides: saved.elationDecides },
           },
           loadState: { ...s.loadState, [eventId]: 'loaded' },
         }))
+        // Progress rules can change (e.g. new optional questions); keep the saved percent,
+        // which the dashboard and event status use, in step with what the client sees.
+        const percent = computeOverallPercent(computeCategoryProgress(answers, saved.elationDecides))
+        if (percent !== saved.percent) void save(eventId)
       } catch {
         set((s) => ({ loadState: { ...s.loadState, [eventId]: 'error' } }))
       }
