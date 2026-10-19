@@ -65,6 +65,8 @@ Migrations applied to the live Supabase DB (head `5a8109cc2edd`):
 
 Database contents right now: the superuser profile and the 34 seeded inventory items. All test clients, events, concepts and images created during verification were deleted.
 
+**Moved to a new Supabase project in Mumbai (`ap-south-1`) on 2026-10-16** because the Tokyo project made every database round trip 190–385 ms. Rebuilt from the migrations; holds the superuser (`elationfmh@gmail.com`), client `safwan.hafeez05@gmail.com` (invited) and the 34 seeded items. The old Tokyo project is no longer used. With `VITE_API_URL=http://127.0.0.1:8787` (not `localhost`, which adds ~2 s per request on Windows) the warm client dashboard loads in about 0.35 s.
+
 ## 6. Environment status (no values here)
 
 - Root `.env` is filled and verified: Supabase URL, publishable and secret keys (new `sb_` format), Session-pooler `DATABASE_URL`, superuser email, Groq key (model available), Resend key. `EMAIL_FROM` should be `Elation X <onboarding@resend.dev>` until a domain is verified.
