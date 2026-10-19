@@ -12,7 +12,16 @@ from app.config import get_settings
 @lru_cache
 def get_engine() -> Engine:
     # Created lazily so importing the app never opens a connection.
-    return create_engine(get_settings().database_url, pool_pre_ping=True, pool_size=5, max_overflow=5)
+    # No pool_pre_ping: the database is a long round trip away and a ping per request cost ~190 ms.
+    # Instead, TCP keepalives stop the pooler dropping idle connections, and connections are
+    # replaced after 30 minutes so a silently closed one isn't kept for long.
+    return create_engine(
+        get_settings().database_url,
+        pool_size=5,
+        max_overflow=5,
+        pool_recycle=1800,
+        connect_args={"keepalives": 1, "keepalives_idle": 30, "keepalives_interval": 10, "keepalives_count": 3},
+    )
 
 
 @lru_cache

@@ -3,12 +3,11 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Heart } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { api } from '@/api'
-import { useResolvedEvents } from '@/hooks/useResolvedEvent'
-import type { Moodboard } from '@/types'
+import type { ClientEvent, Moodboard } from '@/types'
 
-export function RecentMoodboards() {
+/** `events` comes from the dashboard, so the events list is only fetched once per visit. */
+export function RecentMoodboards({ events }: { events: ClientEvent[] }) {
   const [boards, setBoards] = useState<Moodboard[] | null>(null)
-  const events = useResolvedEvents()
   const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
 
   useEffect(() => {
