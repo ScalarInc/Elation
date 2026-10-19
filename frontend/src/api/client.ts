@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase'
 
-const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8787').replace(/\/$/, '')
+// 127.0.0.1, not "localhost": on Windows "localhost" tries IPv6 (::1) first, the API only listens on
+// IPv4, and every request waited ~2 s for that attempt to fail.
+const API_URL = (import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8787').replace(/\/$/, '')
 
 /** Error thrown for any non-2xx API response, carrying the backend's `{ error: { code, message } }`. */
 export class ApiRequestError extends Error {

@@ -29,7 +29,7 @@ Shared by both apps from the repository root. The backend loads `../.env` with `
 | `NODE_ENV` | frontend tooling | default `development` | |
 | `FRONTEND_URL` | backend | default `http://localhost:5173` | CORS origin; base for invite/reset redirect links |
 | `API_PORT` | backend | default `8787` | Uvicorn port |
-| `VITE_API_URL` | frontend | default `http://localhost:8787` | Must match `API_PORT` |
+| `VITE_API_URL` | frontend | default `http://127.0.0.1:8787` | Must match `API_PORT`. Use `127.0.0.1`, not `localhost`: on Windows `localhost` tries IPv6 first and adds ~2 s per request |
 | `SUPABASE_URL` | backend | **mandatory** | Also JWKS location for token verification |
 | `SUPABASE_SECRET_KEY` | backend | **mandatory** | Never prefixed with `VITE_` |
 | `DATABASE_URL` | backend | **mandatory** | SQLAlchemy + Alembic; Session pooler string |
