@@ -20,7 +20,8 @@ export function AdminLayout() {
   const signOut = useSignOut()
   return (
     <div className="bg-bg flex min-h-screen text-text">
-      <aside className="border-border/10 bg-surface flex w-60 shrink-0 flex-col border-r px-4 py-6">
+      {/* Sticky, full-height sidebar: the account row and log out stay visible while the page scrolls. */}
+      <aside className="border-border/10 bg-surface sticky top-0 flex h-screen w-60 shrink-0 flex-col overflow-y-auto border-r px-4 py-6">
         <div className="mb-8 px-3">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted/60">Elation</p>
           <p className="font-display text-lg text-text">Admin Console</p>
