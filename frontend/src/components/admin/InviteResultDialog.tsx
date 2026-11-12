@@ -29,10 +29,17 @@ export function InviteResultDialog({ result, onClose }: { result: InviteResult |
                 )}
                 {result.emailSent ? 'Invitation sent' : "Invitation email wasn't sent"}
               </DialogTitle>
-              <DialogDescription>
-                {result.emailSent
-                  ? `${result.client.name} will receive an email at ${result.client.email} to set a password.`
-                  : `The account for ${result.client.name} is ready, but the email failed: ${result.emailError ?? 'unknown error'}. Share the link below with the client yourself.`}
+              <DialogDescription asChild>
+                <div className="space-y-1.5">
+                  <p>
+                    {result.emailSent
+                      ? `${result.client.name} will receive an email at ${result.client.email} to set a password.`
+                      : `The account for ${result.client.name} is ready, but the email failed: ${result.emailError ?? 'unknown error'}. Share the link below with the client yourself.`}
+                  </p>
+                  <p className="text-warning font-medium">
+                    Please contact {result.client.name} directly and ask them to check their email and set up their account using the link below.
+                  </p>
+                </div>
               </DialogDescription>
             </DialogHeader>
 
